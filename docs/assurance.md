@@ -8,6 +8,11 @@ The release sequence builds the ARM64 lab, exercises browser and SIPp calls, reh
 Changing an implementation, harness, verification recipe, or relevant build input invalidates its receipt.
 A retained receipt applies only to its recorded sources.
 
+The manual [hosted workflow](../.github/workflows/software-assurance.yml) runs the same complete inventory across native AMD64 verification and native ARM64 runtime jobs on one commit.
+The runtime job downloads the verification reports and applies the existing evidence gate to their source identities and artifact hashes.
+Deployment backups stay on the runtime runner.
+The transferred verification reports expire after one day.
+
 The gate requires nonempty expected inventories.
 The gate checks proof harness names, browser case names, and Rust fault records using their maintained source records.
 Browser results must contain one passed execution per named case, no skipped or flaky case, and no retry.
@@ -15,6 +20,17 @@ SIPp must finish one dialog with no failed or remaining call.
 Mutation campaigns must have no survivor or timeout.
 The mutation report distinguishes compilation errors from killed mutants.
 A resource limit stop leaves the campaign inconclusive and produces no successful receipt.
+
+Before expensive builds, the hosted workflow executes the Docker source-only target and its corruption controls.
+Run the same boundary tests with `mise x -- cargo test --locked -p xtask --features upstream-archives --test upstream_archives`.
+The source-only stage preserves the pinned Asterisk and Japanese announcement bytes without compiling either runtime.
+Asterisk uses its official release archive because the ordinary download directory retires superseded versions.
+The tests fetch the actual archives and independently compare exported file hashes with the Dockerfile's declared digests.
+For each archive, a local HTTP fixture must build with valid bytes and fail with a checksum mismatch for corrupt bytes.
+Removing only the checksum instruction in the test copy must permit corrupt bytes.
+Each instruction and attempt uses distinct content and a distinct digest because Docker may reuse checksum-addressed downloads even with its build cache turned off.
+The rejecting control must identify the injected bytes by their actual digest.
+Docker's checksum enforcement and SHA256 collision resistance remain external trust assumptions rather than Rust proof claims.
 
 ## Prove the pure production boundary
 

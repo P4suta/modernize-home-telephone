@@ -1,4 +1,25 @@
 [[cases]]
+source = "xtask/tests/upstream_archives.rs"
+test = "upstream_archives_have_a_buildable_source_only_target"
+invariant = "Every pinned upstream archive must be retrievable and independently hash-checked before compilation."
+previous_gap = "Deterministic checks never fetched the current download URLs, and cold hosted builds discovered a retired URL only after an emulated application build."
+enforcement = "The actual Docker source-only target exports both upstream archives, checks their hashes, and runs before any hosted verification or runtime compilation."
+
+[[cases]]
+source = "xtask/tests/upstream_archives.rs"
+test = "asterisk_archive_rejects_corruption_and_requires_its_checksum"
+invariant = "A corrupt Asterisk source archive cannot satisfy the maintained Docker download instruction."
+previous_gap = "A pinned digest had no executed corruption control, and reused fixture digests let Docker satisfy a corrupt URL from its content cache."
+enforcement = "Each attempt and archive has unique content; the real Docker instruction accepts valid bytes, rejects the injected corrupt digest, and accepts corruption after removing only its checksum option."
+
+[[cases]]
+source = "xtask/tests/upstream_archives.rs"
+test = "japanese_archive_rejects_corruption_and_requires_its_checksum"
+invariant = "A corrupt Japanese announcement archive cannot satisfy the maintained Docker download instruction."
+previous_gap = "Sound downloads shared the untested checksum boundary, and cached fixture content could hide corruption despite disabling the build cache."
+enforcement = "Each attempt and archive has unique content; the real Docker instruction accepts valid bytes, rejects the injected corrupt digest, and accepts corruption after removing only its checksum option."
+
+[[cases]]
 source = "xtask/tests/vendor_sources.rs"
 test = "inaccessible_archive_members_are_errors_instead_of_an_absent_archive"
 invariant = "A source member lookup failure cannot masquerade as an absent optional archive."

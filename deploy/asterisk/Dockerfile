@@ -1,13 +1,17 @@
 FROM rust:1.99.1-trixie@sha256:edc584c5d2f915bcc5b08049987e7a492ccb8ab188444daf0a870b3ef82a3b2e AS trust
 
+FROM scratch AS source-inputs
+ADD --checksum=sha256:3bd5ee040509a3d3cd9b1ba9520c18e6ec0a7e7981ca68c457dcd36ba3c54d94 https://downloads.asterisk.org/pub/telephony/asterisk/releases/asterisk-22.11.0.tar.gz /asterisk.tar.gz
+ADD --checksum=sha256:8b418608ce935df77b5c5784aea5a751673ff1a5ae608c690928a524532f0207 https://downloads.asterisk.org/pub/telephony/sounds/releases/asterisk-core-sounds-ja-ulaw-1.6.1.tar.gz /japanese.tar.gz
+
 FROM trust AS build
 COPY deploy/apt-trust.conf /etc/apt/apt.conf.d/90homephone-trust
 COPY deploy/debian.sources /etc/apt/sources.list.d/debian.sources
 RUN apt-get update && apt-get install -y --no-install-recommends libedit-dev=3.1-20250104-1 libjansson-dev=2.14-2+b3 libsrtp2-dev=2.7.0-3 && rm -rf /var/lib/apt/lists/*
-ADD --checksum=sha256:3bd5ee040509a3d3cd9b1ba9520c18e6ec0a7e7981ca68c457dcd36ba3c54d94 https://downloads.asterisk.org/pub/telephony/asterisk/asterisk-22.11.0.tar.gz /tmp/asterisk.tar.gz
+COPY --from=source-inputs /asterisk.tar.gz /tmp/asterisk.tar.gz
 WORKDIR /usr/src/asterisk
 RUN tar --extract --gzip --file=/tmp/asterisk.tar.gz --strip-components=1 && ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --libdir=/usr/lib --with-pjproject-bundled --with-ssl --with-srtp && make menuselect.makeopts && menuselect/menuselect --disable BUILD_NATIVE --disable-category MENUSELECT_CORE_SOUNDS --disable-category MENUSELECT_MOH menuselect.makeopts && make -j2 && make DESTDIR=/image install
-ADD --checksum=sha256:8b418608ce935df77b5c5784aea5a751673ff1a5ae608c690928a524532f0207 https://downloads.asterisk.org/pub/telephony/sounds/releases/asterisk-core-sounds-ja-ulaw-1.6.1.tar.gz /tmp/japanese.tar.gz
+COPY --from=source-inputs /japanese.tar.gz /tmp/japanese.tar.gz
 RUN mkdir -p /image/var/lib/asterisk/sounds/ja /image/var/lib/asterisk/sounds/homephone /image/usr/share/licenses/asterisk-ja && tar --extract --gzip --file=/tmp/japanese.tar.gz --directory=/image/var/lib/asterisk/sounds/ja && cp /image/var/lib/asterisk/sounds/ja/vm-intro.ulaw /image/var/lib/asterisk/sounds/homephone/voicemail.ulaw && cp /image/var/lib/asterisk/sounds/ja/LICENSE-asterisk-core-ja-1.6.1 /image/var/lib/asterisk/sounds/ja/CREDITS-asterisk-core-ja-1.6.1 /image/usr/share/licenses/asterisk-ja/
 WORKDIR /build
 COPY Cargo.toml Cargo.lock ./

@@ -11,10 +11,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  software:
-    name: Complete software verification
+  proofs:
+    name: Native AMD64 verification
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 90
     steps:
       - name: Check out the selected candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -25,14 +25,63 @@ jobs:
         with:
           version: 2026.11.2
           cache: false
-      - name: Enable ARM64 containers
-        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - name: Verify source downloads and rejecting checksum controls
+        run: mise x -- cargo test --locked -p xtask --features upstream-archives --test upstream_archives
+      - name: Verify formatting, contracts, and native tests
+        run: mise x -- just check
+      - name: Verify dependencies and secrets
+        run: mise x -- just security
+      - name: Verify production proofs and negative controls
+        run: mise x -- just proof
+      - name: Verify interpreter checks
+        run: mise x -- just miri
+      - name: Verify bounded fuzz campaigns
+        run: mise x -- just fuzz
+      - name: Verify Rust mutation testing
+        run: mise x -- just mutants
+      - name: Preserve native reports for source-bound aggregation
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          image: tonistiigi/binfmt@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0
-          platforms: arm64
+          name: native-verification
+          path: |
+            .cache/assurance
+            .cache/check-runs
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  runtime:
+    name: Native ARM64 runtime and complete evidence
+    needs: proofs
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    steps:
+      - name: Check out the selected candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned tools
+        uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+        with:
+          version: 2026.11.2
+          cache: false
       - name: Install browser dependencies
         run: mise x -- pnpm --dir web install --frozen-lockfile --ignore-scripts
       - name: Install Chromium and its system dependencies
         run: mise x -- pnpm --dir web exec playwright install --with-deps chromium
-      - name: Verify the complete local release gate
-        run: mise x -- just release-check
+      - name: Build the native ARM64 lab
+        run: mise x -- just lab
+      - name: Verify browser, WebRTC, and SIPp audio
+        run: mise x -- just browser
+      - name: Verify deployment recovery
+        run: mise x -- just deployment
+      - name: Verify TypeScript mutation testing
+        run: mise x -- just web-mutants
+      - name: Collect native reports from the same candidate
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: native-verification
+          path: .cache
+          digest-mismatch: error
+      - name: Reject missing, modified, or stale evidence
+        run: mise x -- just evidence
