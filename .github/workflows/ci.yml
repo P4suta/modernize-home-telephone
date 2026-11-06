@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  pull_request:
+  merge_group:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fast:
+    name: Fast checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned tools
+        uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+        with:
+          version: 2026.11.2
+          cache: false
+      - name: Cache dependency downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: dependencies-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'fuzz/Cargo.lock', 'web/pnpm-lock.yaml', 'mise.toml') }}
+      - name: Verify software contracts
+        run: mise x -- just check
+      - name: Check dependencies and public sources for secrets
+        run: mise x -- just security
+
+  gate:
+    name: gate
+    if: always()
+    needs: fast
+    permissions: {}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Require successful verification
+        env:
+          FAST_RESULT: ${{ needs.fast.result }}
+        run: test "$FAST_RESULT" = success

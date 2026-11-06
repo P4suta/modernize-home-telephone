@@ -1,0 +1,10 @@
+name = "Home Telephone"
+summary = "Programmable home telephone software for HT813 gateways and Raspberry Pi"
+install = """
+mise install
+mise x -- pnpm --dir web install --frozen-lockfile --ignore-scripts
+"""
+usage = "mise x -- just lab"
+license = "MIT OR Apache-2.0"
+copyright = "Yasunobu"
+documentation_index = true

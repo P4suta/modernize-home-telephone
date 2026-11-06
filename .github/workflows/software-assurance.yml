@@ -1,0 +1,38 @@
+name: Software assurance
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: software-assurance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  software:
+    name: Complete software verification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Check out the selected candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned tools
+        uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+        with:
+          version: 2026.11.2
+          cache: false
+      - name: Enable ARM64 containers
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+        with:
+          image: tonistiigi/binfmt@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0
+          platforms: arm64
+      - name: Install browser dependencies
+        run: mise x -- pnpm --dir web install --frozen-lockfile --ignore-scripts
+      - name: Install Chromium and its system dependencies
+        run: mise x -- pnpm --dir web exec playwright install --with-deps chromium
+      - name: Verify the complete local release gate
+        run: mise x -- just release-check

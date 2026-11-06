@@ -1,0 +1,13 @@
+{
+	"name": "homephone-mutation-tools",
+	"private": true,
+	"type": "module",
+	"devDependencies": {
+		"@stryker-mutator/core": "10.1.1",
+		"@stryker-mutator/typescript-checker": "10.1.1",
+		"@stryker-mutator/vitest-runner": "10.1.1",
+		"typescript": "5.9.3",
+		"@typescript/native": "npm:typescript@7.0.2",
+		"vitest": "5.1.0"
+	}
+}

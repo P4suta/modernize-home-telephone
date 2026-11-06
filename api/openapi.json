@@ -1,0 +1,1019 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "phone-server",
+    "description": "",
+    "license": {
+      "name": "MIT OR Apache-2.0",
+      "identifier": "MIT OR Apache-2.0"
+    },
+    "version": "0.0.0"
+  },
+  "paths": {
+    "/api/admin/maintenance": {
+      "post": {
+        "tags": [],
+        "operationId": "maintenance",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Maintenance"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/ready": {
+      "get": {
+        "tags": [],
+        "operationId": "candidate_ready",
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/snapshot": {
+      "post": {
+        "tags": [],
+        "operationId": "snapshot",
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotResult"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calls": {
+      "get": {
+        "tags": [],
+        "operationId": "calls",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Call"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [],
+        "operationId": "originate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Originate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Call"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calls/{id}": {
+      "get": {
+        "tags": [],
+        "operationId": "call",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Call"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [],
+        "operationId": "delete_call",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calls/{id}/commands": {
+      "post": {
+        "tags": [],
+        "operationId": "command",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Command"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Call"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calls/{id}/recording": {
+      "get": {
+        "tags": [],
+        "operationId": "recording",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "audio/wav": {}
+            }
+          },
+          "206": {
+            "description": "",
+            "content": {
+              "audio/wav": {}
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events": {
+      "get": {
+        "tags": [],
+        "operationId": "events",
+        "responses": {
+          "200": {
+            "description": "Snapshot, live service status, and durable call events over SSE"
+          }
+        }
+      }
+    },
+    "/api/lab/incoming": {
+      "post": {
+        "tags": [],
+        "operationId": "lab_incoming",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabIncoming"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/push-subscriptions": {
+      "post": {
+        "tags": [],
+        "operationId": "subscribe",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushSubscription"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/session": {
+      "get": {
+        "tags": [],
+        "operationId": "session",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SipSession"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings": {
+      "get": {
+        "tags": [],
+        "operationId": "settings",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Settings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [],
+        "operationId": "save_settings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Settings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Settings"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/status": {
+      "get": {
+        "tags": [],
+        "operationId": "status",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Status"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Call": {
+        "type": "object",
+        "required": [
+          "id",
+          "direction",
+          "caller",
+          "phase",
+          "started_at",
+          "transcript",
+          "recording",
+          "processing"
+        ],
+        "properties": {
+          "caller": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string"
+          },
+          "ended_at": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "last_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "phase": {
+            "$ref": "#/components/schemas/Phase"
+          },
+          "processing": {
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recording": {
+            "$ref": "#/components/schemas/Recording"
+          },
+          "started_at": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "transcript": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Transcript"
+            }
+          }
+        }
+      },
+      "Command": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "action"
+            ],
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "answer"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "action"
+            ],
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "hangup"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "action"
+            ],
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "takeover"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "action"
+            ],
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "hold"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "action"
+            ],
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "resume"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "digits",
+              "action"
+            ],
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "dtmf"
+                ]
+              },
+              "digits": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "text",
+              "action"
+            ],
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "speak"
+                ]
+              },
+              "text": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "ErrorBody": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "Event": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "created_at"
+        ],
+        "properties": {
+          "call": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Call"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "kind": {
+            "type": "string"
+          }
+        }
+      },
+      "LabIncoming": {
+        "type": "object",
+        "required": [
+          "scenario"
+        ],
+        "properties": {
+          "scenario": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "LabResult": {
+        "type": "object",
+        "required": [
+          "channel_id"
+        ],
+        "properties": {
+          "channel_id": {
+            "type": "string"
+          }
+        }
+      },
+      "Maintenance": {
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Originate": {
+        "type": "object",
+        "required": [
+          "number"
+        ],
+        "properties": {
+          "number": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Phase": {
+        "type": "string",
+        "enum": [
+          "offered",
+          "screening",
+          "ringing",
+          "connected",
+          "held",
+          "voicemail",
+          "ended"
+        ]
+      },
+      "PushKeys": {
+        "type": "object",
+        "required": [
+          "p256dh",
+          "auth"
+        ],
+        "properties": {
+          "auth": {
+            "type": "string"
+          },
+          "p256dh": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PushSubscription": {
+        "type": "object",
+        "required": [
+          "endpoint",
+          "keys"
+        ],
+        "properties": {
+          "endpoint": {
+            "type": "string"
+          },
+          "keys": {
+            "$ref": "#/components/schemas/PushKeys"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Recording": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "none"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "pending"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "bytes",
+              "status"
+            ],
+            "properties": {
+              "bytes": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "available"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "reason",
+              "status"
+            ],
+            "properties": {
+              "reason": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "deleted"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "reason",
+              "status"
+            ],
+            "properties": {
+              "reason": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "failed"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "Rule": {
+        "type": "string",
+        "enum": [
+          "allow",
+          "block",
+          "screen"
+        ]
+      },
+      "Settings": {
+        "type": "object",
+        "properties": {
+          "recording_limit_bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "default": null,
+            "minimum": 0
+          },
+          "retention_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "default": null,
+            "minimum": 0
+          },
+          "rules": {
+            "type": "object",
+            "default": {},
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Rule"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "webhook_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": null
+          }
+        },
+        "additionalProperties": false
+      },
+      "SipSession": {
+        "type": "object",
+        "required": [
+          "domain",
+          "username",
+          "password"
+        ],
+        "properties": {
+          "domain": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
+      "Snapshot": {
+        "type": "object",
+        "required": [
+          "calls",
+          "cursor"
+        ],
+        "properties": {
+          "calls": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Call"
+            }
+          },
+          "cursor": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "SnapshotResult": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "Status": {
+        "type": "object",
+        "required": [
+          "instance_id",
+          "mode",
+          "gateway_ready",
+          "ai_configured"
+        ],
+        "properties": {
+          "ai_configured": {
+            "type": "boolean"
+          },
+          "gateway_ready": {
+            "type": "boolean"
+          },
+          "instance_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "vapid_public_key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "Transcript": {
+        "type": "object",
+        "required": [
+          "item_id",
+          "speaker",
+          "text"
+        ],
+        "properties": {
+          "item_id": {
+            "type": "string"
+          },
+          "speaker": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

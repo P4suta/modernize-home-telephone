@@ -1,0 +1,15 @@
+tests = [
+  "the workspace is accessible, monochrome, and fits a narrow screen with recording history",
+  "real WebRTC carries known audio through takeover, hold, read aloud, and the saved recording",
+  "outgoing WebRTC completes a SIPp dialog and returns the browser audio through RTP echo",
+  "spam is disconnected and recorded without a paid provider",
+  "suspected_spam is disconnected and recorded without a paid provider",
+  "settings validate input, persist across reload, and remove number rules",
+  "an allow rule bypasses screening and a browser answers and releases the line",
+  "a block rule rejects a human caller without recording and screen restores AI routing",
+  "recordings play and seek, transcript failures retry, and confirmed deletion persists",
+  "SSE reconnect converges after missed call and deletion events without duplicate history",
+  "SIP transport loss permits explicit reconnection and an incoming call",
+  "active calls reject deletion, competing origination, invalid commands, and foreign origins",
+  "message classification enters voicemail and its deadline saves audio and transcript",
+]

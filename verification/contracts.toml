@@ -1,0 +1,17 @@
+harnesses = [
+  "proofs::input_length_guards_cover_the_entire_integer_domain",
+  "proofs::streamed_byte_limits_refuse_overflow_and_preserve_the_exact_bound",
+  "proofs::deadlines_preserve_states_and_exact_integer_boundaries",
+  "proofs::every_call_transition_has_its_declared_precondition",
+  "proofs::identifiers_preserve_every_nonzero_value_and_refuse_zero",
+  "proofs::update_transitions_preserve_the_required_predecessors",
+  "proofs::routing_preserves_explicit_rules_and_rejects_suspected_spam",
+  "proofs::artifact_paths_cannot_escape_their_root",
+  "proofs::candidate_commit_requires_quiescence_and_health",
+  "proofs::accepted_numbers_cannot_contain_dialplan_syntax",
+  "proofs::line_ownership_cannot_be_replaced",
+  "proofs::terminal_calls_refuse_every_action",
+  "proofs::active_recordings_are_never_purged",
+  "proofs::closed_recording_policy_preserves_exact_boundaries",
+  "proofs::playback_marks_cannot_overrun_or_move_backwards",
+]

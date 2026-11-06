@@ -1,0 +1,30 @@
+[package]
+name = "homephone-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "=0.4.13"
+phone-core = { path = "../crates/phone-core" }
+
+[[bin]]
+name = "dial_path"
+path = "fuzz_targets/dial_path.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "state_sequences"
+path = "fuzz_targets/state_sequences.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]
+members = ["."]

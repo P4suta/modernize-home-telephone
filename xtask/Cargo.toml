@@ -1,0 +1,29 @@
+[package]
+name = "xtask"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+vendor-archive = []
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+hound = "3.5"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+toml = "0.9"
+uuid = { version = "1", features = ["v4", "serde"] }
+phone-core = { path = "../crates/phone-core" }
+httparse = "1.10.1"
+syn = { version = "2", features = ["full", "visit", "extra-traits"] }
+quote = "1"
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints]
+workspace = true

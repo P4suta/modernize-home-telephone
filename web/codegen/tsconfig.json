@@ -1,0 +1,9 @@
+{
+	"extends": "../tsconfig.json",
+	"compilerOptions": {
+		"skipLibCheck": false,
+		"types": [],
+		"lib": ["ES2024"]
+	},
+	"include": ["../src/generated/api.d.ts"]
+}

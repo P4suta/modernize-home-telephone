@@ -1,0 +1,18 @@
+{
+	"$schema": "./mutation/node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+	"mutate": ["src/timeline.ts"],
+	"testRunner": "vitest",
+	"plugins": [
+		"./mutation/node_modules/@stryker-mutator/vitest-runner/dist/src/index.js",
+		"./mutation/node_modules/@stryker-mutator/typescript-checker/dist/src/index.js"
+	],
+	"checkers": ["typescript"],
+	"typescriptChecker": { "experimentalNativePreview": true },
+	"tsconfigFile": "tsconfig.json",
+	"coverageAnalysis": "perTest",
+	"concurrency": 1,
+	"timeoutMS": 5000,
+	"reporters": ["clear-text", "json"],
+	"thresholds": { "high": 100, "low": 100, "break": 100 },
+	"incremental": false
+}
