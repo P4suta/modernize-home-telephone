@@ -1,0 +1,21 @@
+{
+	"compilerOptions": {
+		"target": "ES2024",
+		"lib": ["ES2024", "DOM", "DOM.Iterable"],
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"jsx": "react-jsx",
+		"strict": true,
+		"noUncheckedIndexedAccess": true,
+		"exactOptionalPropertyTypes": true,
+		"noImplicitReturns": true,
+		"noFallthroughCasesInSwitch": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"verbatimModuleSyntax": true,
+		"skipLibCheck": true,
+		"types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"]
+	},
+	"include": ["src", "test", "vite.config.ts", "playwright.config.ts"],
+	"exclude": ["src/sw.ts"]
+}

@@ -1,0 +1,223 @@
+[[cases]]
+source = "xtask/tests/vendor_sources.rs"
+test = "inaccessible_archive_members_are_errors_instead_of_an_absent_archive"
+invariant = "A source member lookup failure cannot masquerade as an absent optional archive."
+previous_gap = "The permission regression lacked a readable baseline under the checking user's identity, so a setup failure could satisfy its negative assertion."
+enforcement = "The fixture sets explicit access modes and requires a successful audit under the checking identity before denying only archive traversal and requiring Permission denied."
+
+[[cases]]
+source = "xtask/tests/vendor_sources.rs"
+test = "partial_or_modified_vendor_archives_are_refused"
+invariant = "Optional private source preservation permits no archive or the complete verified archive, never a partial or modified set."
+previous_gap = "Software verification required private publisher originals, and archive checks followed symlinks while public source selection included copyrighted originals."
+enforcement = "Source selection excludes the private archive, native Git archive tests verify publication exclusion, and catalog tests reject every missing or modified member and file or directory symlinks."
+
+[[cases]]
+source = "crates/phone-server/tests/stream_faults.rs"
+test = "an_idle_event_stream_observes_gateway_readiness_changes_without_call_events"
+invariant = "Idle workspaces observe gateway readiness changes without requiring a call or a stream reconnection."
+previous_gap = "The browser fetched service status only after a history snapshot, so readiness could remain stale while the event connection stayed open."
+enforcement = "The HTTP stream watches controller readiness, a paused-clock test toggles maintenance without call activity, and browser tests validate status events and ignore retired streams."
+
+[[cases]]
+source = "crates/phone-server/tests/stream_faults.rs"
+test = "committed_background_updates_and_deletions_wake_the_stream_before_its_poll_timer"
+invariant = "Every committed call update wakes existing event streams without waiting for periodic database polling."
+previous_gap = "Controller tests covered call transitions, but background recording and transcription writes bypassed the controller broadcast."
+enforcement = "The store publishes after committing each event transaction, and a paused-clock HTTP stream test requires background updates and deletion events before the polling deadline."
+
+[[cases]]
+source = "xtask/tests/manager.rs"
+test = "a_pending_recovery_journal_refuses_backup_before_reading_installation_configuration"
+invariant = "A backup cannot bypass recovery or retire another interrupted operation's journal."
+previous_gap = "Replacement refused pending journals, but standalone backup reused resumption without checking for an interrupted operation."
+enforcement = "The public backup entry point refuses a pending journal before reading configuration or creating a backup, and shared guards cover installation and replacement."
+
+[[cases]]
+source = "xtask/tests/manager.rs"
+test = "recovery_retires_rollback_before_resuming_and_failed_retirement_never_sends_http"
+invariant = "Call admission cannot reopen while a replayable rollback journal remains."
+previous_gap = "The update model covered recovery and resumption but omitted durable journal retirement, and the adapter removed the journal after resumption."
+enforcement = "A real HTTP observer requires journal absence before receiving the resume request, and a conflicting journal directory must prevent every request while preserving quiescence."
+
+[[cases]]
+source = "xtask/tests/package_contract.rs"
+test = "packages_require_the_binary_images_and_matching_corresponding_sources_before_docker_effects"
+invariant = "A package must contain its required assets and the source tree named by its release identity before image import."
+previous_gap = "Bundle checks verified the declared file inventory without requiring the executable, image archives, or corresponding source identity."
+enforcement = "Each required asset is removed and resealed independently, and an internally consistent manifest with a changed source tree must still be rejected."
+
+[[cases]]
+source = "xtask/tests/deployment_evidence.rs"
+test = "deployment_evidence_requires_current_sources_complete_operations_and_unchanged_recoverable_files"
+invariant = "Deployment evidence must retain complete operations and recoverable files for the current sources."
+previous_gap = "The rehearsal report recorded successful flags without a gate that revalidated its source identity, backup manifests, and restored recording."
+enforcement = "Incomplete operations, stale sources, changed restored audio, corrupted backups, and resealed changed manifests are refused."
+
+[[cases]]
+source = "xtask/tests/sip_evidence.rs"
+test = "sip_evidence_requires_one_completed_dialog_and_no_failed_calls"
+invariant = "SIP verification requires one completed dialog, no failures, and no remaining call."
+previous_gap = "A zero process exit alone cannot establish that a nonempty expected SIP scenario was executed."
+enforcement = "Empty, truncated, duplicated, zero-call, failed, and unfinished counter reports are rejected."
+
+[[cases]]
+source = "crates/phone-server/tests/gateway_contract.rs"
+test = "gateway_websockets_refuse_messages_larger_than_the_declared_transport_bound"
+invariant = "Gateway WebSocket frames and messages cannot exceed the declared 512 KiB transport bound."
+previous_gap = "Application field checks did not restrict the communication library's much larger default message allocation."
+enforcement = "A real WebSocket peer sends the exact bound and one byte beyond it, requiring successful delivery and a capacity error respectively."
+
+[[cases]]
+source = "crates/phone-server/tests/gateway_contract.rs"
+test = "channel_readiness_bounds_identifiers_and_live_channel_inventory"
+invariant = "Gateway readiness tracks only bounded nonempty channel identifiers and at most 128 live channels."
+previous_gap = "Readiness tests used one valid channel and did not cover unbounded event identifiers or inventory growth."
+enforcement = "Invalid identifiers and a 129th distinct channel are refused, while duplicate events and reset permit legitimate progress."
+
+[[cases]]
+source = "xtask/tests/update_flow.rs"
+test = "recovery_errors_preserve_both_the_primary_failure_and_the_failed_recovery_operation"
+invariant = "A recovery failure cannot erase the primary operation failure."
+previous_gap = "Each fake port failed only once, so recovery errors were never combined with the error that triggered recovery."
+enforcement = "Paired failures cover backup and resume, candidate and restore, health and previous startup, commit and stop, and candidate and resume."
+
+[[cases]]
+source = "xtask/tests/filesystem_faults.rs"
+test = "atomic_state_creates_its_parent_and_preserves_an_occupied_destination_on_failure"
+invariant = "Atomic metadata publication must work in a fresh directory and preserve an occupied destination after failure."
+previous_gap = "Metadata writers relied on a parent directory left by an earlier verification run."
+enforcement = "A fresh nested receipt path must be created, while a conflicting directory retains its original contents and no partial metadata file."
+
+[[cases]]
+source = "crates/phone-server/tests/gateway_readiness_faults.rs"
+test = "external_media_waits_for_its_own_stasis_event_before_bridge_attachment"
+invariant = "An external media channel cannot be attached before its own StasisStart event."
+previous_gap = "The gateway fixture treated the successful create response as readiness and never delayed entry into the Stasis application."
+enforcement = "A delayed Stasis event makes premature attachment fail, an unrelated channel cannot release the wait, and a separate watch contract checks exact channel identity and disconnect reset."
+
+[[cases]]
+source = "crates/phone-server/tests/postcall_faults.rs"
+test = "successful_recording_jobs_preserve_call_faults_and_clear_only_their_own_errors"
+invariant = "Successful background work cannot erase a fault from a different call operation."
+previous_gap = "One generic error field was cleared by every successful job, hiding the failure that ended AI screening."
+enforcement = "Successful capture and processing preserve AI and unknown call faults while clearing only the two job error codes they own."
+
+[[cases]]
+source = "crates/phone-server/tests/media_faults.rs"
+test = "backpressure_defers_output_until_xon_and_cancellation_discards_late_audio"
+invariant = "Paused or cancelled media cannot escape to the caller."
+previous_gap = "Playback mark arithmetic did not exercise transport backpressure and late provider frames."
+enforcement = "Causal input barriers bracket XOFF, XON, interruption, and late audio on real duplex WebSocket streams."
+
+[[cases]]
+source = "crates/phone-server/tests/media_faults.rs"
+test = "unsupported_formats_and_excess_startup_audio_fail_before_unbounded_buffering"
+invariant = "Only the declared PCMU framing is accepted, and provider startup cannot grow an unbounded input queue."
+previous_gap = "The media contract fixture always negotiated the supported format and completed provider startup."
+enforcement = "Wrong codecs, frame sizes, packet times, and a queue overflow before provider readiness must terminate the bridge with the intended error."
+
+[[cases]]
+source = "crates/phone-server/tests/admission_faults.rs"
+test = "a_failed_admission_commit_closes_its_external_channel_without_requiring_a_call_row"
+invariant = "Every admitted external channel has a cleanup path even when the call transaction fails."
+previous_gap = "The controller tests always allowed the initial SQLite insert, and the pure ownership model excluded database effects."
+enforcement = "A SQLite rejection trigger injects the failure before a call exists, and the HTTP fixture observes deletion of the original channel."
+
+[[cases]]
+source = "crates/phone-server/tests/recovery_faults.rs"
+test = "startup_freezes_recording_jobs_until_gateway_reconciliation_succeeds"
+invariant = "Recovery must finish before background jobs may download or delete gateway recordings."
+previous_gap = "Independent worker tests started with an already usable gateway and did not exercise startup ordering."
+enforcement = "The worker pause flag starts enabled, and an unreachable gateway must leave the flag enabled."
+
+[[cases]]
+source = "crates/phone-server/tests/recovery_faults.rs"
+test = "candidate_health_requires_the_event_stream_and_completed_reconciliation"
+invariant = "A paused update candidate is healthy only after its event stream connects and resource reconciliation succeeds."
+previous_gap = "The previous health probe checked a REST application name without checking the controller that consumes events."
+enforcement = "The real HTTP route is tested against missing WebSocket support, failed reconciliation, and a healthy paused candidate."
+
+[[cases]]
+source = "crates/phone-server/tests/postcall_faults.rs"
+test = "stalled_cloud_inference_cannot_block_recording_capture_or_quota_enforcement"
+invariant = "Cloud inference cannot prevent a later recording from becoming durable local storage."
+previous_gap = "A serial worker passed successful inference tests but coupled local capture and retention to external latency."
+enforcement = "An HTTP transcription handler waits behind a causal barrier while a second completed recording must be captured by an independent worker."
+
+[[cases]]
+source = "crates/phone-server/tests/postcall_faults.rs"
+test = "capture_revalidates_crash_leftovers_before_committing_or_removing_the_source"
+invariant = "A cached filename cannot establish recording completeness."
+previous_gap = "Download validation covered new files while the crash recovery shortcut trusted any existing final filename."
+enforcement = "A corrupt cached WAV must be replaced from the gateway and validated before its metadata becomes available."
+
+[[cases]]
+source = "crates/phone-server/tests/postcall_faults.rs"
+test = "malformed_and_oversized_cloud_responses_preserve_the_recording_and_refuse_completion"
+invariant = "Invalid provider responses cannot complete a job or discard its durable recording."
+previous_gap = "Field length validation ran after unbounded JSON buffering and missed large ignored fields."
+enforcement = "HTTP authentication, rate limit, server, schema, fixed length overflow, and streamed overflow faults exercise the shared bounded JSON reader."
+
+[[cases]]
+source = "crates/phone-server/tests/postcall_faults.rs"
+test = "interrupted_downloads_remove_partial_files_and_can_be_retried"
+invariant = "Cancellation leaves pending metadata and no published or partial recording, and a later valid download can finish."
+previous_gap = "Successful download tests did not cancel a streaming response between its header and remaining samples."
+enforcement = "A stalled HTTP body is cancelled after partial file creation, then the same call is retried with a complete WAV."
+
+[[cases]]
+source = "xtask/tests/filesystem_faults.rs"
+test = "private_artifacts_preserve_existing_parent_permissions_and_refuse_symlinks"
+invariant = "Private artifact creation cannot alter existing parent permissions or accept a symlink as its directory."
+previous_gap = "Permission tests covered newly created directories and missed the shared parent case."
+enforcement = "Real filesystem checks compare an existing directory mode, a newly created private mode, and a symlink rejection."
+
+[[cases]]
+source = "xtask/tests/filesystem_faults.rs"
+test = "deep_empty_directories_and_dangling_restore_links_are_not_accepted_as_bundles"
+invariant = "Bundle validation bounds directory depth and refuses every occupied restore destination."
+previous_gap = "File inventory bounds ignored empty directories, and existence checks followed dangling symlinks."
+enforcement = "A deeply nested empty tree and a dangling destination symlink must be refused before restore effects."
+
+[[cases]]
+source = "xtask/tests/manager.rs"
+test = "rebuilding_a_source_cannot_replace_the_previous_deployment_image_reference"
+invariant = "Rebuilding cannot overwrite the reference needed to roll back a previous installation."
+previous_gap = "Fake update ports did not model Docker tag mutation across successive builds."
+enforcement = "Distinct build identities produce distinct app and gateway references even for identical source identities."
+
+[[cases]]
+source = "xtask/tests/manager.rs"
+test = "quiescence_is_persisted_before_http_and_refusal_removes_only_a_new_marker"
+invariant = "A process restart during an administrative operation must preserve quiescence."
+previous_gap = "The update state machine described logical quiescence but omitted persistence across app restart."
+enforcement = "A real TCP fixture observes the marker before acknowledging the request and checks cleanup after refusal."
+
+[[cases]]
+source = "xtask/tests/manager.rs"
+test = "administrative_paths_resolve_existing_aliases_and_refuse_parent_traversal"
+invariant = "Equivalent installation paths share containment checks and operation locks."
+previous_gap = "Lexical path prefix checks did not account for parent traversal or symlink aliases."
+enforcement = "Canonical existing ancestors resolve aliases, and administrative paths containing parent traversal are refused."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "an_admission_error_cannot_leave_the_external_line_owned_forever"
+invariant = "An offered call must eventually release ownership if admission effects fail."
+previous_gap = "Terminal state proofs excluded the offered state timeout and could not establish recovery from malformed stored settings."
+enforcement = "Malformed persisted settings inject the admission fault, the offered deadline is explicit in the pure core, and Kani verifies every phase deadline."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "failed_hangup_quarantines_resources_and_retries_without_deleting_or_reassigning_the_call"
+invariant = "Publishing an ended call does not release ownership until gateway cleanup succeeds."
+previous_gap = "A terminal call row was previously treated as sufficient evidence that external resources were gone."
+enforcement = "Failed DELETE responses keep the line quarantined, refuse deletion and new admission, and recover after the gateway succeeds."
+
+[[cases]]
+source = "crates/phone-server/tests/maintenance_contract.rs"
+test = "quota_accounts_for_recordings_beyond_the_history_page_and_expiry_never_orphans_a_later_batch"
+invariant = "Retention accounts for all stored recording bytes and removes files before deleting their history rows."
+previous_gap = "A small fixture hid history page truncation and deletion of rows beyond the processed file batch."
+enforcement = "More than ten thousand earlier tombstones precede available recordings, and successive bounded expiry batches check file and row consistency."
