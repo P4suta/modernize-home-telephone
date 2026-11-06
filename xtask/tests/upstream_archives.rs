@@ -17,6 +17,14 @@ use std::{
     time::Duration,
 };
 
+const DEBIAN_INPUT_NAMES: [&str; 5] = [
+    "libedit-dev_3.1-20250104-1_arm64.deb",
+    "libnspr4-dev_4.36-1_arm64.deb",
+    "libmd-dev_1.1.0-2+b1_arm64.deb",
+    "libsrtp2-1_2.7.0-3_arm64.deb",
+    "libspeexdsp1_1.2.1-3_arm64.deb",
+];
+
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -182,7 +190,7 @@ fn controlled_inputs(server: &ArchiveServer, corrupted: Option<&str>, unchecked:
         })
         .collect::<Vec<_>>()
         .join("\n");
-    assert_eq!(exported.len(), 2);
+    assert_eq!(exported.len(), 2 + DEBIAN_INPUT_NAMES.len());
     Inputs { source, exported }
 }
 
@@ -190,6 +198,10 @@ fn corruption_controls(name: &str) {
     let server = ArchiveServer::start();
     let directory = tempfile::tempdir().unwrap();
     let inputs = controlled_inputs(&server, None, false);
+    assert!(
+        inputs.exported.contains_key(name),
+        "missing pinned input: {name}"
+    );
     let valid = build(&inputs.source, &directory.path().join("valid"));
     assert!(valid.status.success(), "{}", diagnostics(&valid));
     assert_eq!(
@@ -227,7 +239,7 @@ fn upstream_archives_have_a_buildable_source_only_target() {
         .lines()
         .filter(|line| line.starts_with("ADD "))
         .collect();
-    assert_eq!(instructions.len(), 2);
+    assert_eq!(instructions.len(), 2 + DEBIAN_INPUT_NAMES.len());
     for line in instructions {
         let words: Vec<_> = line.split_whitespace().collect();
         let digest = words[1].strip_prefix("--checksum=sha256:").unwrap();
@@ -246,4 +258,11 @@ fn asterisk_archive_rejects_corruption_and_requires_its_checksum() {
 #[test]
 fn japanese_archive_rejects_corruption_and_requires_its_checksum() {
     corruption_controls("japanese.tar.gz");
+}
+
+#[test]
+fn debian_packages_reject_corruption_and_require_their_checksums() {
+    for name in DEBIAN_INPUT_NAMES {
+        corruption_controls(name);
+    }
 }

@@ -1,8 +1,13 @@
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { defineConfig } from "@playwright/test";
+import { wavSamples } from "./test/signals";
 
 const CASE_TIMEOUT_MS = 45000;
 const LAB_ORIGIN = "http://localhost:8787";
+const BROWSER_AUDIO_FILE = resolve("../.local/fixtures/browser.wav");
+
+wavSamples(readFileSync(BROWSER_AUDIO_FILE));
 
 export default defineConfig({
 	testDir: "./test/browser",
@@ -18,7 +23,7 @@ export default defineConfig({
 			args: [
 				"--use-fake-ui-for-media-stream",
 				"--use-fake-device-for-media-stream",
-				`--use-file-for-fake-audio-capture=${resolve("../.local/fixtures/browser.wav")}`,
+				`--use-file-for-fake-audio-capture=${BROWSER_AUDIO_FILE}`,
 			],
 		},
 	},

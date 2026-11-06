@@ -656,7 +656,7 @@ pub fn inside(check: Check) -> anyhow::Result<()> {
                     "--timeout",
                     "20",
                     "--re",
-                    r"crates/phone-core/|replace image ->|replace restore_verification_ownership ->|replace verify ->",
+                    r"crates/phone-core/|replace image ->|replace restore_verification_ownership ->|replace verify ->|replace inside ->|replace browser ->",
                     "--output",
                 ])
                 .arg(&run);
@@ -668,7 +668,12 @@ pub fn inside(check: Check) -> anyhow::Result<()> {
                     command.arg("--file").arg(path);
                 }
             }
-            command.args(["--file", "xtask/src/assurance.rs"]);
+            command.args([
+                "--file",
+                "xtask/src/assurance.rs",
+                "--file",
+                "xtask/src/check.rs",
+            ]);
             let status = run_logged(&mut command, &run.join("mutants.log"))?;
             let report = run.join("mutants.out/outcomes.json");
             let value: serde_json::Value = serde_json::from_slice(&std::fs::read(&report)?)?;
@@ -703,20 +708,25 @@ pub fn inside(check: Check) -> anyhow::Result<()> {
                         .all(|outcome| outcome["summary"] == "CaughtMutant"),
                 "verification image result mutations were not caught"
             );
-            for function in ["verify", "restore_verification_ownership"] {
+            for (file, function) in [
+                ("xtask/src/assurance.rs", "verify"),
+                ("xtask/src/assurance.rs", "restore_verification_ownership"),
+                ("xtask/src/assurance.rs", "inside"),
+                ("xtask/src/check.rs", "browser"),
+            ] {
                 let results: Vec<_> = value["outcomes"]
                     .as_array()
                     .context("missing mutation outcomes")?
                     .iter()
                     .filter(|outcome| {
-                        outcome["scenario"]["Mutant"]["file"] == "xtask/src/assurance.rs"
+                        outcome["scenario"]["Mutant"]["file"] == file
                             && outcome["scenario"]["Mutant"]["function"]["function_name"]
                                 == function
                     })
                     .collect();
                 ensure!(
                     results.len() == 1 && results[0]["summary"] == "CaughtMutant",
-                    "verification ownership mutation was not caught: {function}"
+                    "verification adapter mutation was not caught: {function}"
                 );
             }
             report

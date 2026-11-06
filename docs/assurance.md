@@ -21,10 +21,25 @@ Mutation campaigns must have no survivor or timeout.
 The mutation report distinguishes compilation errors from killed mutants.
 The Rust campaign retains the complete core inventory and adds both verification-image return-value substitutions.
 The tests must compile and catch both identity mutants.
-The campaign also requires caught result substitutions for verification and ownership restoration.
+The campaign also requires caught result substitutions for verification, ownership restoration, browser preparation, and mutation collection.
 A resource limit stop leaves the campaign inconclusive and produces no successful receipt.
 
 Before expensive builds, the hosted workflow executes the Docker source-only target and its corruption controls.
+The target also preserves five ARM64 Debian packages whose snapshot downloads failed before runtime verification.
+Their SHA256 values come from the signed [snapshot package index](https://snapshot.debian.org/archive/debian/20261105T000000Z/dists/trixie/main/binary-arm64/Packages.xz).
+The official Debian package pool supplies the same pinned bytes.
+`apt-get` installs the checked local files alongside the existing version constraints.
+Every preserved package has positive, corrupted, and unchecked controls.
+
+The synthetic microphone fixture disables echo cancellation, noise suppression, and automatic gain control through exact capture constraints.
+[Chromium's fake capture documentation](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/media/base/media_switches.cc) warns that audio processing can distort a supplied audio file.
+A browser case checks the effective track settings before the echo case measures audio across microphone and hold commands.
+The production microphone keeps its normal processing settings.
+Browser verification generates fresh audio inputs after refusing non-lab configurations and before inspecting the installation.
+A manually generated microphone file had hidden the missing preparation step from local runs.
+Process tests exercise absent and stale inputs, and the browser configuration validates the actual audio file before launching Chromium.
+Separate process tests require the mutation collector to reject otherwise successful reports that omit either browser preparation or collection.
+The collector must identify the missing adapter and leave no successful receipt.
 Run the same boundary tests with `mise x -- cargo test --locked -p xtask --features upstream-archives --test upstream_archives`.
 The source-only stage preserves the pinned Asterisk and Japanese announcement bytes without compiling either runtime.
 Asterisk uses its official release archive because the ordinary download directory retires superseded versions.

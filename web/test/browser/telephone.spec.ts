@@ -1,12 +1,30 @@
 import AxeBuilder from "@axe-core/playwright";
-import {
-	type APIRequestContext,
-	expect,
-	type Page,
-	test,
-} from "@playwright/test";
+import { type APIRequestContext, expect, type Page } from "@playwright/test";
 import { peakToneRatio, tonePower, wavSamples } from "../signals";
+import { test } from "./raw-audio";
 import { calls, command, incoming } from "./support";
+
+test("the synthetic microphone disables voice processing", async ({
+	page,
+}): Promise<void> => {
+	await page.goto("/");
+	const settings = await page.evaluate(
+		async (): Promise<MediaTrackSettings> => {
+			const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+			try {
+				const track = stream.getAudioTracks()[0];
+				if (!track)
+					throw new Error("The synthetic microphone has no audio track");
+				return track.getSettings();
+			} finally {
+				for (const track of stream.getTracks()) track.stop();
+			}
+		},
+	);
+	expect(settings.echoCancellation).toBe(false);
+	expect(settings.noiseSuppression).toBe(false);
+	expect(settings.autoGainControl).toBe(false);
+});
 
 async function hear(page: Page, frequency: number): Promise<void> {
 	await expect

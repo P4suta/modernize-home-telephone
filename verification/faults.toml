@@ -1,4 +1,32 @@
 [[cases]]
+source = "xtask/tests/browser_assets.rs"
+test = "browser_prepares_fresh_audio_before_inspecting_a_lab_installation"
+invariant = "Browser verification prepares valid current audio inputs from a clean checkout and replaces stale generated files."
+previous_gap = "Local audio files masked a missing workflow dependency; fresh native ARM64 checks reached Chromium without their specified microphone file."
+enforcement = "Isolated process tests exercise absent and stale files through the public browser entry point; the browser configuration validates its actual input before launch, and a required result mutant challenges preparation."
+
+[[cases]]
+source = "xtask/tests/browser_assets.rs"
+test = "browser_audio_preparation_refuses_production_and_paid_providers"
+invariant = "Browser automation cannot prepare inputs or inspect an installation until its configuration explicitly selects a mock lab."
+previous_gap = "Asset generation ran as a separate manual command without a tested ordering relationship to the automation refusal."
+enforcement = "Process tests supply production and paid-provider configurations and require the specific lab refusal with no generated directory."
+
+[[cases]]
+source = "xtask/tests/mutation_collector.rs"
+test = "mutation_collection_refuses_missing_adapter_results"
+invariant = "A successful mutation subprocess cannot produce evidence when a required verification adapter has no caught result."
+previous_gap = "Positive aggregate counts and the existing ownership inventory did not require the browser entry point or the collector itself."
+enforcement = "An isolated provider returns consistent positive counts while omitting each new adapter in turn; the actual collector must identify the missing function and leave no receipt, and its own result substitution must be caught."
+
+[[cases]]
+source = "xtask/tests/upstream_archives.rs"
+test = "debian_packages_reject_corruption_and_require_their_checksums"
+invariant = "Pinned Debian inputs must reject corrupted bytes before compilation."
+previous_gap = "The source-only preflight covered two tar archives while native ARM64 builds repeatedly failed on implicit APT downloads from snapshot backends."
+enforcement = "The source-only stage checks five ARM64 package hashes from signed snapshot metadata; every package receives a positive export check, injected corruption, and a checksum-removal negative control."
+
+[[cases]]
 source = "xtask/tests/verification_ownership.rs"
 test = "verification_restores_private_outputs_to_the_caller_before_cleanup"
 invariant = "Private container outputs must return to the caller's ownership without relaxing their file modes."
