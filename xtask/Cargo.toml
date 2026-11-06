@@ -7,6 +7,12 @@ publish.workspace = true
 
 [features]
 vendor-archive = []
+upstream-archives = []
+
+[[example]]
+name = "package-input-mutations"
+path = "tests/support/package_mutations.rs"
+required-features = ["upstream-archives"]
 
 [dependencies]
 anyhow = "1"

@@ -1,4 +1,95 @@
 [[cases]]
+source = "xtask/tests/cached_packages.rs"
+test = "prefetched_packages_do_not_require_repository_downloads"
+invariant = "APT's acquisition plan must request no repository download for a prefetched package."
+previous_gap = "Checksum controls validated exported bytes but did not check APT's later source selection; moving index refresh inside a fixture can also hide the image's cache cleanup."
+enforcement = "Both pinned image stages replay preparation in maintained order and resolve with networking disabled; five controls remove archive staging, clear the cache through a later index refresh, or omit the encoded epoch filename and require the affected repository requests."
+
+[[cases]]
+source = "xtask/tests/browser_assets.rs"
+test = "browser_prepares_fresh_audio_before_inspecting_a_lab_installation"
+invariant = "Browser verification prepares valid current audio inputs from a clean checkout and replaces stale generated files."
+previous_gap = "Local audio files masked a missing workflow dependency; fresh native ARM64 checks reached Chromium without their specified microphone file."
+enforcement = "Isolated process tests exercise absent and stale files through the public browser entry point; the browser configuration validates its actual input before launch, and a required result mutant challenges preparation."
+
+[[cases]]
+source = "xtask/tests/browser_assets.rs"
+test = "browser_audio_preparation_refuses_production_and_paid_providers"
+invariant = "Browser automation cannot prepare inputs or inspect an installation until its configuration explicitly selects a mock lab."
+previous_gap = "Asset generation ran as a separate manual command without a tested ordering relationship to the automation refusal."
+enforcement = "Process tests supply production and paid-provider configurations and require the specific lab refusal with no generated directory."
+
+[[cases]]
+source = "xtask/tests/mutation_collector.rs"
+test = "mutation_collection_refuses_missing_adapter_results"
+invariant = "A successful mutation subprocess cannot produce evidence when a required verification adapter has no caught result."
+previous_gap = "Positive aggregate counts and the existing ownership inventory did not require the browser entry point or the collector itself."
+enforcement = "An isolated provider returns consistent positive counts while omitting each new adapter in turn; the actual collector must identify the missing function and leave no receipt, and its own result substitution must be caught."
+
+[[cases]]
+source = "xtask/tests/upstream_archives.rs"
+test = "debian_packages_reject_corruption_and_require_their_checksums"
+invariant = "Pinned Debian inputs must reject corrupted bytes before compilation."
+previous_gap = "The source-only preflight covered two tar archives while native ARM64 builds repeatedly failed on implicit APT downloads from snapshot backends."
+enforcement = "The source-only stage checks six ARM64 package hashes from signed snapshot metadata; every package receives a positive export check, injected corruption, and a checksum-removal negative control."
+
+[[cases]]
+source = "xtask/tests/verification_ownership.rs"
+test = "verification_restores_private_outputs_to_the_caller_before_cleanup"
+invariant = "Private container outputs must return to the caller's ownership without relaxing their file modes."
+previous_gap = "Native verification succeeded as container root, but ordinary Linux artifact collection could not traverse its private report directories."
+enforcement = "A process-boundary fixture captures the caller identity, generated path scope, restricted ownership container, and ownership-before-cleanup ordering; hosted artifact transfer exercises real permissions."
+
+[[cases]]
+source = "xtask/tests/verification_ownership.rs"
+test = "ownership_failures_and_verifier_failures_preserve_their_causes_and_cleanup"
+invariant = "Verifier, ownership, identity, and cleanup failures cannot become successful verification or hide each other's causes."
+previous_gap = "The runner stopped before cleanup on verification failures and had no ownership handoff or paired-failure coverage."
+enforcement = "Independent CLI faults exercise each failure and combined failures, require the corresponding causal messages, and require container cleanup even after verification or ownership refusal."
+
+[[cases]]
+source = "xtask/src/assurance.rs"
+test = "verification_images_preserve_identity_and_refuse_bad_cli_output"
+invariant = "A local verification image keeps the Docker engine's immutable ID and never turns a configuration ID into a registry manifest digest."
+previous_gap = "Owner-side verification accepted a synthesized repository digest that a cold classic Docker engine tried to pull from a registry."
+enforcement = "Independent CLI outputs exercise two identities, an inspection failure, and a mutable tag; the complete hosted campaign exercises real native Docker, and both image-result mutants must be caught."
+
+[[cases]]
+source = "xtask/tests/http_fixtures.rs"
+test = "fixture_reading_consumes_the_complete_body_across_every_transport_split"
+invariant = "An HTTP fixture must consume the complete declared request body before replying or closing its connection."
+previous_gap = "The recovery fixture stopped after the headers, so separately delivered body bytes could make Linux reset the connection after a valid response."
+enforcement = "One bounded helper serves every native xtask HTTP fixture; an independent reader splits a complete request at every byte boundary and requires the complete body and no unread bytes."
+
+[[cases]]
+source = "xtask/tests/http_fixtures.rs"
+test = "fixture_reading_refuses_incomplete_ambiguous_and_oversized_requests"
+invariant = "A fixture request has one unambiguous bounded length and cannot end before its declared body."
+previous_gap = "Header-only fixtures had no parser contract, and their incidental buffering could hide a truncated body or inconsistent length."
+enforcement = "The helper accepts an exact 4096-byte request and rejects truncated headers or bodies, duplicate or invalid lengths, unsupported transfer encoding, and over-limit input."
+
+[[cases]]
+source = "xtask/tests/upstream_archives.rs"
+test = "upstream_archives_have_a_buildable_source_only_target"
+invariant = "Every pinned upstream archive must be retrievable and independently hash-checked before compilation."
+previous_gap = "Deterministic checks never fetched the current download URLs, and cold hosted builds discovered a retired URL only after an emulated application build."
+enforcement = "The actual Docker source-only target exports both upstream archives, checks their hashes, and runs before any hosted verification or runtime compilation."
+
+[[cases]]
+source = "xtask/tests/upstream_archives.rs"
+test = "asterisk_archive_rejects_corruption_and_requires_its_checksum"
+invariant = "A corrupt Asterisk source archive cannot satisfy the maintained Docker download instruction."
+previous_gap = "A pinned digest had no executed corruption control, and reused fixture digests let Docker satisfy a corrupt URL from its content cache."
+enforcement = "Each attempt and archive has unique content; the real Docker instruction accepts valid bytes, rejects the injected corrupt digest, and accepts corruption after removing only its checksum option."
+
+[[cases]]
+source = "xtask/tests/upstream_archives.rs"
+test = "japanese_archive_rejects_corruption_and_requires_its_checksum"
+invariant = "A corrupt Japanese announcement archive cannot satisfy the maintained Docker download instruction."
+previous_gap = "Sound downloads shared the untested checksum boundary, and cached fixture content could hide corruption despite disabling the build cache."
+enforcement = "Each attempt and archive has unique content; the real Docker instruction accepts valid bytes, rejects the injected corrupt digest, and accepts corruption after removing only its checksum option."
+
+[[cases]]
 source = "xtask/tests/vendor_sources.rs"
 test = "inaccessible_archive_members_are_errors_instead_of_an_absent_archive"
 invariant = "A source member lookup failure cannot masquerade as an absent optional archive."
@@ -37,8 +128,8 @@ enforcement = "The public backup entry point refuses a pending journal before re
 source = "xtask/tests/manager.rs"
 test = "recovery_retires_rollback_before_resuming_and_failed_retirement_never_sends_http"
 invariant = "Call admission cannot reopen while a replayable rollback journal remains."
-previous_gap = "The update model covered recovery and resumption but omitted durable journal retirement, and the adapter removed the journal after resumption."
-enforcement = "A real HTTP observer requires journal absence before receiving the resume request, and a conflicting journal directory must prevent every request while preserving quiescence."
+previous_gap = "The update model omitted journal retirement, and its later HTTP fixture stopped at the headers, allowing unread request bodies to cause connection resets."
+enforcement = "A real HTTP observer consumes the complete request before checking journal absence, shared fixture regressions enforce body framing, and a conflicting journal directory prevents every request while preserving quiescence."
 
 [[cases]]
 source = "xtask/tests/package_contract.rs"

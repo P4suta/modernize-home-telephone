@@ -639,6 +639,7 @@ pub fn inside(check: Check) -> anyhow::Result<()> {
             report
         }
         Check::Mutants => {
+            const IMAGE_RESULT_MUTANTS: usize = 2;
             let mut command = Command::new("cargo");
             command.env("CARGO_INCREMENTAL", "0");
             command
@@ -646,10 +647,16 @@ pub fn inside(check: Check) -> anyhow::Result<()> {
                     "mutants",
                     "--package",
                     "phone-core",
+                    "--package",
+                    "xtask",
                     "--jobs",
                     "1",
+                    "--build-timeout",
+                    "300",
                     "--timeout",
                     "20",
+                    "--re",
+                    r"crates/phone-core/|replace image ->|replace restore_verification_ownership ->|replace verify ->|replace inside ->|replace browser ->",
                     "--output",
                 ])
                 .arg(&run);
@@ -661,6 +668,12 @@ pub fn inside(check: Check) -> anyhow::Result<()> {
                     command.arg("--file").arg(path);
                 }
             }
+            command.args([
+                "--file",
+                "xtask/src/assurance.rs",
+                "--file",
+                "xtask/src/check.rs",
+            ]);
             let status = run_logged(&mut command, &run.join("mutants.log"))?;
             let report = run.join("mutants.out/outcomes.json");
             let value: serde_json::Value = serde_json::from_slice(&std::fs::read(&report)?)?;
@@ -679,6 +692,43 @@ pub fn inside(check: Check) -> anyhow::Result<()> {
                             == value["total_mutants"].as_u64()),
                 "mutants survived or the campaign is incomplete"
             );
+            let image_results: Vec<_> = value["outcomes"]
+                .as_array()
+                .context("missing mutation outcomes")?
+                .iter()
+                .filter(|outcome| {
+                    outcome["scenario"]["Mutant"]["file"] == "xtask/src/assurance.rs"
+                        && outcome["scenario"]["Mutant"]["function"]["function_name"] == "image"
+                })
+                .collect();
+            ensure!(
+                image_results.len() == IMAGE_RESULT_MUTANTS
+                    && image_results
+                        .iter()
+                        .all(|outcome| outcome["summary"] == "CaughtMutant"),
+                "verification image result mutations were not caught"
+            );
+            for (file, function) in [
+                ("xtask/src/assurance.rs", "verify"),
+                ("xtask/src/assurance.rs", "restore_verification_ownership"),
+                ("xtask/src/assurance.rs", "inside"),
+                ("xtask/src/check.rs", "browser"),
+            ] {
+                let results: Vec<_> = value["outcomes"]
+                    .as_array()
+                    .context("missing mutation outcomes")?
+                    .iter()
+                    .filter(|outcome| {
+                        outcome["scenario"]["Mutant"]["file"] == file
+                            && outcome["scenario"]["Mutant"]["function"]["function_name"]
+                                == function
+                    })
+                    .collect();
+                ensure!(
+                    results.len() == 1 && results[0]["summary"] == "CaughtMutant",
+                    "verification adapter mutation was not caught: {function}"
+                );
+            }
             report
         }
         Check::WebMutants => unreachable!(),
@@ -774,17 +824,170 @@ fn image(check: Check) -> anyhow::Result<String> {
         id.starts_with("sha256:") && id.len() == IMAGE_ID_LENGTH,
         "verification requires an immutable image identity"
     );
-    Ok(format!(
-        "{}@{id}",
-        name.split(':')
-            .next()
-            .context("invalid verification image name")?
-    ))
+    Ok(id)
 }
+
+#[cfg(test)]
+#[cfg(unix)]
+mod image_tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    const PRIVATE_EXECUTABLE_MODE: u32 = 0o700;
+
+    fn observe(id: &str, failure: &str) {
+        let directory = tempfile::tempdir().unwrap();
+        let docker = directory.path().join("docker");
+        std::fs::write(
+            &docker,
+            r#"#!/bin/sh
+case "$*" in
+  'image inspect homephone-verification:local')
+    printf '%s\n' "$HOMEPHONE_IMAGE_INSPECTION" ;;
+  'image inspect --format {{.Id}} homephone-verification:local')
+    if [ "$HOMEPHONE_IMAGE_FAILURE" = unavailable ]; then exit 1; fi
+    printf '%s\n' "$HOMEPHONE_IMAGE_ID" ;;
+  *) exit 71 ;;
+esac
+"#,
+        )
+        .unwrap();
+        std::fs::set_permissions(
+            &docker,
+            std::fs::Permissions::from_mode(PRIVATE_EXECUTABLE_MODE),
+        )
+        .unwrap();
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        let hash = crate::bundle::digest(&root.join(recipe(Check::Proof))).unwrap();
+        let mut paths = vec![directory.path().to_owned()];
+        paths.extend(std::env::split_paths(&std::env::var_os("PATH").unwrap()));
+        let result = Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "assurance::image_tests::image_child"])
+            .current_dir(root)
+            .env("PATH", std::env::join_paths(paths).unwrap())
+            .env("HOMEPHONE_IMAGE_ID", id)
+            .env("HOMEPHONE_IMAGE_FAILURE", failure)
+            .env(
+                "HOMEPHONE_IMAGE_INSPECTION",
+                serde_json::json!([{"Config":{"Labels":{"homephone.recipe":hash}}}]).to_string(),
+            )
+            .output()
+            .unwrap();
+        assert!(
+            result.status.success(),
+            "image contract failed: {:?}; {:?}",
+            String::from_utf8_lossy(&result.stdout),
+            String::from_utf8_lossy(&result.stderr)
+        );
+    }
+
+    #[test]
+    fn image_child() {
+        let Ok(expected) = std::env::var("HOMEPHONE_IMAGE_ID") else {
+            return;
+        };
+        let failure = std::env::var("HOMEPHONE_IMAGE_FAILURE").unwrap();
+        let actual = image(Check::Proof);
+        if failure.is_empty() {
+            assert_eq!(actual.unwrap(), expected);
+        } else {
+            assert!(
+                format!("{:#}", actual.unwrap_err()).contains(&failure),
+                "the intended image failure was not preserved"
+            );
+        }
+    }
+
+    #[test]
+    pub(super) fn local_images_preserve_the_engine_identity_without_a_registry_reference() {
+        for digit in ['a', 'b'] {
+            observe(&format!("sha256:{}", digit.to_string().repeat(64)), "");
+        }
+    }
+
+    #[test]
+    pub(super) fn unavailable_and_mutable_image_identities_are_refused() {
+        observe("", "unavailable");
+        observe("latest", "immutable");
+    }
+}
+
+#[cfg(test)]
+#[cfg(unix)]
+#[test]
+fn verification_images_preserve_identity_and_refuse_bad_cli_output() {
+    image_tests::local_images_preserve_the_engine_identity_without_a_registry_reference();
+    image_tests::unavailable_and_mutable_image_identities_are_refused();
+}
+
+fn restore_verification_ownership(image: &str, driver_target: &str) -> anyhow::Result<()> {
+    fn caller_id(argument: &str) -> anyhow::Result<u32> {
+        let output = Command::new("id").arg(argument).output()?;
+        ensure!(output.status.success(), "caller identity is unavailable");
+        String::from_utf8(output.stdout)?
+            .trim()
+            .parse()
+            .context("caller identity is not an unsigned integer")
+    }
+    let owner = format!("{}:{}", caller_id("-u")?, caller_id("-g")?);
+    crate::operations::run(
+        "docker",
+        &[
+            "run",
+            "--rm",
+            "--pull",
+            "never",
+            "--user",
+            "0:0",
+            "--network",
+            "none",
+            "--read-only",
+            "--cap-drop",
+            "ALL",
+            "--cap-add",
+            "CHOWN",
+            "--cap-add",
+            "DAC_OVERRIDE",
+            "--security-opt",
+            "no-new-privileges",
+            "--cpus",
+            "1",
+            "--memory",
+            "64m",
+            "--memory-swap",
+            "64m",
+            "--pids-limit",
+            "32",
+            "--workdir",
+            "/work",
+            "--mount",
+            &format!(
+                "type=bind,source={},target=/work",
+                std::env::current_dir()?.display()
+            ),
+            "--entrypoint",
+            "timeout",
+            image,
+            "--signal=TERM",
+            "--kill-after=5s",
+            "60s",
+            "chown",
+            "--no-dereference",
+            "--recursive",
+            &owner,
+            ".cache/assurance",
+            driver_target,
+        ],
+    )
+    .context("verification output ownership restoration failed")
+}
+
 pub fn verify(check: Check) -> anyhow::Result<()> {
     let source = binding(check)?;
     let image = image(check)?;
     let driver_target = format!("target/verification-tools/{}", uuid::Uuid::new_v4());
+    crate::operations::private_directory(Path::new(".cache/assurance"))?;
+    crate::operations::private_directory(Path::new(&driver_target))?;
     let arguments: Vec<String> = if matches!(check, Check::WebMutants) {
         vec![
             "pnpm".into(),
@@ -800,7 +1003,7 @@ pub fn verify(check: Check) -> anyhow::Result<()> {
             "run".into(),
             "--locked".into(),
             "--target-dir".into(),
-            driver_target,
+            driver_target.clone(),
             "--package".into(),
             "xtask".into(),
             "--".into(),
@@ -813,7 +1016,7 @@ pub fn verify(check: Check) -> anyhow::Result<()> {
         .arg("--help")
         .output()
         .is_ok_and(|result| result.status.success());
-    let container = if owner {
+    let (container, execution_succeeded) = if owner {
         let output = Command::new("dotfiles")
             .args([
                 "bounded",
@@ -841,16 +1044,14 @@ pub fn verify(check: Check) -> anyhow::Result<()> {
             id.len() == SHA256_HEX_DIGITS && id.bytes().all(|byte| byte.is_ascii_hexdigit()),
             "invalid owned container identity"
         );
-        ensure!(
-            output.status.success(),
-            "bounded verification failed or is inconclusive"
-        );
-        id
+        (id, output.status.success())
     } else {
         let id = format!("homephone-verification-{}", uuid::Uuid::new_v4());
         let status = Command::new("docker")
             .args([
                 "run",
+                "--pull",
+                "never",
                 "--name",
                 &id,
                 "--memory",
@@ -878,69 +1079,92 @@ pub fn verify(check: Check) -> anyhow::Result<()> {
             ])
             .args(&arguments)
             .status()?;
-        ensure!(
-            status.success(),
-            "bounded verification failed or is inconclusive"
-        );
-        id
+        (id, status.success())
     };
-    ensure!(
-        source == binding(check)?,
-        "sources changed during the verification process"
-    );
-    if matches!(check, Check::WebMutants) {
-        let report = PathBuf::from(".cache/assurance")
-            .join(format!("web-mutants-{}.json", uuid::Uuid::new_v4()));
-        crate::operations::private_directory(report.parent().context("missing report parent")?)?;
-        let status = Command::new("docker")
-            .args([
-                "cp",
-                &format!("{container}:/opt/web/reports/mutation/mutation.json"),
-            ])
-            .arg(&report)
-            .status()?;
-        ensure!(status.success(), "mutation report could not be collected");
-        let value: serde_json::Value = serde_json::from_slice(&std::fs::read(&report)?)?;
-        let files = value["files"]
-            .as_object()
-            .context("missing mutation files")?;
-        let mutants: Vec<_> = files
-            .values()
-            .filter_map(|file| file["mutants"].as_array())
-            .flatten()
-            .collect();
+    let ownership = restore_verification_ownership(&image, &driver_target);
+    let execution = if execution_succeeded {
+        Ok(())
+    } else {
+        Err(anyhow::anyhow!(
+            "bounded verification failed or is inconclusive"
+        ))
+    };
+    let ready = match (execution, ownership) {
+        (Ok(()), ownership) => ownership,
+        (Err(primary), Ok(())) => Err(primary),
+        (Err(primary), Err(ownership)) => Err(primary.context(format!(
+            "verification output ownership restoration failed: {ownership:#}"
+        ))),
+    };
+    let outcome = ready.and_then(|()| {
         ensure!(
-            !mutants.is_empty()
-                && mutants.iter().any(|mutant| mutant["status"] == "Killed")
-                && mutants.iter().all(|mutant| matches!(
-                    mutant["status"].as_str(),
-                    Some("Killed" | "CompileError")
-                )),
-            "web mutants survived or were not checked"
+            source == binding(check)?,
+            "sources changed during the verification process"
         );
-        ensure!(
-            binding(check)? == source,
-            "web sources changed during mutation"
-        );
-        crate::manager::atomic_json(
-            Path::new(".cache/assurance/web_mutants.json"),
-            &Receipt {
-                schema: 1,
-                check,
-                source,
-                recipe: crate::bundle::digest(Path::new(recipe(check)))?,
-                report: report.to_str().context("invalid report path")?.into(),
-                report_sha256: crate::bundle::digest(&report)?,
-                artifacts: [(
-                    report.to_str().context("invalid report path")?.into(),
-                    crate::bundle::digest(&report)?,
-                )]
-                .into(),
-            },
-        )?;
+        if matches!(check, Check::WebMutants) {
+            let report = PathBuf::from(".cache/assurance")
+                .join(format!("web-mutants-{}.json", uuid::Uuid::new_v4()));
+            crate::operations::private_directory(
+                report.parent().context("missing report parent")?,
+            )?;
+            let status = Command::new("docker")
+                .args([
+                    "cp",
+                    &format!("{container}:/opt/web/reports/mutation/mutation.json"),
+                ])
+                .arg(&report)
+                .status()?;
+            ensure!(status.success(), "mutation report could not be collected");
+            let value: serde_json::Value = serde_json::from_slice(&std::fs::read(&report)?)?;
+            let files = value["files"]
+                .as_object()
+                .context("missing mutation files")?;
+            let mutants: Vec<_> = files
+                .values()
+                .filter_map(|file| file["mutants"].as_array())
+                .flatten()
+                .collect();
+            ensure!(
+                !mutants.is_empty()
+                    && mutants.iter().any(|mutant| mutant["status"] == "Killed")
+                    && mutants.iter().all(|mutant| matches!(
+                        mutant["status"].as_str(),
+                        Some("Killed" | "CompileError")
+                    )),
+                "web mutants survived or were not checked"
+            );
+            ensure!(
+                binding(check)? == source,
+                "web sources changed during mutation"
+            );
+            crate::manager::atomic_json(
+                Path::new(".cache/assurance/web_mutants.json"),
+                &Receipt {
+                    schema: 1,
+                    check,
+                    source,
+                    recipe: crate::bundle::digest(Path::new(recipe(check)))?,
+                    report: report.to_str().context("invalid report path")?.into(),
+                    report_sha256: crate::bundle::digest(&report)?,
+                    artifacts: [(
+                        report.to_str().context("invalid report path")?.into(),
+                        crate::bundle::digest(&report)?,
+                    )]
+                    .into(),
+                },
+            )?;
+        }
+        Ok(())
+    });
+    let cleanup = crate::operations::run("docker", &["rm", &container])
+        .context("verification container cleanup failed");
+    match (outcome, cleanup) {
+        (Ok(()), cleanup) => cleanup,
+        (Err(primary), Ok(())) => Err(primary),
+        (Err(primary), Err(cleanup)) => Err(primary.context(format!(
+            "verification container cleanup failed: {cleanup:#}"
+        ))),
     }
-    crate::operations::run("docker", &["rm", &container])?;
-    Ok(())
 }
 pub fn receipts() -> anyhow::Result<()> {
     for name in ["check", "security", "browser"] {

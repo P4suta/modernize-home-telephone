@@ -1,3 +1,5 @@
+mod support;
+
 use xtask::manager::{Image, Release, compatible, systemd_unit, verify_identity};
 
 #[test]
@@ -23,7 +25,7 @@ fn a_pending_recovery_journal_refuses_backup_before_reading_installation_configu
 
 #[test]
 fn recovery_retires_rollback_before_resuming_and_failed_retirement_never_sends_http() {
-    use std::io::{Read, Write};
+    use std::io::Write;
     let root = tempfile::tempdir().unwrap();
     let directory = root.path().canonicalize().unwrap().join("installation");
     std::fs::create_dir_all(directory.join("config")).unwrap();
@@ -76,13 +78,7 @@ fn recovery_retires_rollback_before_resuming_and_failed_retirement_never_sends_h
         socket
             .set_read_timeout(Some(std::time::Duration::from_secs(3)))
             .unwrap();
-        let mut request = vec![];
-        let mut bytes = [0; 1024];
-        while !request.windows(4).any(|bytes| bytes == b"\r\n\r\n") {
-            let read = socket.read(&mut bytes).unwrap();
-            assert!(read > 0 && request.len() < 4096);
-            request.extend_from_slice(&bytes[..read]);
-        }
+        support::read_request(&mut socket);
         let retired = !observed.exists();
         write!(
             socket,
@@ -140,7 +136,7 @@ fn administrative_paths_resolve_existing_aliases_and_refuse_parent_traversal() {
 
 #[test]
 fn quiescence_is_persisted_before_http_and_refusal_removes_only_a_new_marker() {
-    use std::io::{Read, Write};
+    use std::io::Write;
     for (status, existing) in [(204, false), (409, false), (409, true)] {
         let root = tempfile::tempdir().unwrap();
         let directory = root.path().canonicalize().unwrap();
@@ -158,25 +154,7 @@ fn quiescence_is_persisted_before_http_and_refusal_removes_only_a_new_marker() {
             socket
                 .set_read_timeout(Some(std::time::Duration::from_secs(3)))
                 .unwrap();
-            let mut buffer = [0_u8; 2048];
-            let mut request = Vec::new();
-            loop {
-                let count = socket.read(&mut buffer).unwrap();
-                assert!(count > 0 && request.len() < 4096);
-                request.extend_from_slice(&buffer[..count]);
-                if let Some(end) = request.windows(4).position(|bytes| bytes == b"\r\n\r\n") {
-                    let headers = String::from_utf8_lossy(&request[..end]);
-                    let length = headers
-                        .lines()
-                        .find_map(|line| line.strip_prefix("Content-Length: "))
-                        .unwrap()
-                        .parse::<usize>()
-                        .unwrap();
-                    if request.len() >= end + 4 + length {
-                        break;
-                    }
-                }
-            }
+            support::read_request(&mut socket);
             let observed = observed_marker.is_file();
             write!(
                 socket,

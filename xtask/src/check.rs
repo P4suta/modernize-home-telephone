@@ -151,6 +151,7 @@ pub fn check_browser_report(value: &serde_json::Value, names: &[String]) -> anyh
 }
 pub fn browser(directory: &Path) -> anyhow::Result<()> {
     crate::manager::require_lab(directory)?;
+    crate::write_assets(Path::new(".local/fixtures"))?;
     let installation = crate::manager::Installation::open(directory)?;
     ensure!(
         installation.release.source == crate::package::source_identity(Path::new("."))?,

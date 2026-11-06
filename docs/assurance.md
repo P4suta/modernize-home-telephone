@@ -8,13 +8,71 @@ The release sequence builds the ARM64 lab, exercises browser and SIPp calls, reh
 Changing an implementation, harness, verification recipe, or relevant build input invalidates its receipt.
 A retained receipt applies only to its recorded sources.
 
+The manual [hosted workflow](../.github/workflows/software-assurance.yml) runs the same complete inventory across native AMD64 verification and native ARM64 runtime jobs on one commit.
+The runtime job downloads the verification reports and applies the existing evidence gate to their source identities and artifact hashes.
+Deployment backups stay on the runtime runner.
+The transferred verification reports expire after one day.
+
 The gate requires nonempty expected inventories.
 The gate checks proof harness names, browser case names, and Rust fault records using their maintained source records.
 Browser results must contain one passed execution per named case, no skipped or flaky case, and no retry.
 SIPp must finish one dialog with no failed or remaining call.
 Mutation campaigns must have no survivor or timeout.
 The mutation report distinguishes compilation errors from killed mutants.
+The Rust campaign retains the complete core inventory and adds both verification-image return-value substitutions.
+The tests must compile and catch both identity mutants.
+The campaign also requires caught result substitutions for verification, ownership restoration, browser preparation, and mutation collection.
 A resource limit stop leaves the campaign inconclusive and produces no successful receipt.
+
+Before expensive builds, the hosted workflow executes the Docker source-only target and its corruption controls.
+The target also preserves six ARM64 Debian packages whose snapshot downloads failed before runtime verification.
+Their SHA256 values come from the signed [snapshot package index](https://snapshot.debian.org/archive/debian/20261105T000000Z/dists/trixie/main/binary-arm64/Packages.xz).
+The official Debian package pool supplies the same pinned bytes.
+After index refresh, the build stages seed the `apt-get` archive cache with the checked files and preserve the existing version constraints.
+The cache filename for `libnspr4-dev` includes its encoded version epoch.
+Every preserved package has positive, corrupted, and unchecked controls.
+
+`just package-inputs` checks both pinned image stages through the real [package acquisition plan](https://manpages.debian.org/trixie/apt/apt-get.8.en.html#OPTIONS).
+The fixture replays the maintained preparation commands in source order, including index-refresh cleanup hooks.
+The acquisition plan runs without network access and must request no repository download for a prefetched package.
+Five controls omit archive staging, refresh indexes after staging, or omit the epoch filename.
+Each control must restore the affected repository requests.
+Checksum controls had validated retrieved bytes without checking which source `apt-get` later selected.
+The rejecting controls also challenge the fixture's measurement and input ordering.
+The request-bound mutation adapter uses the same executed controls through `just verification package-input-mutations`.
+
+The synthetic microphone fixture disables echo cancellation, noise suppression, and automatic gain control through exact capture constraints.
+[Chromium's fake capture documentation](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/media/base/media_switches.cc) warns that audio processing can distort a supplied audio file.
+A browser case checks the effective track settings before the echo case measures audio across microphone and hold commands.
+The production microphone keeps its normal processing settings.
+Browser verification generates fresh audio inputs after refusing non-lab configurations and before inspecting the installation.
+A manually generated microphone file had hidden the missing preparation step from local runs.
+Process tests exercise absent and stale inputs, and the browser configuration validates the actual audio file before launching Chromium.
+Separate process tests require the mutation collector to reject otherwise successful reports that omit either browser preparation or collection.
+The collector must identify the missing adapter and leave no successful receipt.
+Run the same boundary tests with `mise x -- cargo test --locked -p xtask --features upstream-archives --test upstream_archives`.
+The source-only stage preserves the pinned Asterisk and Japanese announcement bytes without compiling either runtime.
+Asterisk uses its official release archive because the ordinary download directory retires superseded versions.
+The tests fetch the actual archives and independently compare exported file hashes with the Dockerfile's declared digests.
+For each archive, a local HTTP fixture must build with valid bytes and fail with a checksum mismatch for corrupt bytes.
+Removing only the checksum instruction in the test copy must permit corrupt bytes.
+Each instruction and attempt uses distinct content and a distinct digest because Docker may reuse checksum-addressed downloads even with its build cache turned off.
+The rejecting control must identify the injected bytes by their actual digest.
+Docker's checksum enforcement and SHA256 collision resistance remain external trust assumptions rather than Rust proof claims.
+
+Verification containers use the immutable local ID returned by Docker.
+A local image configuration ID doesn't become a registry manifest digest when prefixed with a repository name.
+The [Docker image reference contract](https://docs.docker.com/reference/cli/docker/container/run/) permits an image ID.
+CLI fault tests keep two distinct engine identities, reject failed inspection and mutable output, and isolate each process's environment.
+The native hosted campaign exercises the real engine and refuses registry pulls for verification containers.
+Docker image lookup remains outside Kani's Rust semantics.
+Reconsider the boundary if image selection introduces policy beyond preserving the validated engine identity.
+
+The runner creates output parents as the caller and restores ownership after container execution without widening private file modes.
+A restricted metadata container has no network access and receives fixed generated paths as ownership targets.
+CLI faults cover verification, ownership, identity, cleanup, and combined failures.
+Cleanup still runs after a verification or ownership failure, and combined errors preserve their causes.
+Native report upload and the final evidence check exercise the real file-permission boundary.
 
 ## Prove the pure production boundary
 
@@ -79,6 +137,12 @@ Notification tests require stable event identities during retries and verify web
 Actual delivery through a browser vendor's push service remains separate from those cryptographic checks.
 
 ## Test the measurement and collection code
+
+Native HTTP fixtures share a bounded reader that consumes the complete declared request before replying or closing a connection.
+A header-only recovery fixture caused a Linux connection reset when the body arrived after the headers.
+Deterministic reader tests split a complete request at every two-part transport boundary and require the complete body with no unread bytes.
+The fixture contract also accepts exactly 4096 bytes and rejects truncated, ambiguous, unsupported, and larger messages.
+The fixture results establish the behavior of the shared test helper.
 
 Browser audio checks compare a known signal with a different frequency and an absolute power floor.
 The fixtures use a 400 Hz browser microphone, a 500 Hz virtual caller, and 1000 Hz mock read aloud audio.

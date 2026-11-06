@@ -1,7 +1,6 @@
-use std::{
-    io::{Read, Write},
-    net::TcpListener,
-};
+mod support;
+
+use std::{io::Write, net::TcpListener};
 use xtask::admin_http::{Client, Operation};
 
 #[test]
@@ -13,26 +12,18 @@ fn administration_uses_only_loopback_and_authenticates_without_a_browser_origin(
         socket
             .set_read_timeout(Some(std::time::Duration::from_secs(2)))
             .unwrap();
-        let mut request = vec![];
-        let mut byte = [0];
-        while !request.ends_with(b"\r\n\r\n") {
-            socket.read_exact(&mut byte).unwrap();
-            request.push(byte[0]);
-        }
-        let text = String::from_utf8(request).unwrap();
+        let request = support::read_request(&mut socket);
+        let end = request
+            .windows(4)
+            .position(|bytes| bytes == b"\r\n\r\n")
+            .unwrap()
+            + 4;
+        let text = std::str::from_utf8(&request[..end]).unwrap();
         assert!(text.starts_with("POST /api/admin/maintenance HTTP/1.1\r\n"));
         assert!(text.contains("Authorization: Bearer fixture-token"));
         assert!(!text.contains("Origin:"));
-        let length: usize = text
-            .lines()
-            .find_map(|line| line.strip_prefix("Content-Length: "))
-            .unwrap()
-            .parse()
-            .unwrap();
-        let mut body = vec![0; length];
-        socket.read_exact(&mut body).unwrap();
         assert_eq!(
-            serde_json::from_slice::<serde_json::Value>(&body).unwrap(),
+            serde_json::from_slice::<serde_json::Value>(&request[end..]).unwrap(),
             serde_json::json!({"enabled":true})
         );
         for byte in b"HTTP/1.1 204 No Content\r\nContent-Length: 0\r\nConnection: close\r\n\r\n" {

@@ -1,4 +1,5 @@
 tests = [
+  "the synthetic microphone disables voice processing",
   "the workspace is accessible, monochrome, and fits a narrow screen with recording history",
   "real WebRTC carries known audio through takeover, hold, read aloud, and the saved recording",
   "outgoing WebRTC completes a SIPp dialog and returns the browser audio through RTP echo",
