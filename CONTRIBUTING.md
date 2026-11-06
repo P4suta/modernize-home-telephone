@@ -43,6 +43,10 @@ Run `just release-check` for the complete software inventory before a release.
 The manual Software assurance workflow runs that same gate on its selected commit without publishing a release.
 Timeouts, survivors, retries, skips, and incomplete reports never establish a pass.
 
+Renovate checks the Debian trixie ARM64 repositories for package updates.
+Docker builds use the fixed snapshot in `deploy/debian.sources`.
+Verify package pin changes with the matching snapshot date through `just release-check`.
+
 Publisher originals remain private local references.
 Ordinary checks validate the checksum inventory and verify every original when the complete archive exists.
 Run `mise x -- cargo xtask sources` to require all originals.

@@ -5,8 +5,8 @@ packages:
 minimumReleaseAgeExclude:
   - vite@8.3.6
 overrides:
-  typed-rest-client>qs: 6.16.1
-  '@stryker-mutator/core>minimatch': 11.0.1
+  typed-rest-client>qs: 6.17.1
+  '@stryker-mutator/core>minimatch': 11.0.4
 packageExtensions:
   '@stryker-mutator/core@10.1.1':
     dependencies:
