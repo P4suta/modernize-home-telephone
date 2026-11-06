@@ -25,11 +25,21 @@ The campaign also requires caught result substitutions for verification, ownersh
 A resource limit stop leaves the campaign inconclusive and produces no successful receipt.
 
 Before expensive builds, the hosted workflow executes the Docker source-only target and its corruption controls.
-The target also preserves five ARM64 Debian packages whose snapshot downloads failed before runtime verification.
+The target also preserves six ARM64 Debian packages whose snapshot downloads failed before runtime verification.
 Their SHA256 values come from the signed [snapshot package index](https://snapshot.debian.org/archive/debian/20261105T000000Z/dists/trixie/main/binary-arm64/Packages.xz).
 The official Debian package pool supplies the same pinned bytes.
-`apt-get` installs the checked local files alongside the existing version constraints.
+After index refresh, the build stages seed the `apt-get` archive cache with the checked files and preserve the existing version constraints.
+The cache filename for `libnspr4-dev` includes its encoded version epoch.
 Every preserved package has positive, corrupted, and unchecked controls.
+
+`just package-inputs` checks both pinned image stages through the real [package acquisition plan](https://manpages.debian.org/trixie/apt/apt-get.8.en.html#OPTIONS).
+The fixture replays the maintained preparation commands in source order, including index-refresh cleanup hooks.
+The acquisition plan runs without network access and must request no repository download for a prefetched package.
+Five controls omit archive staging, refresh indexes after staging, or omit the epoch filename.
+Each control must restore the affected repository requests.
+Checksum controls had validated retrieved bytes without checking which source `apt-get` later selected.
+The rejecting controls also challenge the fixture's measurement and input ordering.
+The request-bound mutation adapter uses the same executed controls through `just verification package-input-mutations`.
 
 The synthetic microphone fixture disables echo cancellation, noise suppression, and automatic gain control through exact capture constraints.
 [Chromium's fake capture documentation](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/media/base/media_switches.cc) warns that audio processing can distort a supplied audio file.

@@ -17,12 +17,13 @@ use std::{
     time::Duration,
 };
 
-const DEBIAN_INPUT_NAMES: [&str; 5] = [
+const DEBIAN_INPUT_NAMES: [&str; 6] = [
     "libedit-dev_3.1-20250104-1_arm64.deb",
     "libnspr4-dev_4.36-1_arm64.deb",
     "libmd-dev_1.1.0-2+b1_arm64.deb",
     "libsrtp2-1_2.7.0-3_arm64.deb",
     "libspeexdsp1_1.2.1-3_arm64.deb",
+    "libxml2_2.12.7+dfsg+really2.9.14-2.1+deb13u3_arm64.deb",
 ];
 
 fn root() -> PathBuf {

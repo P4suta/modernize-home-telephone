@@ -68,6 +68,8 @@ jobs:
         with:
           version: 2026.11.2
           cache: false
+      - name: Verify cached package resolution and rejecting controls
+        run: mise x -- just package-inputs
       - name: Install browser dependencies
         run: mise x -- pnpm --dir web install --frozen-lockfile --ignore-scripts
       - name: Install Chromium and its system dependencies

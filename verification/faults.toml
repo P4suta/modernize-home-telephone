@@ -1,4 +1,11 @@
 [[cases]]
+source = "xtask/tests/cached_packages.rs"
+test = "prefetched_packages_do_not_require_repository_downloads"
+invariant = "APT's acquisition plan must request no repository download for a prefetched package."
+previous_gap = "Checksum controls validated exported bytes but did not check APT's later source selection; moving index refresh inside a fixture can also hide the image's cache cleanup."
+enforcement = "Both pinned image stages replay preparation in maintained order and resolve with networking disabled; five controls remove archive staging, clear the cache through a later index refresh, or omit the encoded epoch filename and require the affected repository requests."
+
+[[cases]]
 source = "xtask/tests/browser_assets.rs"
 test = "browser_prepares_fresh_audio_before_inspecting_a_lab_installation"
 invariant = "Browser verification prepares valid current audio inputs from a clean checkout and replaces stale generated files."
@@ -24,7 +31,7 @@ source = "xtask/tests/upstream_archives.rs"
 test = "debian_packages_reject_corruption_and_require_their_checksums"
 invariant = "Pinned Debian inputs must reject corrupted bytes before compilation."
 previous_gap = "The source-only preflight covered two tar archives while native ARM64 builds repeatedly failed on implicit APT downloads from snapshot backends."
-enforcement = "The source-only stage checks five ARM64 package hashes from signed snapshot metadata; every package receives a positive export check, injected corruption, and a checksum-removal negative control."
+enforcement = "The source-only stage checks six ARM64 package hashes from signed snapshot metadata; every package receives a positive export check, injected corruption, and a checksum-removal negative control."
 
 [[cases]]
 source = "xtask/tests/verification_ownership.rs"
