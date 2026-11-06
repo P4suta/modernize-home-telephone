@@ -1,4 +1,18 @@
 [[cases]]
+source = "xtask/tests/http_fixtures.rs"
+test = "fixture_reading_consumes_the_complete_body_across_every_transport_split"
+invariant = "An HTTP fixture must consume the complete declared request body before replying or closing its connection."
+previous_gap = "The recovery fixture stopped after the headers, so separately delivered body bytes could make Linux reset the connection after a valid response."
+enforcement = "One bounded helper serves every native xtask HTTP fixture; an independent reader splits a complete request at every byte boundary and requires the complete body and no unread bytes."
+
+[[cases]]
+source = "xtask/tests/http_fixtures.rs"
+test = "fixture_reading_refuses_incomplete_ambiguous_and_oversized_requests"
+invariant = "A fixture request has one unambiguous bounded length and cannot end before its declared body."
+previous_gap = "Header-only fixtures had no parser contract, and their incidental buffering could hide a truncated body or inconsistent length."
+enforcement = "The helper accepts an exact 4096-byte request and rejects truncated headers or bodies, duplicate or invalid lengths, unsupported transfer encoding, and over-limit input."
+
+[[cases]]
 source = "xtask/tests/upstream_archives.rs"
 test = "upstream_archives_have_a_buildable_source_only_target"
 invariant = "Every pinned upstream archive must be retrievable and independently hash-checked before compilation."
@@ -58,8 +72,8 @@ enforcement = "The public backup entry point refuses a pending journal before re
 source = "xtask/tests/manager.rs"
 test = "recovery_retires_rollback_before_resuming_and_failed_retirement_never_sends_http"
 invariant = "Call admission cannot reopen while a replayable rollback journal remains."
-previous_gap = "The update model covered recovery and resumption but omitted durable journal retirement, and the adapter removed the journal after resumption."
-enforcement = "A real HTTP observer requires journal absence before receiving the resume request, and a conflicting journal directory must prevent every request while preserving quiescence."
+previous_gap = "The update model omitted journal retirement, and its later HTTP fixture stopped at the headers, allowing unread request bodies to cause connection resets."
+enforcement = "A real HTTP observer consumes the complete request before checking journal absence, shared fixture regressions enforce body framing, and a conflicting journal directory prevents every request while preserving quiescence."
 
 [[cases]]
 source = "xtask/tests/package_contract.rs"

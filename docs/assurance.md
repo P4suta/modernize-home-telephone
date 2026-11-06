@@ -96,6 +96,12 @@ Actual delivery through a browser vendor's push service remains separate from th
 
 ## Test the measurement and collection code
 
+Native HTTP fixtures share a bounded reader that consumes the complete declared request before replying or closing a connection.
+A header-only recovery fixture caused a Linux connection reset when the body arrived after the headers.
+Deterministic reader tests split a complete request at every two-part transport boundary and require the complete body with no unread bytes.
+The fixture contract also accepts exactly 4096 bytes and rejects truncated, ambiguous, unsupported, and larger messages.
+The fixture results establish the behavior of the shared test helper.
+
 Browser audio checks compare a known signal with a different frequency and an absolute power floor.
 The fixtures use a 400 Hz browser microphone, a 500 Hz virtual caller, and 1000 Hz mock read aloud audio.
 The browser test checks the saved recording for the corresponding signals after capture completes.

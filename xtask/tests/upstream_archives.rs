@@ -1,9 +1,11 @@
 #![cfg(feature = "upstream-archives")]
 
+mod support;
+
 use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
-    io::{Read, Write},
+    io::Write,
     net::{TcpListener, TcpStream},
     path::{Path, PathBuf},
     process::{Command, Output, Stdio},
@@ -85,18 +87,8 @@ impl ArchiveServer {
                 stream
                     .set_write_timeout(Some(Duration::from_secs(5)))
                     .unwrap();
-                let mut request = [0; 8192];
-                let mut count = 0;
-                while !request[..count]
-                    .windows(4)
-                    .any(|bytes| bytes == b"\r\n\r\n")
-                {
-                    assert!(count < request.len(), "fixture request exceeded its bound");
-                    let read = stream.read(&mut request[count..]).unwrap();
-                    assert_ne!(read, 0, "fixture request ended before its headers");
-                    count += read;
-                }
-                let request = std::str::from_utf8(&request[..count]).unwrap();
+                let request = support::read_request(&mut stream);
+                let request = std::str::from_utf8(&request).unwrap();
                 let mut words = request.split_whitespace();
                 let method = words.next().unwrap();
                 let path = words.next().unwrap();
