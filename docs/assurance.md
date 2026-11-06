@@ -21,6 +21,7 @@ Mutation campaigns must have no survivor or timeout.
 The mutation report distinguishes compilation errors from killed mutants.
 The Rust campaign retains the complete core inventory and adds both verification-image return-value substitutions.
 The tests must compile and catch both identity mutants.
+The campaign also requires caught result substitutions for verification and ownership restoration.
 A resource limit stop leaves the campaign inconclusive and produces no successful receipt.
 
 Before expensive builds, the hosted workflow executes the Docker source-only target and its corruption controls.
@@ -41,6 +42,12 @@ CLI fault tests keep two distinct engine identities, reject failed inspection an
 The native hosted campaign exercises the real engine and refuses registry pulls for verification containers.
 Docker image lookup remains outside Kani's Rust semantics.
 Reconsider the boundary if image selection introduces policy beyond preserving the validated engine identity.
+
+The runner creates output parents as the caller and restores ownership after container execution without widening private file modes.
+A restricted metadata container has no network access and receives fixed generated paths as ownership targets.
+CLI faults cover verification, ownership, identity, cleanup, and combined failures.
+Cleanup still runs after a verification or ownership failure, and combined errors preserve their causes.
+Native report upload and the final evidence check exercise the real file-permission boundary.
 
 ## Prove the pure production boundary
 

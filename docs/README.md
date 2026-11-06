@@ -13,6 +13,7 @@ The [architecture decision](adr/keep-call-policy-pure-and-own-effects-at-the-bou
 The [recording durability decision](adr/capture-recordings-before-cloud-inference.md) records why local capture has an independent worker.
 The [source distribution decision](adr/distribute-authored-sources-without-vendor-originals.md) keeps manufacturer originals outside public artifacts.
 The [native verification decision](adr/verify-runtime-and-proofs-on-native-runners.md) assigns runtime and proof checks to their supported processor architectures.
+The [verification ownership decision](adr/restore-verification-output-ownership.md) lets the caller read private reports after container execution.
 
 The [HT813 source catalog](../.agents/skills/grandstream-ht813/references/source-catalog.md) locates the preserved manuals and parameter templates.
 The [OpenAPI contract](../api/openapi.json) describes the implemented HTTP endpoints.

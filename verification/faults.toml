@@ -1,4 +1,18 @@
 [[cases]]
+source = "xtask/tests/verification_ownership.rs"
+test = "verification_restores_private_outputs_to_the_caller_before_cleanup"
+invariant = "Private container outputs must return to the caller's ownership without relaxing their file modes."
+previous_gap = "Native verification succeeded as container root, but ordinary Linux artifact collection could not traverse its private report directories."
+enforcement = "A process-boundary fixture captures the caller identity, generated path scope, restricted ownership container, and ownership-before-cleanup ordering; hosted artifact transfer exercises real permissions."
+
+[[cases]]
+source = "xtask/tests/verification_ownership.rs"
+test = "ownership_failures_and_verifier_failures_preserve_their_causes_and_cleanup"
+invariant = "Verifier, ownership, identity, and cleanup failures cannot become successful verification or hide each other's causes."
+previous_gap = "The runner stopped before cleanup on verification failures and had no ownership handoff or paired-failure coverage."
+enforcement = "Independent CLI faults exercise each failure and combined failures, require the corresponding causal messages, and require container cleanup even after verification or ownership refusal."
+
+[[cases]]
 source = "xtask/src/assurance.rs"
 test = "verification_images_preserve_identity_and_refuse_bad_cli_output"
 invariant = "A local verification image keeps the Docker engine's immutable ID and never turns a configuration ID into a registry manifest digest."
