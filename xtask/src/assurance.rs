@@ -639,6 +639,7 @@ pub fn inside(check: Check) -> anyhow::Result<()> {
             report
         }
         Check::Mutants => {
+            const IMAGE_RESULT_MUTANTS: usize = 2;
             let mut command = Command::new("cargo");
             command.env("CARGO_INCREMENTAL", "0");
             command
@@ -646,10 +647,16 @@ pub fn inside(check: Check) -> anyhow::Result<()> {
                     "mutants",
                     "--package",
                     "phone-core",
+                    "--package",
+                    "xtask",
                     "--jobs",
                     "1",
+                    "--build-timeout",
+                    "300",
                     "--timeout",
                     "20",
+                    "--re",
+                    r"crates/phone-core/|replace image ->",
                     "--output",
                 ])
                 .arg(&run);
@@ -661,6 +668,7 @@ pub fn inside(check: Check) -> anyhow::Result<()> {
                     command.arg("--file").arg(path);
                 }
             }
+            command.args(["--file", "xtask/src/assurance.rs"]);
             let status = run_logged(&mut command, &run.join("mutants.log"))?;
             let report = run.join("mutants.out/outcomes.json");
             let value: serde_json::Value = serde_json::from_slice(&std::fs::read(&report)?)?;
@@ -679,6 +687,26 @@ pub fn inside(check: Check) -> anyhow::Result<()> {
                             == value["total_mutants"].as_u64()),
                 "mutants survived or the campaign is incomplete"
             );
+            let image_results: Vec<_> = value["outcomes"]
+                .as_array()
+                .context("missing mutation outcomes")?
+                .iter()
+                .filter(|outcome| {
+                    outcome["scenario"]["Mutant"]["file"] == "xtask/src/assurance.rs"
+                        && outcome["scenario"]["Mutant"]["function"]["function_name"] == "image"
+                })
+                .collect();
+            ensure!(
+                image_results.len() == IMAGE_RESULT_MUTANTS
+                    && image_results
+                        .iter()
+                        .all(|outcome| outcome["summary"] == "CaughtMutant"),
+                "verification image result mutations were not caught"
+            );
+            crate::manager::atomic_json(
+                Path::new(".cache/assurance/mutants.outcomes.json"),
+                &value,
+            )?;
             report
         }
         Check::WebMutants => unreachable!(),
@@ -774,13 +802,102 @@ fn image(check: Check) -> anyhow::Result<String> {
         id.starts_with("sha256:") && id.len() == IMAGE_ID_LENGTH,
         "verification requires an immutable image identity"
     );
-    Ok(format!(
-        "{}@{id}",
-        name.split(':')
-            .next()
-            .context("invalid verification image name")?
-    ))
+    Ok(id)
 }
+
+#[cfg(test)]
+#[cfg(unix)]
+mod image_tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    const PRIVATE_EXECUTABLE_MODE: u32 = 0o700;
+
+    fn observe(id: &str, failure: &str) {
+        let directory = tempfile::tempdir().unwrap();
+        let docker = directory.path().join("docker");
+        std::fs::write(
+            &docker,
+            r#"#!/bin/sh
+case "$*" in
+  'image inspect homephone-verification:local')
+    printf '%s\n' "$HOMEPHONE_IMAGE_INSPECTION" ;;
+  'image inspect --format {{.Id}} homephone-verification:local')
+    if [ "$HOMEPHONE_IMAGE_FAILURE" = unavailable ]; then exit 1; fi
+    printf '%s\n' "$HOMEPHONE_IMAGE_ID" ;;
+  *) exit 71 ;;
+esac
+"#,
+        )
+        .unwrap();
+        std::fs::set_permissions(
+            &docker,
+            std::fs::Permissions::from_mode(PRIVATE_EXECUTABLE_MODE),
+        )
+        .unwrap();
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        let hash = crate::bundle::digest(&root.join(recipe(Check::Proof))).unwrap();
+        let mut paths = vec![directory.path().to_owned()];
+        paths.extend(std::env::split_paths(&std::env::var_os("PATH").unwrap()));
+        let result = Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "assurance::image_tests::image_child"])
+            .current_dir(root)
+            .env("PATH", std::env::join_paths(paths).unwrap())
+            .env("HOMEPHONE_IMAGE_ID", id)
+            .env("HOMEPHONE_IMAGE_FAILURE", failure)
+            .env(
+                "HOMEPHONE_IMAGE_INSPECTION",
+                serde_json::json!([{"Config":{"Labels":{"homephone.recipe":hash}}}]).to_string(),
+            )
+            .output()
+            .unwrap();
+        assert!(
+            result.status.success(),
+            "image contract failed: {:?}; {:?}",
+            String::from_utf8_lossy(&result.stdout),
+            String::from_utf8_lossy(&result.stderr)
+        );
+    }
+
+    #[test]
+    fn image_child() {
+        let Ok(expected) = std::env::var("HOMEPHONE_IMAGE_ID") else {
+            return;
+        };
+        let failure = std::env::var("HOMEPHONE_IMAGE_FAILURE").unwrap();
+        let actual = image(Check::Proof);
+        if failure.is_empty() {
+            assert_eq!(actual.unwrap(), expected);
+        } else {
+            assert!(
+                format!("{:#}", actual.unwrap_err()).contains(&failure),
+                "the intended image failure was not preserved"
+            );
+        }
+    }
+
+    #[test]
+    pub(super) fn local_images_preserve_the_engine_identity_without_a_registry_reference() {
+        for digit in ['a', 'b'] {
+            observe(&format!("sha256:{}", digit.to_string().repeat(64)), "");
+        }
+    }
+
+    #[test]
+    pub(super) fn unavailable_and_mutable_image_identities_are_refused() {
+        observe("", "unavailable");
+        observe("latest", "immutable");
+    }
+}
+
+#[cfg(test)]
+#[cfg(unix)]
+#[test]
+fn verification_images_preserve_identity_and_refuse_bad_cli_output() {
+    image_tests::local_images_preserve_the_engine_identity_without_a_registry_reference();
+    image_tests::unavailable_and_mutable_image_identities_are_refused();
+}
+
 pub fn verify(check: Check) -> anyhow::Result<()> {
     let source = binding(check)?;
     let image = image(check)?;
@@ -851,6 +968,8 @@ pub fn verify(check: Check) -> anyhow::Result<()> {
         let status = Command::new("docker")
             .args([
                 "run",
+                "--pull",
+                "never",
                 "--name",
                 &id,
                 "--memory",

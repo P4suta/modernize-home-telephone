@@ -19,6 +19,8 @@ Browser results must contain one passed execution per named case, no skipped or 
 SIPp must finish one dialog with no failed or remaining call.
 Mutation campaigns must have no survivor or timeout.
 The mutation report distinguishes compilation errors from killed mutants.
+The Rust campaign retains the complete core inventory and adds both verification-image return-value substitutions.
+The tests must compile and catch both identity mutants.
 A resource limit stop leaves the campaign inconclusive and produces no successful receipt.
 
 Before expensive builds, the hosted workflow executes the Docker source-only target and its corruption controls.
@@ -31,6 +33,14 @@ Removing only the checksum instruction in the test copy must permit corrupt byte
 Each instruction and attempt uses distinct content and a distinct digest because Docker may reuse checksum-addressed downloads even with its build cache turned off.
 The rejecting control must identify the injected bytes by their actual digest.
 Docker's checksum enforcement and SHA256 collision resistance remain external trust assumptions rather than Rust proof claims.
+
+Verification containers use the immutable local ID returned by Docker.
+A local image configuration ID doesn't become a registry manifest digest when prefixed with a repository name.
+The [Docker image reference contract](https://docs.docker.com/reference/cli/docker/container/run/) permits an image ID.
+CLI fault tests keep two distinct engine identities, reject failed inspection and mutable output, and isolate each process's environment.
+The native hosted campaign exercises the real engine and refuses registry pulls for verification containers.
+Docker image lookup remains outside Kani's Rust semantics.
+Reconsider the boundary if image selection introduces policy beyond preserving the validated engine identity.
 
 ## Prove the pure production boundary
 

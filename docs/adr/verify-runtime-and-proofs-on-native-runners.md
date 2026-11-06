@@ -7,7 +7,6 @@ date: 2026-11-06
 ## Status
 
 Proposed.
-Hosted confirmation remains pending.
 
 ## Context
 
@@ -20,6 +19,7 @@ Verify checksum-protected downloads before compilation.
 Run the ARM64 lab, browser, deployment, and web mutation checks on an ARM64 runner.
 Run the existing AMD64 proof, Miri, fuzz, and Rust mutation containers on an AMD64 runner.
 Check native reports through the existing source-bound evidence gate on the same commit.
+Keep local image IDs distinct from registry manifest digests.
 
 ## Alternatives
 

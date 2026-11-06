@@ -1,4 +1,11 @@
 [[cases]]
+source = "xtask/src/assurance.rs"
+test = "verification_images_preserve_identity_and_refuse_bad_cli_output"
+invariant = "A local verification image keeps the Docker engine's immutable ID and never turns a configuration ID into a registry manifest digest."
+previous_gap = "Owner-side verification accepted a synthesized repository digest that a cold classic Docker engine tried to pull from a registry."
+enforcement = "Independent CLI outputs exercise two identities, an inspection failure, and a mutable tag; the complete hosted campaign exercises real native Docker, and both image-result mutants must be caught."
+
+[[cases]]
 source = "xtask/tests/http_fixtures.rs"
 test = "fixture_reading_consumes_the_complete_body_across_every_transport_split"
 invariant = "An HTTP fixture must consume the complete declared request body before replying or closing its connection."
