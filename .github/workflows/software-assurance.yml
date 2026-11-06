@@ -44,7 +44,10 @@ jobs:
         with:
           name: native-verification
           path: |
-            .cache/assurance
+            .cache/assurance/*.json
+            .cache/assurance/runs/*/*.json
+            .cache/assurance/runs/*/*.log
+            .cache/assurance/runs/*/mutants.out/outcomes.json
             .cache/check-runs
           include-hidden-files: true
           if-no-files-found: error
