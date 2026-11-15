@@ -1,4 +1,4 @@
-FROM rust:1.99.1-trixie@sha256:edc584c5d2f915bcc5b08049987e7a492ccb8ab188444daf0a870b3ef82a3b2e AS trust
+FROM rust:1.99.1-trixie@sha256:8a4e90c7946b74626488b1446f712c0fe0ed1a596cbd3d871684bc9c5433ae07 AS trust
 
 FROM scratch AS source-inputs
 ADD --checksum=sha256:3bd5ee040509a3d3cd9b1ba9520c18e6ec0a7e7981ca68c457dcd36ba3c54d94 https://downloads.asterisk.org/pub/telephony/asterisk/releases/asterisk-22.11.0.tar.gz /asterisk.tar.gz

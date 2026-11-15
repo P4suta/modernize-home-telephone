@@ -4,7 +4,7 @@ WORKDIR /build/web
 COPY web/ ./
 RUN pnpm install --frozen-lockfile --ignore-scripts && pnpm build
 
-FROM rust:1.99.1-trixie@sha256:edc584c5d2f915bcc5b08049987e7a492ccb8ab188444daf0a870b3ef82a3b2e AS build
+FROM rust:1.99.1-trixie@sha256:8a4e90c7946b74626488b1446f712c0fe0ed1a596cbd3d871684bc9c5433ae07 AS build
 WORKDIR /build
 ENV CARGO_BUILD_JOBS=2
 COPY Cargo.toml Cargo.lock ./
