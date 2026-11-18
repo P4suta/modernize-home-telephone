@@ -21,9 +21,9 @@ jobs:
         with:
           persist-credentials: false
       - name: Install pinned tools
-        uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+        uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
         with:
-          version: 2026.11.2
+          version: 2026.11.8
           cache: false
       - name: Verify source downloads and rejecting checksum controls
         run: mise x -- cargo test --locked -p xtask --features upstream-archives --test upstream_archives
@@ -64,9 +64,9 @@ jobs:
         with:
           persist-credentials: false
       - name: Install pinned tools
-        uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+        uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
         with:
-          version: 2026.11.2
+          version: 2026.11.8
           cache: false
       - name: Verify cached package resolution and rejecting controls
         run: mise x -- just package-inputs
