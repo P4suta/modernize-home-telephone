@@ -1,6 +1,17 @@
 use phone_server::config::{Config, Mode, valid_number};
 
 #[test]
+fn browser_calls_use_registered_sip_for_new_and_existing_configurations() {
+    use phone_server::config::Sip;
+    let default: Sip = toml::from_str("").unwrap();
+    assert_eq!(default.browser_endpoint, "PJSIP/browser");
+    let saved: Sip = toml::from_str("browser_endpoint = 'Local/browser@home-endpoint'").unwrap();
+    assert_eq!(saved.browser_endpoint, default.browser_endpoint);
+    let custom: Sip = toml::from_str("browser_endpoint = 'PJSIP/office'").unwrap();
+    assert_eq!(custom.browser_endpoint, "PJSIP/office");
+}
+
+#[test]
 fn lab_is_local_and_requires_no_cloud_credentials() {
     let config = Config::default();
     assert!(config.validate().is_ok());

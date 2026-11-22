@@ -51,7 +51,7 @@ Process tests exercise absent and stale inputs, and the browser configuration va
 Separate process tests require the mutation collector to reject otherwise successful reports that omit either browser preparation or collection.
 The collector must identify the missing adapter and leave no successful receipt.
 Run the same boundary tests with `mise x -- cargo test --locked -p xtask --features upstream-archives --test upstream_archives`.
-The source-only stage preserves the pinned Asterisk and Japanese announcement bytes without compiling either runtime.
+The source-only stage preserves the pinned legacy Asterisk and Japanese announcement bytes without compiling either runtime.
 Asterisk uses its official release archive because the ordinary download directory retires superseded versions.
 The tests fetch the actual archives and independently compare exported file hashes with the Dockerfile's declared digests.
 For each archive, a local HTTP fixture must build with valid bytes and fail with a checksum mismatch for corrupt bytes.
@@ -100,7 +100,7 @@ The copied implementations stay inside the verification run directory.
 The controls preserve the source files under development.
 
 The native verifier checks supported Rust semantics under the recorded harness assumptions.
-It doesn't prove the effects of Asterisk, SQLite, HTTP, file synchronization, cloud inference, or the analog telephone interface.
+It doesn't prove the effects of Rusterisk, SQLite, HTTP, file synchronization, cloud inference, or the analog telephone interface.
 Those boundaries use the production adapters in native fault tests and real service rehearsals because their external state and operating-system behavior are outside the core proof semantics.
 Reconsider the boundary when a deterministic policy or adapter decision fits the executable core without changing its meaning.
 Prove that decision before reporting the complete gate as passing.
@@ -215,6 +215,14 @@ Manufacturer originals never enter the maintained source inventory or secret sca
 The generated OpenAPI document and TypeScript declarations must match the server schema, and runtime schemas remain tied to those declarations.
 These checks reduce identified dependency, schema, and secret risks without claiming a complete security audit.
 
+The browser gate also runs seven real SIP authentication cases with an isolated Rusterisk instance.
+The fixture retains the rendered production endpoints and contexts, substitutes loopback ports, and holds admitted channels in a bounded dialplan wait.
+SIPp exercises both gateway registrations, authenticated calls with a telephone number in `From`, wrong credentials, an unknown identity, and a request without authentication.
+Independent Asterisk REST Interface (ARI) observations require the exact endpoint, context, and original caller number.
+Native counterexamples reject misleading channel names, changed numbers, wrong contexts, and incomplete SIP counters.
+The [Rusterisk authentication contract](https://github.com/P4suta/Rusterisk/blob/v0.1.0/docs/inbound-sip-authentication.md) distinguishes the digest identity from the displayed caller number.
+The fixture establishes the software contract without assuming the HT813's unobserved caller identity headers.
+
 ## Exercise deployment and preserve limits
 
 The public distribution boundary uses the existing validated relative-path type for checksum names.
@@ -225,11 +233,11 @@ The telephone-core campaign uses its own source inventory.
 The publication checks don't prove publisher permission or whole-filesystem behavior.
 Reconsider the boundary if archives need remote acquisition, untrusted manifests, or redistribution permission.
 
-The real deployment rehearsal uses ARM64 app and Asterisk images, a wrong executable as a failed candidate, an uncommitted recovery journal, and a fresh restored installation.
+The real deployment rehearsal uses ARM64 app and Rusterisk images, a wrong executable as a failed candidate, an uncommitted recovery journal, and a fresh restored installation.
 The rehearsal returns the original installation to service.
 Native update-port tests inject paired failures, so a failed recovery can't erase the error that triggered it.
 Filesystem tests reject symlinks, parent traversal, deep empty directory trees, occupied destinations, and incomplete publication.
-Package validation requires the executable, both image archives, licenses, Asterisk source archive, and the maintained source identity before Docker import.
+Package validation requires the executable, both image archives, licenses, the release's gateway source archive, and the maintained source identity before Docker import.
 
 Recovery must retire the rollback journal and synchronize its parent before sending the HTTP request that reopens call admission.
 A real HTTP observer checks the ordering, and a failed retirement must leave quiescence enabled without sending a request.
@@ -274,11 +282,11 @@ The independent retention theorem checks the decision for arbitrary numeric limi
 
 ## Keep readiness evidence specific
 
-A successful channel creation response establishes an identifier before Asterisk necessarily delivers the corresponding `StasisStart` event.
+A successful channel creation response establishes an identifier before the gateway delivers the corresponding `StasisStart` event.
 The earlier gateway fixture returned success for bridge attachment immediately, so the test omitted the ordering constraint of the real server.
 The delayed-event fixture now makes premature attachment return a conflict.
 An unrelated Stasis event can't release the readiness wait, and disconnect resets the live inventory.
-The real Asterisk browser suite supplies a complementary observation of the full event, channel, bridge, and media path.
+The Rusterisk browser suite supplies a complementary observation of the full event, channel, bridge, and media path.
 The native exact-identity contract avoids depending on a favorable scheduler delay to expose the race.
 
 Administrative readiness also needs a narrower meaning than an HTTP server accepting requests.

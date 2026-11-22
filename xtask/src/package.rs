@@ -105,7 +105,11 @@ pub fn validate(directory: &Path) -> anyhow::Result<Release> {
         "homephone",
         "app.tar",
         "gateway.tar",
-        "gateway-source/asterisk.tar.gz",
+        if release.schema == manager::RUSTERISK_RELEASE_SCHEMA {
+            "gateway-source/rusterisk.tar.gz"
+        } else {
+            "gateway-source/asterisk.tar.gz"
+        },
         "source/Cargo.toml",
         "source/Cargo.lock",
         "source/LICENSE-MIT",
@@ -148,7 +152,7 @@ pub fn build(destination: &Path) -> anyhow::Result<()> {
             "--platform",
             "linux/arm64",
             "-f",
-            "deploy/asterisk/Dockerfile",
+            "deploy/rusterisk/Dockerfile",
             "--target",
             "runtime",
             "-t",
@@ -191,7 +195,7 @@ pub fn build(destination: &Path) -> anyhow::Result<()> {
                 "--platform",
                 "linux/arm64",
                 "-f",
-                "deploy/asterisk/Dockerfile",
+                "deploy/rusterisk/Dockerfile",
                 "--target",
                 "corresponding-source",
                 "--output",
@@ -212,7 +216,7 @@ pub fn build(destination: &Path) -> anyhow::Result<()> {
             ensure!(status.success(), "image export failed");
         }
         let release = Release {
-            schema: 1,
+            schema: manager::RUSTERISK_RELEASE_SCHEMA,
             source: source.clone(),
             architecture: "arm64".into(),
             app: manager::inspect_image(&app)?,

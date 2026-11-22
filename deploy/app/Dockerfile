@@ -1,8 +1,14 @@
 FROM node:26.13.0-trixie-slim@sha256:5adad64f9a1fca2d51972caa65983634c8a774eb300d72b20f7f2a0f60368072 AS web
-RUN npm install --global pnpm@12.15.0
+RUN npm install --global pnpm@12.17.0
 WORKDIR /build/web
 COPY web/ ./
 RUN pnpm install --frozen-lockfile --ignore-scripts && pnpm build
+
+FROM mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f AS browser-test
+WORKDIR /project/web
+COPY --from=web /usr/local/bin/node /usr/local/bin/node
+COPY --from=web /build/web /project/web
+ENTRYPOINT ["node", "node_modules/@playwright/test/cli.js", "test", "--output=test-results/artifacts"]
 
 FROM rust:1.99.1-trixie@sha256:edc584c5d2f915bcc5b08049987e7a492ccb8ab188444daf0a870b3ef82a3b2e AS build
 WORKDIR /build

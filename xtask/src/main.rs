@@ -15,6 +15,10 @@ enum Operation {
         update: bool,
     },
     Security,
+    GatewayAuthentication {
+        #[arg(long, default_value = ".local/telephone")]
+        directory: PathBuf,
+    },
     Browser {
         #[arg(long, default_value = ".local/telephone")]
         directory: PathBuf,
@@ -121,9 +125,9 @@ enum Operation {
     GatewayStart {
         #[arg(long, default_value = ".local/lab")]
         directory: PathBuf,
-        #[arg(long, default_value = "homephone-asterisk:local")]
+        #[arg(long, default_value = "homephone-rusterisk:local")]
         image: String,
-        #[arg(long, default_value = "homephone-lab-asterisk")]
+        #[arg(long, default_value = "homephone-lab-rusterisk")]
         name: String,
     },
     Assets {
@@ -144,6 +148,9 @@ fn main() -> anyhow::Result<()> {
         ),
         Operation::Api { update } => xtask::check::schema(update),
         Operation::Security => xtask::check::security(),
+        Operation::GatewayAuthentication { directory } => {
+            xtask::check::gateway_authentication(&directory)
+        }
         Operation::Browser { directory } => xtask::check::browser(&directory),
         Operation::Verify { check, inside } => {
             if inside {
@@ -216,7 +223,12 @@ fn main() -> anyhow::Result<()> {
             directory,
             image,
             name,
-        } => xtask::operations::start_asterisk(&directory, &image, &name),
+        } => xtask::operations::start_gateway(
+            &directory,
+            &image,
+            &name,
+            xtask::manager::RUSTERISK_RELEASE_SCHEMA,
+        ),
         Operation::Assets { output } => xtask::write_assets(&output),
         Operation::Corpus { output } => xtask::assurance::write_corpora(&output),
     }

@@ -18,7 +18,7 @@ mise x -- just security
 
 Rust compilation needs the operating system's C toolchain, `pkg-config`, and OpenSSL development headers.
 On Debian or Ubuntu, install `build-essential`, `pkg-config`, and `libssl-dev`.
-The [local lab guide](docs/local-lab.md) describes the Docker engine and browser requirements for real Asterisk, WebRTC, and SIPp checks.
+The [local lab guide](docs/local-lab.md) describes the Docker engine and browser requirements for Rusterisk calls with WebRTC and SIPp.
 Linux ARM64 containers require native ARM64 execution or registered emulation on another architecture.
 
 ## Change and verify behavior
@@ -31,11 +31,7 @@ Inspect fixtures and evidence collectors when a test gives a misleading result.
 Run `just check` and `just security` after a change.
 Regenerate changed API contracts with `just api` and commit their corresponding source change.
 For browser or deployment behavior, rebuild with `just lab` before `just browser` or `just deployment`.
-Install the pinned Chromium binary with the following command before the first browser run.
-
-```sh
-mise x -- pnpm --dir web exec playwright install --with-deps chromium
-```
+The browser suite runs pinned Chromium in a Linux ARM64 container on the gateway's loopback network.
 
 The [assurance contracts](docs/assurance.md) define the proof domains, fixed fuzz campaigns, mutation scope, and evidence completeness rules.
 Run affected heavy checks through the bounded project commands.

@@ -1,0 +1,26 @@
+diff --git a/crates/server/src/call_profiles.rs b/crates/server/src/call_profiles.rs
+--- a/crates/server/src/call_profiles.rs
++++ b/crates/server/src/call_profiles.rs
+@@ -241,7 +241,11 @@ impl NativeMediaProfile {
+     }
+
+     pub(crate) fn bind_ip(&self) -> std::net::IpAddr {
+-        self.transport.bind.ip()
++        let signaling = self.transport.bind.ip();
++        if self.webrtc && signaling.is_loopback() {
++            return self.transport.external_media_address.unwrap_or(signaling);
++        }
++        signaling
+     }
+
+     pub(crate) fn advertised(&self, local: SocketAddr) -> SocketAddr {
+@@ -252,6 +256,9 @@ impl NativeMediaProfile {
+     }
+ }
+
++#[cfg(test)]
++include!("browser_media_binding_test.rs");
++
+ pub(crate) struct BoundNativeCall {
+     pub(crate) endpoint: String,
+     pub(crate) sip: OutboundProfile,

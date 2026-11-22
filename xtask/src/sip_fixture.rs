@@ -1,3 +1,6 @@
+mod authentication;
+pub use authentication::{check_channel, run as authenticate_gateway};
+
 const IMAGE_ID_LENGTH: usize = 71;
 const IMAGE_ID_PREFIX_LENGTH: usize = 7;
 const READINESS_ATTEMPTS: usize = 50;
@@ -10,6 +13,12 @@ use anyhow::{Context, ensure};
 use std::{collections::BTreeSet, path::Path, process::Command};
 
 pub fn check_report(report: &str) -> anyhow::Result<()> {
+    check_counters(report, false)
+}
+pub fn check_client_report(report: &str) -> anyhow::Result<()> {
+    check_counters(report, true)
+}
+fn check_counters(report: &str, outgoing: bool) -> anyhow::Result<()> {
     let mut lines = report.lines();
     let header: Vec<_> = lines
         .next()
@@ -34,8 +43,8 @@ pub fn check_report(report: &str) -> anyhow::Result<()> {
     }
     let last = last.context("missing SIPp observations")?;
     for (name, expected) in [
-        ("IncomingCall(C)", 1),
-        ("OutgoingCall(C)", 0),
+        ("IncomingCall(C)", u64::from(!outgoing)),
+        ("OutgoingCall(C)", u64::from(outgoing)),
         ("SuccessfulCall(C)", 1),
         ("FailedCall(C)", 0),
         ("CurrentCall", 0),
@@ -57,58 +66,9 @@ pub struct Carrier {
 }
 impl Carrier {
     pub fn start(directory: &Path) -> anyhow::Result<Self> {
-        use sha2::{Digest as _, Sha256};
         use std::os::unix::fs::MetadataExt as _;
         crate::operations::private_directory(directory)?;
-        let inputs = [
-            "verification/Dockerfile.sip",
-            "deploy/apt-trust.conf",
-            "deploy/debian.sources",
-        ]
-        .map(|path| crate::bundle::digest(Path::new(path)))
-        .into_iter()
-        .collect::<anyhow::Result<Vec<_>>>()?;
-        let hash = format!("{:x}", Sha256::digest(serde_json::to_vec(&inputs)?));
-        let image = "homephone-verification-sip:local";
-        let current = Command::new("docker")
-            .args([
-                "image",
-                "inspect",
-                "--format",
-                "{{index .Config.Labels \"homephone.recipe\"}}",
-                image,
-            ])
-            .output()?;
-        if !current.status.success() || String::from_utf8_lossy(&current.stdout).trim() != hash {
-            crate::operations::run(
-                "docker",
-                &[
-                    "build",
-                    "--platform",
-                    "linux/arm64",
-                    "--file",
-                    "verification/Dockerfile.sip",
-                    "--label",
-                    &format!("homephone.recipe={hash}"),
-                    "--tag",
-                    image,
-                    ".",
-                ],
-            )?;
-        }
-        let identity = Command::new("docker")
-            .args(["image", "inspect", "--format", "{{.Id}}", image])
-            .output()?;
-        ensure!(identity.status.success(), "SIPp image is unavailable");
-        let identity = String::from_utf8(identity.stdout)?.trim().to_owned();
-        ensure!(
-            identity.len() == IMAGE_ID_LENGTH
-                && identity.starts_with("sha256:")
-                && identity[IMAGE_ID_PREFIX_LENGTH..]
-                    .bytes()
-                    .all(|byte| byte.is_ascii_hexdigit()),
-            "SIPp requires an immutable image identity"
-        );
+        let identity = image()?;
         let metadata = std::fs::metadata(directory)?;
         let name = format!("homephone-sip-{}", uuid::Uuid::new_v4());
         let fixture = Self { name };
@@ -224,4 +184,58 @@ impl Drop for Carrier {
             eprintln!("SIPp fixture cleanup failed: {error:#}");
         }
     }
+}
+
+fn image() -> anyhow::Result<String> {
+    use sha2::{Digest as _, Sha256};
+    let inputs = [
+        "verification/Dockerfile.sip",
+        "deploy/apt-trust.conf",
+        "deploy/debian.sources",
+    ]
+    .map(|path| crate::bundle::digest(Path::new(path)))
+    .into_iter()
+    .collect::<anyhow::Result<Vec<_>>>()?;
+    let hash = format!("{:x}", Sha256::digest(serde_json::to_vec(&inputs)?));
+    let image = "homephone-verification-sip:local";
+    let current = Command::new("docker")
+        .args([
+            "image",
+            "inspect",
+            "--format",
+            "{{index .Config.Labels \"homephone.recipe\"}}",
+            image,
+        ])
+        .output()?;
+    if !current.status.success() || String::from_utf8_lossy(&current.stdout).trim() != hash {
+        crate::operations::run(
+            "docker",
+            &[
+                "build",
+                "--platform",
+                "linux/arm64",
+                "--file",
+                "verification/Dockerfile.sip",
+                "--label",
+                &format!("homephone.recipe={hash}"),
+                "--tag",
+                image,
+                ".",
+            ],
+        )?;
+    }
+    let identity = Command::new("docker")
+        .args(["image", "inspect", "--format", "{{.Id}}", image])
+        .output()?;
+    ensure!(identity.status.success(), "SIPp image is unavailable");
+    let identity = String::from_utf8(identity.stdout)?.trim().to_owned();
+    ensure!(
+        identity.len() == IMAGE_ID_LENGTH
+            && identity.starts_with("sha256:")
+            && identity[IMAGE_ID_PREFIX_LENGTH..]
+                .bytes()
+                .all(|byte| byte.is_ascii_hexdigit()),
+        "SIPp requires an immutable image identity"
+    );
+    Ok(identity)
 }

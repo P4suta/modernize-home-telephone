@@ -312,3 +312,59 @@ test = "quota_accounts_for_recordings_beyond_the_history_page_and_expiry_never_o
 invariant = "Retention accounts for all stored recording bytes and removes files before deleting their history rows."
 previous_gap = "A small fixture hid history page truncation and deletion of rows beyond the processed file batch."
 enforcement = "More than ten thousand earlier tombstones precede available recordings, and successive bounded expiry batches check file and row consistency."
+
+[[cases]]
+source = "xtask/tests/gateway_migration.rs"
+test = "the_published_asterisk_configuration_upgrades_with_its_original_credentials"
+invariant = "An installation initialized by the published Asterisk release can use its existing credentials after the update."
+previous_gap = "The migration recognized only the most recent generated SIP configuration."
+enforcement = "The test restores the published endpoint settings and compares the native credentials and the original file after migration."
+
+[[cases]]
+source = "deploy/rusterisk/browser_media_binding_test.rs"
+test = "browser_media_binding"
+invariant = "A browser on a separate host can exchange audio while signaling stays on loopback."
+previous_gap = "The gateway advertised its local network address while binding the media socket to loopback."
+enforcement = "The ARM64 gateway build tests the browser media address, the loopback fallback, and the ordinary SIP binding."
+
+[[cases]]
+source = "deploy/rusterisk/control_report_delivery_test.rs"
+test = "failed_control_delivery_preserves_rtp"
+invariant = "A failed control report does not end an active audio stream."
+previous_gap = "A control socket send failure ended the media link even when the peer received audio."
+enforcement = "The ARM64 gateway test forces the control send to fail and verifies a received audio packet and successful media shutdown."
+
+[[cases]]
+source = "xtask/tests/gateway_migration.rs"
+test = "customized_or_incomplete_configuration_keeps_the_previous_gateway_recoverable"
+invariant = "Migration preserves custom gateway settings and rejects an incomplete native configuration."
+previous_gap = "A directory alone could be mistaken for a complete gateway configuration."
+enforcement = "A migration fixture changes an existing SIP configuration and supplies an empty native configuration directory."
+
+[[cases]]
+source = "xtask/tests/package_contract.rs"
+test = "package_sources_match_the_selected_gateway_generation"
+invariant = "The package must include the source of its declared gateway generation."
+previous_gap = "A new gateway package could retain the previous executable's source archive."
+enforcement = "A sealed package with the previous gateway source is rejected until its source entry matches the release."
+
+[[cases]]
+source = "xtask/tests/asterisk.rs"
+test = "rendered_gateway_has_authenticated_ports_and_native_fallback"
+invariant = "Registered endpoints retain digest-based identification when caller identity differs from the endpoint name."
+previous_gap = "Global identifier ordering did not opt endpoints into auth_username, and a broad lab IP match could hide the missing endpoint configuration."
+enforcement = "Native rendering checks require digest and AOR identification without production IP matching, and seven isolated SIP dialogs verify registration, caller identity, and authentication refusal."
+
+[[cases]]
+source = "xtask/tests/sip_authentication.rs"
+test = "gateway_observations_require_the_authenticated_endpoint_context_and_original_number"
+invariant = "SIP acceptance observations identify exactly one intended endpoint, context, and unchanged telephone number."
+previous_gap = "A prefix-only channel check accepted a different endpoint whose name began with the expected endpoint name."
+enforcement = "Independent native counterexamples change each channel property and reject empty, malformed, and duplicated ARI channel inventories."
+
+[[cases]]
+source = "xtask/tests/sip_authentication.rs"
+test = "sip_client_reports_require_one_completed_dialog_without_failure"
+invariant = "A SIP client campaign succeeds only after exactly one completed outgoing dialog without failure or active calls."
+previous_gap = "The existing SIP counter checker covered only an incoming server dialog."
+enforcement = "Native cases reject the opposite direction, empty and duplicated campaigns, failure, active calls, and truncated counters."

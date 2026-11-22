@@ -42,6 +42,8 @@ pub struct Release {
     pub app: Image,
     pub gateway: Image,
 }
+pub const RUSTERISK_RELEASE_SCHEMA: u32 = 2;
+
 pub fn image_references(source: &str, build: uuid::Uuid) -> anyhow::Result<(String, String)> {
     ensure!(
         source.len() == SHA256_HEX_DIGITS && source.bytes().all(|byte| byte.is_ascii_hexdigit()),
@@ -58,7 +60,9 @@ pub fn compatible(release: &Release, architecture: &str) -> anyhow::Result<()> {
         value.len() == SHA256_HEX_DIGITS && value.bytes().all(|byte| byte.is_ascii_hexdigit())
     };
     ensure!(
-        release.schema == 1 && release.architecture == "arm64" && architecture == "arm64",
+        matches!(release.schema, 1 | RUSTERISK_RELEASE_SCHEMA)
+            && release.architecture == "arm64"
+            && architecture == "arm64",
         "deployment requires a Linux ARM64 package"
     );
     ensure!(digest(&release.source), "invalid source identity");
@@ -347,10 +351,11 @@ impl Installation {
                 output(Command::new("docker").args(["start", &gateway]))?;
             }
         } else {
-            crate::operations::start_asterisk(
+            crate::operations::start_gateway(
                 &self.directory,
                 &release.gateway.reference,
                 &gateway,
+                release.schema,
             )?;
         }
         if let Some(container) = self.container(&app)? {
@@ -822,7 +827,7 @@ pub fn lab(directory: &Path) -> anyhow::Result<()> {
             "--platform",
             "linux/arm64",
             "-f",
-            "deploy/asterisk/Dockerfile",
+            "deploy/rusterisk/Dockerfile",
             "--target",
             "runtime",
             "-t",
@@ -835,7 +840,7 @@ pub fn lab(directory: &Path) -> anyhow::Result<()> {
         "sources changed during lab image creation"
     );
     let candidate = Release {
-        schema: 1,
+        schema: RUSTERISK_RELEASE_SCHEMA,
         source,
         architecture: "arm64".into(),
         app: inspect_image(&app)?,

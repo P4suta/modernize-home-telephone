@@ -6,7 +6,7 @@ Use the pinned tools through `mise x --`.
 
 Run `just check` for formatting, semantic lints, strict types, native tests, generated API contracts, preserved source checksums, and the fault inventory.
 Run `just security` for dependency and secret checks.
-Run `just lab`, `just browser`, and `just deployment` for the ARM64 Asterisk lab, real WebRTC and SIPp audio, and deployment recovery.
+Run `just lab`, `just browser`, and `just deployment` for the ARM64 Rusterisk lab, real WebRTC and SIPp audio, and deployment recovery.
 Automation must refuse production installations and paid AI providers.
 
 Run the proof, Miri, fuzz, Rust mutation, and TypeScript mutation commands through the bounded verification runner.

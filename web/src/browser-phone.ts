@@ -26,6 +26,7 @@ export interface BrowserState {
 	readonly audioBlocked: boolean;
 }
 export class BrowserPhone {
+	private readonly viaHost = `${crypto.randomUUID()}.invalid`;
 	private agent: UserAgent | undefined;
 	private registerer: Registerer | undefined;
 	private session: Session | undefined;
@@ -60,6 +61,8 @@ export class BrowserPhone {
 		if (!uri) throw new Error("電話の接続情報が無効です。");
 		const agent = new UserAgent({
 			uri,
+			contactName: credentials.username,
+			viaHost: this.viaHost,
 			authorizationUsername: credentials.username,
 			authorizationPassword: credentials.password,
 			logBuiltinEnabled: false,

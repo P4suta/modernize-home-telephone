@@ -620,7 +620,7 @@ async fn lab_incoming(
         _ => return Err(ApiError::invalid()),
     };
     let id = format!("hp-lab-{}", Uuid::new_v4());
-    let endpoint = format!("Local/{}@home-lab", input.scenario);
+    let endpoint = format!("PJSIP/{}@lab-caller", input.scenario);
     app.ari
         .command(
             reqwest::Method::POST,

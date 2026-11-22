@@ -1,6 +1,6 @@
 # Accept the physical telephone installation
 
-The software lab checks app behavior using Asterisk, mock AI, browser WebRTC, and SIPp.
+The software lab checks app behavior using Rusterisk, mock AI, browser WebRTC, and SIPp.
 The HT813, BL3000HM analog interface, actual telephone, Raspberry Pi boot, paid AI service, and browser push service need separate observations.
 Record device models, installed firmware, configuration backup locations, call outcomes, and remaining faults in private installation records.
 
