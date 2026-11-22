@@ -18,6 +18,7 @@ pub mod manager;
 pub mod operations;
 pub mod package;
 pub mod provisioning;
+pub mod rusterisk;
 pub mod sip_fixture;
 pub mod update_flow;
 

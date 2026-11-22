@@ -1,0 +1,42 @@
+diff --git a/crates/server/src/rtp.rs b/crates/server/src/rtp.rs
+--- a/crates/server/src/rtp.rs
++++ b/crates/server/src/rtp.rs
+@@ -224,6 +224,12 @@
+     Ok(())
+ }
+
++async fn send_control(socket: &UdpSocket, bytes: &[u8], peer: SocketAddr) {
++    if let Err(error) = send(socket, bytes, peer).await {
++        tracing::debug!(name: "rtcp_send_failed", %error, "RTCP delivery failed");
++    }
++}
++
+ fn report_delay(initial: bool) -> Result<Duration, MediaError> {
+     let mut entropy = [0; 2];
+     getrandom::fill(&mut entropy).map_err(failure)?;
+@@ -442,5 +448,5 @@
+                         let (reports, ntp) = reports(&sources)?;
+                         let bytes = rusterisk_media::sender_reports(&reports, ntp, "rusterisk")?;
+-                        send(&self.sockets.control, &bytes, control_peer).await?;
++                        send_control(&self.sockets.control, &bytes, control_peer).await;
+                     }
+                     report_at = tokio::time::Instant::now() + report_delay(false)?;
+@@ -451,5 +457,5 @@
+             let (reports, ntp) = reports(&sources)?;
+             let bytes = rusterisk_media::goodbye_reports(&reports, ntp, "rusterisk")?;
+-            send(&self.sockets.control, &bytes, control_peer).await?;
++            send_control(&self.sockets.control, &bytes, control_peer).await;
+         }
+         Ok(stats)
+diff --git a/crates/server/src/rtp/control_tests.rs b/crates/server/src/rtp/control_tests.rs
+--- a/crates/server/src/rtp/control_tests.rs
++++ b/crates/server/src/rtp/control_tests.rs
+@@ -78,6 +78,8 @@
+     })
+ }
+
++include!("control_report_delivery_test.rs");
++
+ #[tokio::test]
+ async fn fixed_audio_frames_keep_their_sample_clock_across_transport_scheduling_jitter(
+ ) -> Result<(), MediaError> {

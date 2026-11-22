@@ -1,0 +1,63 @@
+diff --git a/crates/config/src/lib.rs b/crates/config/src/lib.rs
+--- a/crates/config/src/lib.rs
++++ b/crates/config/src/lib.rs
+@@ -326,5 +326,6 @@ pub struct Aor {
+     pub name: String,
+     pub max_contacts: u16,
++    pub remove_existing: bool,
+     pub contact: Option<String>,
+     pub minimum_expiration: u32,
+     pub default_expiration: u32,
+@@ -819,5 +820,6 @@
+                         "type",
+                         "max_contacts",
++                        "remove_existing",
+                         "contact",
+                         "minimum_expiration",
+                         "default_expiration",
+@@ -845,5 +847,6 @@
+                     name: section.name.clone(),
+                     max_contacts,
++                    remove_existing: section.flag(file, "remove_existing", false)?,
+                     contact: section.value("contact").map(String::from),
+                     minimum_expiration,
+                     default_expiration: section.number(file, "default_expiration", 3600)?,
+diff --git a/crates/sip/src/registrar/bindings.rs b/crates/sip/src/registrar/bindings.rs
+--- a/crates/sip/src/registrar/bindings.rs
++++ b/crates/sip/src/registrar/bindings.rs
+@@ -148,5 +148,6 @@
+                 candidate.values.remove(index);
+             }
+         }
++        let mut previous_bindings = candidate.values.len();
+         for contact in changes.as_slice() {
+             let requested = contact
+@@ -170,7 +171,18 @@
+                 .count()
+                 >= usize::from(update.address.max_contacts)
+             {
+-                return Err(Rejection::TooManyContacts);
++                if !update.address.remove_existing {
++                    return Err(Rejection::TooManyContacts);
++                }
++                let (index, _) = candidate.values[..previous_bindings]
++                    .iter()
++                    .enumerate()
++                    .filter(|(_, binding)| binding.address == update.address.name)
++                    .min_by_key(|(_, binding)| binding.expires)
++                    .ok_or(Rejection::TooManyContacts)?;
++                ordering(&candidate.values[index], update)?;
++                candidate.values.remove(index);
++                previous_bindings -= 1;
+             }
+             if candidate.values.len() == 128 {
+                 return Err(Rejection::Capacity);
+diff --git a/crates/sip/tests/registration_bindings.rs b/crates/sip/tests/registration_bindings.rs
+--- a/crates/sip/tests/registration_bindings.rs
++++ b/crates/sip/tests/registration_bindings.rs
+@@ -116,3 +116,5 @@
+
++include!("support/telephone_contact_replacement_test.rs");
++
+ fn response(output: &Output) -> Result<Response, SipError> {
+     match SipMessage::try_from(output.datagrams[0].bytes.as_slice())? {

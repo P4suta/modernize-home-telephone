@@ -159,12 +159,76 @@ pub fn browser(directory: &Path) -> anyhow::Result<()> {
     );
     installation.health()?;
     let mut trace = Trace::new()?;
+    let image = format!("homephone-browser:source-{}", installation.release.source);
+    trace.run(
+        "docker",
+        &[
+            "build",
+            "--platform",
+            "linux/arm64",
+            "-f",
+            "deploy/app/Dockerfile",
+            "--target",
+            "browser-test",
+            "-t",
+            &image,
+            ".",
+        ],
+    )?;
+    trace.files.extend(crate::sip_fixture::authenticate_gateway(
+        &trace.directory,
+        &installation.release.gateway,
+    )?);
     let carrier = crate::sip_fixture::Carrier::start(&trace.directory)?;
     let report = PathBuf::from("web/test-results/results.json");
     if report.try_exists()? {
         std::fs::remove_file(&report)?;
     }
-    let browser = trace.run("pnpm", &["--dir", "web", "e2e"]);
+    let results = Path::new("web/test-results");
+    crate::operations::private_directory(results)?;
+    use std::os::unix::fs::MetadataExt as _;
+    let metadata = std::fs::metadata(results)?;
+    let browser = trace.run(
+        "docker",
+        &[
+            "run",
+            "--rm",
+            "--network",
+            "host",
+            "--platform",
+            "linux/arm64",
+            "--user",
+            &format!("{}:{}", metadata.uid(), metadata.gid()),
+            "--env",
+            "HOME=/tmp",
+            "--read-only",
+            "--tmpfs",
+            "/tmp:rw,nosuid,size=384m",
+            "--shm-size",
+            "256m",
+            "--memory",
+            "2g",
+            "--cpus",
+            "2",
+            "--pids-limit",
+            "256",
+            "--security-opt",
+            "no-new-privileges",
+            "--cap-drop",
+            "ALL",
+            "--mount",
+            &format!(
+                "type=bind,source={},target=/project/.local/fixtures,readonly",
+                Path::new(".local/fixtures").canonicalize()?.display()
+            ),
+            "--mount",
+            &format!(
+                "type=bind,source={},target=/project/web/test-results",
+                results.canonicalize()?.display()
+            ),
+            &image,
+        ],
+    );
     let sip = carrier.finish(&trace.directory);
     browser?;
     sip?;
@@ -184,6 +248,24 @@ pub fn browser(directory: &Path) -> anyhow::Result<()> {
     )?;
     trace.files.push(report);
     trace.finish("browser")
+}
+pub fn gateway_authentication(directory: &Path) -> anyhow::Result<()> {
+    crate::manager::require_lab(directory)?;
+    let installation = crate::manager::Installation::open(directory)?;
+    crate::manager::verify_images(&installation.release)?;
+    let directory = Path::new(".cache/check-runs").join(uuid::Uuid::new_v4().to_string());
+    crate::operations::private_directory(&directory)?;
+    let artifacts =
+        crate::sip_fixture::authenticate_gateway(&directory, &installation.release.gateway)?;
+    ensure!(
+        !artifacts.is_empty(),
+        "missing SIP authentication observations"
+    );
+    println!(
+        "Verified seven SIP authentication cases in {}",
+        directory.display()
+    );
+    Ok(())
 }
 pub fn schema(update: bool) -> anyhow::Result<()> {
     schema_with(&mut Trace::new()?, update)

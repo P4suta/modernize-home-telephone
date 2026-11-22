@@ -9,7 +9,8 @@ Use the [Raspberry Pi operations guide](raspberry-pi.md) to create an installati
 The [hardware acceptance procedure](hardware-acceptance.md) separates documented HT813 capabilities from the measurements still needed on the BL3000HM connection.
 
 The [assurance contracts](assurance.md) define the proof domains, fault injection, mutation campaigns, and source-bound result gates.
-The [architecture decision](adr/keep-call-policy-pure-and-own-effects-at-the-boundaries.md) records the production boundary and its costs.
+The [call policy decision](adr/keep-call-policy-pure-and-own-effects-at-the-boundaries.md) defines the app boundary.
+The [gateway decision](adr/run-the-telephone-gateway-with-rusterisk.md) describes Rusterisk deployment and rollback.
 The [recording durability decision](adr/capture-recordings-before-cloud-inference.md) records why local capture has an independent worker.
 The [source distribution decision](adr/distribute-authored-sources-without-vendor-originals.md) keeps manufacturer originals outside public artifacts.
 The [native verification decision](adr/verify-runtime-and-proofs-on-native-runners.md) assigns runtime and proof checks to their supported processor architectures.

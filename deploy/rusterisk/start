@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+umask 077
+state=/var/lib/rusterisk
+install -d "${state}/moh" "${state}/sounds/homephone"
+install -m 600 /usr/share/homephone/hold.wav "${state}/moh/hold.wav"
+install -m 600 /usr/share/homephone/caller.wav /usr/share/homephone/voicemail.wav "${state}/sounds/homephone/"
+exec rusterisk --config-dir /etc/rusterisk --data-dir "${state}"

@@ -66,8 +66,9 @@ test("settings validate input, persist across reload, and remove number rules", 
 	}
 });
 
-test("an allow rule bypasses screening and a browser answers and releases the line", async ({
+test("the latest registered browser answers an allowed call after the previous browser disconnects", async ({
 	page,
+	context,
 	request,
 }): Promise<void> => {
 	const original = await settings(request);
@@ -76,6 +77,14 @@ test("an allow rule bypasses screening and a browser answers and releases the li
 			...original,
 			rules: { ...original.rules, "999001": "allow" },
 		});
+		const previous = await context.newPage();
+		await previous.goto("/");
+		await previous
+			.getByRole("button", { name: "ブラウザー通話を有効にする", exact: true })
+			.click();
+		await expect(
+			previous.getByText("ブラウザーで応答できます。", { exact: true }),
+		).toBeVisible();
 		await page.goto("/");
 		await page
 			.getByRole("button", { name: "ブラウザー通話を有効にする", exact: true })
@@ -83,6 +92,10 @@ test("an allow rule bypasses screening and a browser answers and releases the li
 		await expect(
 			page.getByText("ブラウザーで応答できます。", { exact: true }),
 		).toBeVisible();
+		await previous
+			.getByRole("button", { name: "ブラウザー通話を無効にする", exact: true })
+			.click();
+		await previous.close();
 		const id = await incoming(request, "spam");
 		await expect(page.locator(".active-call")).toContainText("呼び出し中");
 		await page.getByRole("button", { name: "応答する", exact: true }).click();

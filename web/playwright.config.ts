@@ -20,7 +20,9 @@ export default defineConfig({
 		trace: "retain-on-failure",
 		screenshot: "only-on-failure",
 		launchOptions: {
+			channel: "chromium",
 			args: [
+				"--allow-loopback-in-peer-connection",
 				"--use-fake-ui-for-media-stream",
 				"--use-fake-device-for-media-stream",
 				`--use-file-for-fake-audio-capture=${BROWSER_AUDIO_FILE}`,

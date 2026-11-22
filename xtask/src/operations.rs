@@ -225,13 +225,18 @@ pub fn initialize_with<F: FnOnce(&Path) -> anyhow::Result<()>>(
             secret()
         };
         let gateway = secret();
-        for (name, body) in crate::asterisk::render(&crate::asterisk::Configuration {
+        let gateway_config = crate::rusterisk::Configuration {
             address,
             ari_password: &ari,
             browser_password: &browser,
             gateway_password: &gateway,
             lab,
-        })? {
+        };
+        crate::rusterisk::write(
+            &configuration_directory,
+            &crate::rusterisk::render(&gateway_config)?,
+        )?;
+        for (name, body) in crate::asterisk::render(&gateway_config)? {
             private_file(&configuration_directory.join(name), body.as_bytes())?;
         }
         let configuration = BootConfiguration {
@@ -273,8 +278,31 @@ pub fn initialize_with<F: FnOnce(&Path) -> anyhow::Result<()>>(
     operation
 }
 
-pub fn start_asterisk(directory: &Path, image: &str, name: &str) -> anyhow::Result<()> {
+pub fn start_gateway(
+    directory: &Path,
+    image: &str,
+    name: &str,
+    release_schema: u32,
+) -> anyhow::Result<()> {
     let directory = directory.canonicalize()?;
+    let mounts: &[(&str, &str, bool)] = match release_schema {
+        crate::manager::RUSTERISK_RELEASE_SCHEMA => {
+            crate::rusterisk::prepare_existing(&directory)?;
+            &[
+                ("config/rusterisk", "/etc/rusterisk", true),
+                ("cache", "/var/lib/rusterisk", false),
+                ("spool/recording", "/var/lib/rusterisk/recordings", false),
+            ]
+        }
+        1 => &[
+            ("config", GATEWAY_CONFIG_DIRECTORY, true),
+            ("spool", GATEWAY_SPOOL_DIRECTORY, false),
+            ("run", GATEWAY_RUNTIME_DIRECTORY, false),
+            ("logs", GATEWAY_LOG_DIRECTORY, false),
+            ("cache", GATEWAY_CACHE_DIRECTORY, false),
+        ],
+        _ => anyhow::bail!("unsupported gateway release schema"),
+    };
     ensure!(
         name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-'),
         "invalid container name"
@@ -324,13 +352,7 @@ pub fn start_asterisk(directory: &Path, image: &str, name: &str) -> anyhow::Resu
         "--tmpfs",
         "/tmp:rw,noexec,nosuid,size=32m",
     ]);
-    for (source, target, readonly) in [
-        ("config", GATEWAY_CONFIG_DIRECTORY, true),
-        ("spool", GATEWAY_SPOOL_DIRECTORY, false),
-        ("run", GATEWAY_RUNTIME_DIRECTORY, false),
-        ("logs", GATEWAY_LOG_DIRECTORY, false),
-        ("cache", GATEWAY_CACHE_DIRECTORY, false),
-    ] {
+    for &(source, target, readonly) in mounts {
         let suffix = if readonly { ",readonly" } else { "" };
         command.args([
             "--mount",
@@ -341,6 +363,9 @@ pub fn start_asterisk(directory: &Path, image: &str, name: &str) -> anyhow::Resu
         ]);
     }
     let status = command.arg(image).status()?;
-    ensure!(status.success(), "Asterisk container did not start");
+    ensure!(
+        status.success(),
+        "telephone gateway container did not start"
+    );
     Ok(())
 }

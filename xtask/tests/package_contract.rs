@@ -1,5 +1,28 @@
 use xtask::bundle::{self, Kind};
 
+#[test]
+fn package_sources_match_the_selected_gateway_generation() {
+    let root = tempfile::tempdir().unwrap();
+    sample(root.path());
+    let release_path = root.path().join("release.json");
+    let mut release: xtask::manager::Release =
+        serde_json::from_slice(&std::fs::read(&release_path).unwrap()).unwrap();
+    release.schema = xtask::manager::RUSTERISK_RELEASE_SCHEMA;
+    std::fs::write(&release_path, serde_json::to_vec(&release).unwrap()).unwrap();
+    let manifest = root.path().join("manifest.json");
+    std::fs::remove_file(&manifest).unwrap();
+    bundle::seal(root.path(), Kind::Package).unwrap();
+    assert!(xtask::package::validate(root.path()).is_err());
+    std::fs::rename(
+        root.path().join("gateway-source/asterisk.tar.gz"),
+        root.path().join("gateway-source/rusterisk.tar.gz"),
+    )
+    .unwrap();
+    std::fs::remove_file(&manifest).unwrap();
+    bundle::seal(root.path(), Kind::Package).unwrap();
+    xtask::package::validate(root.path()).unwrap();
+}
+
 fn sample(root: &std::path::Path) {
     for name in [
         "homephone",
@@ -56,4 +79,24 @@ fn packages_require_the_binary_images_and_matching_corresponding_sources_before_
     std::fs::remove_file(directory.path().join("manifest.json")).unwrap();
     bundle::seal(directory.path(), Kind::Package).unwrap();
     assert!(xtask::package::validate(directory.path()).is_err());
+}
+
+#[test]
+fn package_builds_isolate_compiled_artifacts_between_source_revisions() {
+    for recipe in [
+        include_str!("../../deploy/app/Dockerfile"),
+        include_str!("../../deploy/rusterisk/Dockerfile"),
+    ] {
+        for mount in recipe
+            .split_whitespace()
+            .filter(|option| option.starts_with("--mount=type=cache,"))
+        {
+            assert!(
+                !mount
+                    .split(',')
+                    .any(|field| matches!(field, "target=/build/target" | "target=/src/target")),
+                "workspace compilation used a shared target directory: {mount}"
+            );
+        }
+    }
 }

@@ -11,16 +11,12 @@ It places no calls on a public telephone network.
 mise x -- just lab
 ```
 
-The command initializes `.local/telephone` when absent, builds the app and Asterisk images, and starts the managed installation.
+The command initializes `.local/telephone` when absent, builds the app and Rusterisk images, and starts the managed installation.
 Open `http://localhost:8787` to simulate incoming calls, enable browser audio, inspect history, and replay recordings.
 Grant microphone access before starting browser calls.
+Simulated callers use an authenticated loopback SIP endpoint and play the bundled caller audio.
 The mock classifies configured scenarios after one second of `PCMU` input, independently of WebSocket message partitioning.
-The browser automation supplies its own audio fixture.
-Install the pinned browser and its operating system dependencies before the first browser run.
-
-```sh
-mise x -- pnpm --dir web exec playwright install --with-deps chromium
-```
+The browser command runs pinned Chromium on the same Linux loopback network as the gateway and supplies a microphone recording.
 
 ```sh
 mise x -- just check
@@ -31,9 +27,9 @@ mise x -- just deployment
 
 The browser command starts a bounded SIPp responder using the User Datagram Protocol (UDP) on loopback port 5070.
 The responder echoes Real-time Transport Protocol (RTP) media on port 6000.
+The fixture leaves the adjacent control port closed while the browser checks the echoed audio.
 The browser suite verifies outgoing calls, incoming takeover, hold, resume, read aloud, spam handling, recording, accessibility, and narrow layout.
 SIPp must report exactly one completed dialog and no failed or active call.
-The command removes only its uniquely named responder container.
 
 Deployment rehearsal requires an idle mock installation built from the current sources.
 It creates a sample recording, replaces the running service, rejects an invalid candidate, recovers an interrupted update, and boots a restored installation with a different identity.

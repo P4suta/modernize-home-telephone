@@ -1,0 +1,80 @@
+diff --git a/crates/server/src/storage/recording.rs b/crates/server/src/storage/recording.rs
+--- a/crates/server/src/storage/recording.rs
++++ b/crates/server/src/storage/recording.rs
+@@ -6,6 +6,8 @@
+ use std::path::PathBuf;
+ use tokio::sync::{mpsc, oneshot};
+
++const RECORDING_QUEUE_FRAMES: usize = 50;
++
+ #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+ pub(super) struct RecordingKey {
+     name: ChannelId,
+@@ -115,7 +117,7 @@
+         rate: u32,
+         policy: RecordingIfExists,
+     ) -> Result<RecordingSink, WorkerError> {
+-        let (frames, input) = mpsc::channel(3);
++        let (frames, input) = mpsc::channel(RECORDING_QUEUE_FRAMES);
+         let (lifetime, lifetime_receiver) = oneshot::channel();
+         let lease = Lease {
+             state: SinkState::Active(frames),
+@@ -215,10 +217,10 @@
+         }
+     }
+
+-    pub fn is_preparing(&self) -> bool {
++    pub fn has_pending_work(&self) -> bool {
+         self.entries
+             .values()
+-            .any(|entry| !entry.recorder.is_ready())
++            .any(|entry| entry.failure.is_none() && (!entry.recorder.is_ready() || !entry.input.is_empty()))
+     }
+
+     pub fn pump(&mut self) {
+@@ -291,10 +293,14 @@
+         store: &mut Store,
+         trim_milliseconds: u64,
+     ) -> Result<(), StorageError> {
+-        let entry = self.entries.remove(key).ok_or(StorageError::InvalidState)?;
++        let mut entry = self.entries.remove(key).ok_or(StorageError::InvalidState)?;
+         if let Some(error) = entry.failure {
+             return Err(error);
+         }
++        entry.input.close();
++        while let Ok(frame) = entry.input.try_recv() {
++            entry.recorder.write(frame)?;
++        }
+         entry.recorder.finish_with_tail_trim(trim_milliseconds)?;
+         store.recording_finished(key.name.as_str())
+     }
+@@ -317,6 +323,8 @@
+     use rusterisk_storage::{StorageError, Store};
+     use tokio::sync::{mpsc, oneshot, watch};
+
++    include!("recording_backlog_test.rs");
++
+     fn name() -> Result<ChannelId, WorkerError> {
+         ChannelId::try_from("bounded".to_owned()).map_err(|_| WorkerError::Invalid)
+     }
+@@ -409,7 +417,7 @@
+         drop(response);
+         recordings.pump();
+         assert!(!directory.path().join("recordings/bounded.append").exists());
+-        assert!(!recordings.is_preparing());
++        assert!(!recordings.has_pending_work());
+         assert_eq!(
+             std::fs::read(directory.path().join("recordings/bounded.wav"))?,
+             previous
+diff --git a/crates/server/src/storage.rs b/crates/server/src/storage.rs
+--- a/crates/server/src/storage.rs
++++ b/crates/server/src/storage.rs
+@@ -375,7 +375,7 @@
+             files.close();
+             break;
+         }
+-        if !recordings.is_preparing()
++        if !recordings.has_pending_work()
+             && !playbacks.is_preparing()
+             && !files.is_copying()
+             && wakes.blocking_recv().is_none()

@@ -1,6 +1,8 @@
 target
-web/node_modules
+**/node_modules
 web/dist
+web/test-results
+web/playwright-report
 .local
 .cache
 .git

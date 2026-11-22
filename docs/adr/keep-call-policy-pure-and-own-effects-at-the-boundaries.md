@@ -8,6 +8,7 @@ date: 2026-11-06
 
 Proposed.
 The code uses the decision pending architectural acceptance.
+The [Rusterisk gateway decision](run-the-telephone-gateway-with-rusterisk.md) updates the signaling and media adapter.
 
 ## Context
 

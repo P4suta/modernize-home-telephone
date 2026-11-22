@@ -61,6 +61,7 @@ pub struct Sip {
     pub domain: String,
     pub username: String,
     pub password_env: String,
+    #[serde(deserialize_with = "browser_endpoint")]
     pub browser_endpoint: String,
     pub handset_endpoint: String,
     pub carrier_endpoint: String,
@@ -133,11 +134,19 @@ impl Default for Sip {
             domain: "homephone.invalid".into(),
             username: "browser".into(),
             password_env: "HOMEPHONE_SIP_PASSWORD".into(),
-            browser_endpoint: "Local/browser@home-endpoint".into(),
+            browser_endpoint: "PJSIP/browser".into(),
             handset_endpoint: "PJSIP/handset".into(),
             carrier_endpoint: "fxo".into(),
         }
     }
+}
+fn browser_endpoint<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
+    let endpoint = String::deserialize(deserializer)?;
+    Ok(if endpoint == "Local/browser@home-endpoint" {
+        "PJSIP/browser".into()
+    } else {
+        endpoint
+    })
 }
 impl Default for Storage {
     fn default() -> Self {

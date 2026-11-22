@@ -1,8 +1,14 @@
 FROM node:26.13.0-trixie-slim@sha256:5adad64f9a1fca2d51972caa65983634c8a774eb300d72b20f7f2a0f60368072 AS web
-RUN npm install --global pnpm@12.15.0
+RUN npm install --global pnpm@12.17.0
 WORKDIR /build/web
 COPY web/ ./
 RUN pnpm install --frozen-lockfile --ignore-scripts && pnpm build
+
+FROM mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f AS browser-test
+WORKDIR /project/web
+COPY --from=web /usr/local/bin/node /usr/local/bin/node
+COPY --from=web /build/web /project/web
+ENTRYPOINT ["node", "node_modules/@playwright/test/cli.js", "test", "--output=test-results/artifacts"]
 
 FROM rust:1.99.1-trixie@sha256:edc584c5d2f915bcc5b08049987e7a492ccb8ab188444daf0a870b3ef82a3b2e AS build
 WORKDIR /build
@@ -10,11 +16,11 @@ ENV CARGO_BUILD_JOBS=2
 COPY Cargo.toml Cargo.lock ./
 COPY crates/ ./crates/
 COPY xtask/ ./xtask/
-RUN --mount=type=cache,id=homephone-cargo-registry,sharing=locked,target=/usr/local/cargo/registry --mount=type=cache,id=homephone-rust-1.99.1-arm64,sharing=locked,target=/build/target cargo build --release --locked -p phone-server && cp target/release/phone-server /phone-server
+RUN --mount=type=cache,id=homephone-cargo-registry,sharing=locked,target=/usr/local/cargo/registry cargo build --release --locked -p phone-server && cp target/release/phone-server /phone-server
 
 FROM build AS admin
 RUN rustup target add aarch64-unknown-linux-musl
-RUN --mount=type=cache,id=homephone-cargo-registry,sharing=locked,target=/usr/local/cargo/registry --mount=type=cache,id=homephone-rust-1.99.1-arm64,sharing=locked,target=/build/target cargo build --release --locked -p xtask --target aarch64-unknown-linux-musl && cp target/aarch64-unknown-linux-musl/release/xtask /homephone
+RUN --mount=type=cache,id=homephone-cargo-registry,sharing=locked,target=/usr/local/cargo/registry cargo build --release --locked -p xtask --target aarch64-unknown-linux-musl && cp target/aarch64-unknown-linux-musl/release/xtask /homephone
 
 FROM scratch AS artifacts
 COPY --from=admin --chmod=755 /homephone /homephone

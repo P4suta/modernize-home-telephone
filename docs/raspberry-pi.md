@@ -15,9 +15,10 @@ The destination must be absent.
 mise x -- just package .local/package
 ```
 
-The package contains the statically linked ARM64 `homephone` administration executable, app and gateway image archives, release fingerprints, a checksum manifest, the maintained project sources, and Asterisk corresponding source.
+The package contains the statically linked ARM64 `homephone` executable, app and gateway images, release fingerprints, and a checksum manifest.
+It includes the project and Rusterisk sources used for the build.
 Project code uses the root dual license.
-Asterisk, Debian components, and bundled sound recordings keep their respective upstream terms.
+Rusterisk, Debian components, and bundled sound recordings keep their respective upstream terms.
 Manufacturer originals remain outside the package.
 The [third-party notices](../THIRD_PARTY_NOTICES.md) describe the source boundary.
 The gateway image retains the Japanese sound license and credits under `/usr/share/licenses/asterisk-ja`.
@@ -50,9 +51,15 @@ tailscale serve --bg http://127.0.0.1:8787
 
 Serve carries HTTP and Session Initiation Protocol (SIP) signaling over WebSocket.
 WebRTC audio uses Interactive Connectivity Establishment (ICE) to choose a media path.
+The gateway binds browser media to the address supplied to `init --address`, which must belong to a network interface on the Pi.
 The path must reach the Pi's Real-time Transport Protocol (RTP) range, 10000 through 10099, over the User Datagram Protocol (UDP).
 The HT813 needs local network access to port 5060 for SIP over UDP and the RTP range.
-The Asterisk REST Interface (ARI) remains on loopback port 8088.
+Rusterisk serves the Asterisk REST Interface (ARI) on loopback port 8088.
+The gateway reads `config/rusterisk` and stores recorded wave files under `spool/recording`.
+Use the administration executable from the candidate package when upgrading an Asterisk installation.
+The first Rusterisk startup derives its configuration from the managed credentials and advertised address and preserves the existing dialplan.
+If you changed gateway settings outside the dialplan, supply matching Rusterisk settings in `config/rusterisk` before updating.
+The original configuration and recorded wave files remain available to the previous release during rollback.
 Tailnet audio reachability and the local network firewall belong to installation acceptance.
 
 ## Supervise boot
@@ -80,10 +87,13 @@ It quiesces new calls, creates a consistent SQLite snapshot, verifies the file i
 
 ```sh
 ./homephone backup --directory ./telephone --output ./backups/before-update
-./homephone update --directory ./telephone --package ./candidate-package --backup ./backups/update-transaction
+./candidate-package/homephone update --directory ./telephone --package ./candidate-package --backup ./backups/update-transaction &&
+  install -m 755 ./candidate-package/homephone ./homephone
 ```
 
-Each destination name must identify an absent path.
+Each backup destination must identify an absent path.
+The `install` command copies the candidate executable to the path that systemd uses after a successful update.
+If the update stops before completion, run `./candidate-package/homephone boot --directory ./telephone` to recover before replacing the service executable.
 An update preserves its own backup and journal, stops the old service only after backup succeeds, and commits a candidate only after its event consumer and gateway reconciliation are ready.
 A failed candidate restores the previous installation before accepting calls.
 The manager removes the journal and synchronizes its parent directory before sending a request to reopen admission.
