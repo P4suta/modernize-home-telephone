@@ -80,3 +80,23 @@ fn packages_require_the_binary_images_and_matching_corresponding_sources_before_
     bundle::seal(directory.path(), Kind::Package).unwrap();
     assert!(xtask::package::validate(directory.path()).is_err());
 }
+
+#[test]
+fn package_builds_isolate_compiled_artifacts_between_source_revisions() {
+    for recipe in [
+        include_str!("../../deploy/app/Dockerfile"),
+        include_str!("../../deploy/rusterisk/Dockerfile"),
+    ] {
+        for mount in recipe
+            .split_whitespace()
+            .filter(|option| option.starts_with("--mount=type=cache,"))
+        {
+            assert!(
+                !mount
+                    .split(',')
+                    .any(|field| matches!(field, "target=/build/target" | "target=/src/target")),
+                "workspace compilation used a shared target directory: {mount}"
+            );
+        }
+    }
+}

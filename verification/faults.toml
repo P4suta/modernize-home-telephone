@@ -389,3 +389,17 @@ test = "fixture_cleanup_reports_removal_failure_and_confirms_success_once"
 invariant = "A successful authentication campaign has removed its temporary containers."
 previous_gap = "A destructor only logged removal failures, allowing the fixture to report success."
 enforcement = "Explicit cleanup propagates failures, and the cleanup test verifies failure propagation, retry, and idempotence."
+
+[[cases]]
+source = "deploy/rusterisk/recording_backlog_test.rs"
+test = "recording_finish_preserves_a_second_of_buffered_audio"
+invariant = "A recording retains every accepted audio frame through a short storage stall and finalization."
+previous_gap = "A three-frame queue lost voicemail recordings when the storage worker fell more than 60 milliseconds behind."
+enforcement = "A paused storage consumer accepts 50 distinct frames, resumes partial draining, and publishes every frame in order."
+
+[[cases]]
+source = "xtask/tests/package_contract.rs"
+test = "package_builds_isolate_compiled_artifacts_between_source_revisions"
+invariant = "Package binaries match the source in their build context."
+previous_gap = "A shared Cargo target directory reused the Rusterisk call path when building the earlier Asterisk app."
+enforcement = "The build recipes keep workspace targets in source-specific Docker layers and cache registry downloads independently."

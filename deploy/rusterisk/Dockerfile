@@ -9,12 +9,14 @@ COPY deploy/rusterisk/bind-browser-media-to-the-lan.patch /tmp/browser-media.pat
 COPY deploy/rusterisk/keep-rtp-active-on-control-send-failure.patch /tmp/control-report.patch
 COPY deploy/rusterisk/replace-registered-contacts.patch /tmp/contact.patch
 COPY deploy/rusterisk/telephone_contact_replacement_test.rs /src/crates/sip/tests/support/telephone_contact_replacement_test.rs
+COPY deploy/rusterisk/buffer-recording-storage-stalls.patch /tmp/recording.patch
+COPY deploy/rusterisk/recording_backlog_test.rs /src/crates/server/src/storage/recording_backlog_test.rs
 COPY deploy/rusterisk/browser_media_binding_test.rs /src/crates/server/src/browser_media_binding_test.rs
 COPY deploy/rusterisk/control_report_delivery_test.rs /src/crates/server/src/rtp/control_report_delivery_test.rs
-RUN git apply /tmp/browser-media.patch /tmp/control-report.patch /tmp/contact.patch && tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner -czf /tmp/rusterisk-build-source.tar.gz .
+RUN git apply /tmp/browser-media.patch /tmp/control-report.patch /tmp/contact.patch /tmp/recording.patch && tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner -czf /tmp/rusterisk-build-source.tar.gz .
 ENV CARGO_BUILD_JOBS=2
-RUN --mount=type=cache,id=homephone-rusterisk-registry,target=/usr/local/cargo/registry,sharing=locked --mount=type=cache,id=homephone-rusterisk-1.100-arm64,target=/src/target,sharing=locked set -eu; \
-    for name in call_profiles::browser_media_binding rtp::control_tests::failed_control_delivery_preserves_rtp; do \
+RUN --mount=type=cache,id=homephone-rusterisk-registry,target=/usr/local/cargo/registry,sharing=locked set -eu; \
+    for name in call_profiles::browser_media_binding rtp::control_tests::failed_control_delivery_preserves_rtp storage::recording::tests::recording_finish_preserves_a_second_of_buffered_audio storage::recording::tests::an_overflow_is_terminal_even_when_audio_capacity_becomes_available; do \
         cargo test --release --locked -p rusterisk-server --lib "$name" -- --exact > /tmp/media-test.log || { cat /tmp/media-test.log; exit 1; }; \
         cat /tmp/media-test.log; \
         grep -Fqx "test $name ... ok" /tmp/media-test.log; \
@@ -22,7 +24,7 @@ RUN --mount=type=cache,id=homephone-rusterisk-registry,target=/usr/local/cargo/r
     cargo test --release --locked -p rusterisk-sip --test registration_bindings > /tmp/registration-test.log || { cat /tmp/registration-test.log; exit 1; }; \
     cat /tmp/registration-test.log; \
     grep -Fqx 'test authenticated_registration_replaces_only_previous_contacts ... ok' /tmp/registration-test.log
-RUN --mount=type=cache,id=homephone-rusterisk-registry,target=/usr/local/cargo/registry,sharing=locked --mount=type=cache,id=homephone-rusterisk-1.100-arm64,target=/src/target,sharing=locked cargo build --locked --release -p rusterisk-server --bin rusterisk && cp target/release/rusterisk /usr/local/bin/rusterisk
+RUN --mount=type=cache,id=homephone-rusterisk-registry,target=/usr/local/cargo/registry,sharing=locked cargo build --locked --release -p rusterisk-server --bin rusterisk && cp target/release/rusterisk /usr/local/bin/rusterisk
 
 FROM rust:1.99.1-trixie@sha256:edc584c5d2f915bcc5b08049987e7a492ccb8ab188444daf0a870b3ef82a3b2e AS assets
 WORKDIR /build
@@ -30,7 +32,7 @@ COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
 COPY xtask ./xtask
 ENV CARGO_BUILD_JOBS=2
-RUN --mount=type=cache,id=homephone-cargo-registry,sharing=locked,target=/usr/local/cargo/registry --mount=type=cache,id=homephone-rust-1.99.1-arm64,sharing=locked,target=/build/target cargo run --locked -p xtask -- assets --output /assets
+RUN --mount=type=cache,id=homephone-cargo-registry,sharing=locked,target=/usr/local/cargo/registry cargo run --locked -p xtask -- assets --output /assets
 ADD --checksum=sha256:f7bd2b21d72e3538f0f5d7331dbd3dbd56a9cdb339a789daabe689f5a33e484f https://downloads.asterisk.org/pub/telephony/sounds/releases/asterisk-core-sounds-ja-wav-1.6.1.tar.gz /tmp/japanese.tar.gz
 RUN mkdir /japanese && tar -xzf /tmp/japanese.tar.gz -C /japanese
 

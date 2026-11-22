@@ -16,11 +16,11 @@ ENV CARGO_BUILD_JOBS=2
 COPY Cargo.toml Cargo.lock ./
 COPY crates/ ./crates/
 COPY xtask/ ./xtask/
-RUN --mount=type=cache,id=homephone-cargo-registry,sharing=locked,target=/usr/local/cargo/registry --mount=type=cache,id=homephone-rust-1.99.1-arm64,sharing=locked,target=/build/target cargo build --release --locked -p phone-server && cp target/release/phone-server /phone-server
+RUN --mount=type=cache,id=homephone-cargo-registry,sharing=locked,target=/usr/local/cargo/registry cargo build --release --locked -p phone-server && cp target/release/phone-server /phone-server
 
 FROM build AS admin
 RUN rustup target add aarch64-unknown-linux-musl
-RUN --mount=type=cache,id=homephone-cargo-registry,sharing=locked,target=/usr/local/cargo/registry --mount=type=cache,id=homephone-rust-1.99.1-arm64,sharing=locked,target=/build/target cargo build --release --locked -p xtask --target aarch64-unknown-linux-musl && cp target/aarch64-unknown-linux-musl/release/xtask /homephone
+RUN --mount=type=cache,id=homephone-cargo-registry,sharing=locked,target=/usr/local/cargo/registry cargo build --release --locked -p xtask --target aarch64-unknown-linux-musl && cp target/aarch64-unknown-linux-musl/release/xtask /homephone
 
 FROM scratch AS artifacts
 COPY --from=admin --chmod=755 /homephone /homephone

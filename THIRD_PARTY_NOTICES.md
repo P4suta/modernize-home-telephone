@@ -26,7 +26,7 @@ Dependency licenses remain in effect.
 The runtime images also contain Debian packages under their package-specific terms.
 
 The gateway builds [Rusterisk](https://github.com/P4suta/Rusterisk/tree/v0.1.0) from the digest-pinned source in `deploy/rusterisk/Dockerfile`.
-The archive at `gateway-source/rusterisk.tar.gz` includes the media transport and endpoint registration changes used in the build.
+The archive at `gateway-source/rusterisk.tar.gz` includes the media transport, recording, and endpoint registration changes used in the build.
 The image includes both Rusterisk licenses.
 The archive retains the upstream source notices.
 The gateway image includes `LICENSE-asterisk-core-ja-1.6.1` and `CREDITS-asterisk-core-ja-1.6.1` for Japanese Asterisk sounds under `/usr/share/licenses/asterisk-ja`.

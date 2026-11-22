@@ -215,6 +215,8 @@ Manufacturer originals never enter the maintained source inventory or secret sca
 The generated OpenAPI document and TypeScript declarations must match the server schema, and runtime schemas remain tied to those declarations.
 These checks reduce identified dependency, schema, and secret risks without claiming a complete security audit.
 
+The recording queue holds one second of audio at 50 frames per second while the storage worker catches up.
+The recording test pauses the storage consumer and verifies that the final wave file contains every accepted frame in order.
 The browser answers an incoming call after a second tab registers and the first tab disconnects.
 The browser gate also runs seven real SIP authentication cases with an isolated Rusterisk instance.
 The fixture verifies the installed gateway fingerprint and starts the inspected image by its immutable identifier.
