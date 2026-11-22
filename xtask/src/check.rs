@@ -177,7 +177,7 @@ pub fn browser(directory: &Path) -> anyhow::Result<()> {
     )?;
     trace.files.extend(crate::sip_fixture::authenticate_gateway(
         &trace.directory,
-        &installation.release.gateway.reference,
+        &installation.release.gateway,
     )?);
     let carrier = crate::sip_fixture::Carrier::start(&trace.directory)?;
     let report = PathBuf::from("web/test-results/results.json");
@@ -255,10 +255,8 @@ pub fn gateway_authentication(directory: &Path) -> anyhow::Result<()> {
     crate::manager::verify_images(&installation.release)?;
     let directory = Path::new(".cache/check-runs").join(uuid::Uuid::new_v4().to_string());
     crate::operations::private_directory(&directory)?;
-    let artifacts = crate::sip_fixture::authenticate_gateway(
-        &directory,
-        &installation.release.gateway.reference,
-    )?;
+    let artifacts =
+        crate::sip_fixture::authenticate_gateway(&directory, &installation.release.gateway)?;
     ensure!(
         !artifacts.is_empty(),
         "missing SIP authentication observations"

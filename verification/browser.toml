@@ -6,7 +6,7 @@ tests = [
   "spam is disconnected and recorded without a paid provider",
   "suspected_spam is disconnected and recorded without a paid provider",
   "settings validate input, persist across reload, and remove number rules",
-  "an allow rule bypasses screening and a browser answers and releases the line",
+  "the latest registered browser answers an allowed call after the previous browser disconnects",
   "a block rule rejects a human caller without recording and screen restores AI routing",
   "recordings play and seek, transcript failures retry, and confirmed deletion persists",
   "SSE reconnect converges after missed call and deletion events without duplicate history",

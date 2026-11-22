@@ -7,16 +7,21 @@ WORKDIR /src
 RUN tar -xzf /tmp/rusterisk.tar.gz --strip-components=1 -C /src
 COPY deploy/rusterisk/bind-browser-media-to-the-lan.patch /tmp/browser-media.patch
 COPY deploy/rusterisk/keep-rtp-active-on-control-send-failure.patch /tmp/control-report.patch
+COPY deploy/rusterisk/replace-registered-contacts.patch /tmp/contact.patch
+COPY deploy/rusterisk/telephone_contact_replacement_test.rs /src/crates/sip/tests/support/telephone_contact_replacement_test.rs
 COPY deploy/rusterisk/browser_media_binding_test.rs /src/crates/server/src/browser_media_binding_test.rs
 COPY deploy/rusterisk/control_report_delivery_test.rs /src/crates/server/src/rtp/control_report_delivery_test.rs
-RUN git apply /tmp/browser-media.patch /tmp/control-report.patch && tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner -czf /tmp/rusterisk-build-source.tar.gz .
+RUN git apply /tmp/browser-media.patch /tmp/control-report.patch /tmp/contact.patch && tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner -czf /tmp/rusterisk-build-source.tar.gz .
 ENV CARGO_BUILD_JOBS=2
 RUN --mount=type=cache,id=homephone-rusterisk-registry,target=/usr/local/cargo/registry,sharing=locked --mount=type=cache,id=homephone-rusterisk-1.100-arm64,target=/src/target,sharing=locked set -eu; \
     for name in call_profiles::browser_media_binding rtp::control_tests::failed_control_delivery_preserves_rtp; do \
         cargo test --release --locked -p rusterisk-server --lib "$name" -- --exact > /tmp/media-test.log || { cat /tmp/media-test.log; exit 1; }; \
         cat /tmp/media-test.log; \
         grep -Fqx "test $name ... ok" /tmp/media-test.log; \
-    done
+    done; \
+    cargo test --release --locked -p rusterisk-sip --test registration_bindings > /tmp/registration-test.log || { cat /tmp/registration-test.log; exit 1; }; \
+    cat /tmp/registration-test.log; \
+    grep -Fqx 'test authenticated_registration_replaces_only_previous_contacts ... ok' /tmp/registration-test.log
 RUN --mount=type=cache,id=homephone-rusterisk-registry,target=/usr/local/cargo/registry,sharing=locked --mount=type=cache,id=homephone-rusterisk-1.100-arm64,target=/src/target,sharing=locked cargo build --locked --release -p rusterisk-server --bin rusterisk && cp target/release/rusterisk /usr/local/bin/rusterisk
 
 FROM rust:1.99.1-trixie@sha256:edc584c5d2f915bcc5b08049987e7a492ccb8ab188444daf0a870b3ef82a3b2e AS assets

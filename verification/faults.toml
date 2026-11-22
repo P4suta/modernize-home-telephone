@@ -331,8 +331,8 @@ enforcement = "The ARM64 gateway build tests the browser media address, the loop
 source = "deploy/rusterisk/control_report_delivery_test.rs"
 test = "failed_control_delivery_preserves_rtp"
 invariant = "A failed control report does not end an active audio stream."
-previous_gap = "A control socket send failure ended the media link even when the peer received audio."
-enforcement = "The ARM64 gateway test forces the control send to fail and verifies a received audio packet and successful media shutdown."
+previous_gap = "A test that stopped after one audio packet observed only the final control report."
+enforcement = "The ARM64 gateway test observes a failed periodic report, receives the next audio packet, and observes a failed goodbye report after shutdown."
 
 [[cases]]
 source = "xtask/tests/gateway_migration.rs"
@@ -368,3 +368,24 @@ test = "sip_client_reports_require_one_completed_dialog_without_failure"
 invariant = "A SIP client campaign succeeds only after exactly one completed outgoing dialog without failure or active calls."
 previous_gap = "The existing SIP counter checker covered only an incoming server dialog."
 enforcement = "Native cases reject the opposite direction, empty and duplicated campaigns, failure, active calls, and truncated counters."
+
+[[cases]]
+source = "deploy/rusterisk/telephone_contact_replacement_test.rs"
+test = "authenticated_registration_replaces_only_previous_contacts"
+invariant = "An authenticated replacement can receive calls after the previous contact disconnects."
+previous_gap = "The gateway rejected a second browser contact until the first registration expired."
+enforcement = "Registrar tests cover contact replacement, refresh, capacity refusal, and another address, and the browser answers a call after the previous tab closes."
+
+[[cases]]
+source = "xtask/src/manager.rs"
+test = "gateway_fixture_starts_only_the_inspected_release_image"
+invariant = "Authentication observations come from the installed gateway image."
+previous_gap = "The browser campaign started the gateway by a mutable tag."
+enforcement = "The manager checks the release fingerprint and returns the immutable ID from the same inspection, rejecting a changed layer or a mutable ID."
+
+[[cases]]
+source = "xtask/src/sip_fixture/authentication.rs"
+test = "fixture_cleanup_reports_removal_failure_and_confirms_success_once"
+invariant = "A successful authentication campaign has removed its temporary containers."
+previous_gap = "A destructor only logged removal failures, allowing the fixture to report success."
+enforcement = "Explicit cleanup propagates failures, and the cleanup test verifies failure propagation, retry, and idempotence."

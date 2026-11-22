@@ -15,7 +15,7 @@ pub fn render(config: &Configuration<'_>) -> anyhow::Result<BTreeMap<String, Str
         ("handset", "udp", "home-outbound", config.gateway_password),
         ("browser", "ws", "home-outbound", config.browser_password),
     ] {
-        sip.push_str(&format!("[{name}-auth]\ntype=auth\nusername={name}\npassword={password}\n[{name}]\ntype=aor\nmax_contacts=1\n[{name}]\ntype=endpoint\ntransport={transport}\nauth={name}-auth\noutbound_auth={name}-auth\naors={name}\ncontext={context}\ndisallow=all\nallow=ulaw,alaw\ndtmf_mode=rfc4733\n"));
+        sip.push_str(&format!("[{name}-auth]\ntype=auth\nusername={name}\npassword={password}\n[{name}]\ntype=aor\nmax_contacts=1\nremove_existing=yes\n[{name}]\ntype=endpoint\ntransport={transport}\nauth={name}-auth\noutbound_auth={name}-auth\naors={name}\ncontext={context}\ndisallow=all\nallow=ulaw,alaw\ndtmf_mode=rfc4733\n"));
         if name == "browser" {
             sip.push_str("webrtc=yes\n");
         }

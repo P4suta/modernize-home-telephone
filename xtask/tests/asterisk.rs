@@ -16,6 +16,9 @@ fn rusterisk_configuration_uses_explicit_authenticated_transports() {
             "[{endpoint}]\ntype=endpoint\ntransport={transport}\n"
         )));
         assert!(sip.contains(&format!("auth={endpoint}-auth\n")));
+        assert!(sip.contains(&format!(
+            "[{endpoint}]\ntype=aor\nmax_contacts=1\nremove_existing=yes\n"
+        )));
     }
     assert!(!sip.contains("type=global"));
     assert!(!files["rtp.conf"].contains("icesupport="));

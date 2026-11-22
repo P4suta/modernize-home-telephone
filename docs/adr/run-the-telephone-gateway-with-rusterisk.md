@@ -12,13 +12,13 @@ Proposed.
 
 The telephone controller uses the Asterisk REST Interface (ARI) for calls, bridges, recordings, and external audio.
 The [call policy decision](keep-call-policy-pure-and-own-effects-at-the-boundaries.md) places routing in `phone-core`.
-Existing installations hold credentials, recorded audio, and a recoverable gateway release.
 
 ## Decision
 
 Run [Rusterisk](https://github.com/P4suta/Rusterisk/tree/v0.1.0) as the managed gateway.
 Authenticate browser and handset endpoints using the Session Initiation Protocol (SIP).
-Originate simulated calls over loopback.
+Replace an endpoint's previous contact when a newly authenticated client registers.
+Simulate calls over loopback.
 Preserve the Asterisk configuration for rollback and mount the recording spool.
 Keep WebSocket signaling on loopback and bind browser media to the local network address.
 Package the patched gateway source.

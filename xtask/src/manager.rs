@@ -55,10 +55,10 @@ pub fn image_references(source: &str, build: uuid::Uuid) -> anyhow::Result<(Stri
         format!("homephone-gateway:source-{tag}"),
     ))
 }
+fn digest(value: &str) -> bool {
+    value.len() == SHA256_HEX_DIGITS && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
 pub fn compatible(release: &Release, architecture: &str) -> anyhow::Result<()> {
-    let digest = |value: &str| {
-        value.len() == SHA256_HEX_DIGITS && value.bytes().all(|byte| byte.is_ascii_hexdigit())
-    };
     ensure!(
         matches!(release.schema, 1 | RUSTERISK_RELEASE_SCHEMA)
             && release.architecture == "arm64"
@@ -128,31 +128,47 @@ fn output(command: &mut Command) -> anyhow::Result<Vec<u8>> {
     );
     Ok(output.stdout)
 }
-pub fn inspect_image(reference: &str) -> anyhow::Result<Image> {
-    use sha2::{Digest, Sha256};
-    let inspect: Vec<serde_json::Value> = serde_json::from_slice(&output(
+fn inspect(reference: &str) -> anyhow::Result<serde_json::Value> {
+    let [image] = serde_json::from_slice::<[_; 1]>(&output(
         Command::new("docker").args(["image", "inspect", reference]),
     )?)?;
-    let image = inspect
-        .first()
-        .context("image inspection returned no image")?;
+    Ok(image)
+}
+fn image_fingerprint(image: &serde_json::Value) -> anyhow::Result<String> {
+    use sha2::{Digest, Sha256};
     ensure!(
         image["Architecture"] == "arm64" && image["Os"] == "linux",
         "image must target Linux ARM64"
     );
     let identity = serde_json::json!({"architecture":image["Architecture"],"os":image["Os"],"config":image["Config"],"rootfs":image["RootFS"]});
+    Ok(format!(
+        "{:x}",
+        Sha256::digest(serde_json::to_vec(&identity)?)
+    ))
+}
+pub fn inspect_image(reference: &str) -> anyhow::Result<Image> {
     Ok(Image {
         reference: reference.into(),
-        fingerprint: format!("{:x}", Sha256::digest(serde_json::to_vec(&identity)?)),
+        fingerprint: image_fingerprint(&inspect(reference)?)?,
     })
+}
+fn verified_id<'a>(expected: &Image, image: &'a serde_json::Value) -> anyhow::Result<&'a str> {
+    ensure!(
+        image_fingerprint(image)? == expected.fingerprint,
+        "loaded image differs from the package"
+    );
+    image["Id"]
+        .as_str()
+        .filter(|id| id.strip_prefix("sha256:").is_some_and(digest))
+        .context("gateway requires an immutable image ID")
+}
+pub fn verified_image_id(expected: &Image) -> anyhow::Result<String> {
+    Ok(verified_id(expected, &inspect(&expected.reference)?)?.to_owned())
 }
 pub fn verify_images(release: &Release) -> anyhow::Result<()> {
     compatible(release, "arm64")?;
     for expected in [&release.app, &release.gateway] {
-        ensure!(
-            inspect_image(&expected.reference)?.fingerprint == expected.fingerprint,
-            "loaded image differs from the package"
-        );
+        verified_image_id(expected)?;
     }
     Ok(())
 }
@@ -924,4 +940,21 @@ pub fn restore(backup: &Path, directory: &Path) -> anyhow::Result<()> {
     )?;
     std::fs::rename(temporary, path)?;
     Ok(())
+}
+
+#[cfg(test)]
+#[test]
+fn gateway_fixture_starts_only_the_inspected_release_image() {
+    let id = format!("sha256:{}", "a".repeat(SHA256_HEX_DIGITS));
+    let mut image = serde_json::json!({"Id":id, "Architecture":"arm64", "Os":"linux", "Config":{"Cmd":["gateway"]}, "RootFS":{"Layers":["original"]}});
+    let expected = Image {
+        reference: "gateway:installed".into(),
+        fingerprint: image_fingerprint(&image).unwrap(),
+    };
+    assert_eq!(verified_id(&expected, &image).unwrap(), id);
+    image["Id"] = "gateway:installed".into();
+    assert!(verified_id(&expected, &image).is_err());
+    image["Id"] = id.into();
+    image["RootFS"]["Layers"][0] = "replacement".into();
+    assert!(verified_id(&expected, &image).is_err());
 }

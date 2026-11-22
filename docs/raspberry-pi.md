@@ -87,10 +87,13 @@ It quiesces new calls, creates a consistent SQLite snapshot, verifies the file i
 
 ```sh
 ./homephone backup --directory ./telephone --output ./backups/before-update
-./homephone update --directory ./telephone --package ./candidate-package --backup ./backups/update-transaction
+./candidate-package/homephone update --directory ./telephone --package ./candidate-package --backup ./backups/update-transaction &&
+  install -m 755 ./candidate-package/homephone ./homephone
 ```
 
-Each destination name must identify an absent path.
+Each backup destination must identify an absent path.
+The `install` command copies the candidate executable to the path that systemd uses after a successful update.
+If the update stops before completion, run `./candidate-package/homephone boot --directory ./telephone` to recover before replacing the service executable.
 An update preserves its own backup and journal, stops the old service only after backup succeeds, and commits a candidate only after its event consumer and gateway reconciliation are ready.
 A failed candidate restores the previous installation before accepting calls.
 The manager removes the journal and synchronizes its parent directory before sending a request to reopen admission.

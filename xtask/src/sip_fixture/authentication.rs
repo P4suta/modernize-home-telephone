@@ -68,10 +68,34 @@ fn await_empty_channels() -> anyhow::Result<()> {
     }
 }
 
-struct Container(String);
+struct Container {
+    name: String,
+    removed: bool,
+}
+impl Container {
+    fn new(name: String) -> Self {
+        Self {
+            name,
+            removed: false,
+        }
+    }
+    fn remove_with(
+        &mut self,
+        remove: impl FnOnce(&str) -> anyhow::Result<()>,
+    ) -> anyhow::Result<()> {
+        if !self.removed {
+            remove(&self.name)?;
+            self.removed = true;
+        }
+        Ok(())
+    }
+    fn remove(&mut self) -> anyhow::Result<()> {
+        self.remove_with(|name| crate::operations::run("docker", &["rm", "--force", name]))
+    }
+}
 impl Drop for Container {
     fn drop(&mut self) {
-        if let Err(error) = crate::operations::run("docker", &["rm", "--force", &self.0]) {
+        if let Err(error) = self.remove() {
             eprintln!("SIP authentication fixture cleanup failed: {error:#}");
         }
     }
@@ -149,7 +173,8 @@ fn scenario(
     )
 }
 
-pub fn run(directory: &Path, gateway_image: &str) -> anyhow::Result<Vec<PathBuf>> {
+pub fn run(directory: &Path, gateway: &crate::manager::Image) -> anyhow::Result<Vec<PathBuf>> {
+    let gateway_image = crate::manager::verified_image_id(gateway)?;
     let directory = directory.join("gateway-authentication");
     crate::operations::initialize(
         &directory,
@@ -180,14 +205,14 @@ pub fn run(directory: &Path, gateway_image: &str) -> anyhow::Result<Vec<PathBuf>
         };
         std::fs::write(directory.join("config/rusterisk").join(name), body)?;
     }
-    let gateway = Container(format!(
+    let mut gateway = Container::new(format!(
         "homephone-sip-auth-gateway-{}",
         uuid::Uuid::new_v4()
     ));
     crate::operations::start_gateway(
         &directory,
-        gateway_image,
-        &gateway.0,
+        &gateway_image,
+        &gateway.name,
         crate::manager::RUSTERISK_RELEASE_SCHEMA,
     )?;
     let deadline = Instant::now() + Duration::from_secs(10);
@@ -273,7 +298,7 @@ pub fn run(directory: &Path, gateway_image: &str) -> anyhow::Result<Vec<PathBuf>
         )?;
         let log = directory.join(format!("{name}.log"));
         let output = std::fs::File::create(&log)?;
-        let client = Container(format!(
+        let mut client = Container::new(format!(
             "homephone-sip-auth-client-{}",
             uuid::Uuid::new_v4()
         ));
@@ -285,7 +310,7 @@ pub fn run(directory: &Path, gateway_image: &str) -> anyhow::Result<Vec<PathBuf>
             .args([
                 "run",
                 "--name",
-                &client.0,
+                &client.name,
                 "--user",
                 &user_id,
                 "--workdir",
@@ -364,12 +389,13 @@ pub fn run(directory: &Path, gateway_image: &str) -> anyhow::Result<Vec<PathBuf>
                 break status;
             }
             if Instant::now() >= deadline {
-                drop(client);
+                client.remove()?;
                 child.wait()?;
                 anyhow::bail!("SIP authentication fixture exceeded its bound");
             }
             std::thread::sleep(Duration::from_millis(50));
         };
+        client.remove()?;
         ensure!(
             status.success(),
             "SIP authentication case {name} failed; inspect {}",
@@ -384,5 +410,26 @@ pub fn run(directory: &Path, gateway_image: &str) -> anyhow::Result<Vec<PathBuf>
         await_empty_channels()?;
         artifacts.extend([xml, log, report]);
     }
+    gateway.remove()?;
     Ok(artifacts)
+}
+
+#[cfg(test)]
+#[test]
+fn fixture_cleanup_reports_removal_failure_and_confirms_success_once() {
+    let mut fixture = Container::new("fixture".into());
+    assert!(
+        fixture
+            .remove_with(|_| anyhow::bail!("removal failed"))
+            .is_err()
+    );
+    fixture
+        .remove_with(|name| {
+            assert_eq!(name, "fixture");
+            Ok(())
+        })
+        .unwrap();
+    fixture
+        .remove_with(|_| panic!("container was already removed"))
+        .unwrap();
 }

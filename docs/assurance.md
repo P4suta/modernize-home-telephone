@@ -215,7 +215,10 @@ Manufacturer originals never enter the maintained source inventory or secret sca
 The generated OpenAPI document and TypeScript declarations must match the server schema, and runtime schemas remain tied to those declarations.
 These checks reduce identified dependency, schema, and secret risks without claiming a complete security audit.
 
+The browser answers an incoming call after a second tab registers and the first tab disconnects.
 The browser gate also runs seven real SIP authentication cases with an isolated Rusterisk instance.
+The fixture verifies the installed gateway fingerprint and starts the inspected image by its immutable identifier.
+The campaign requires the removal of every fixture container before recording a successful result.
 The fixture retains the rendered production endpoints and contexts, substitutes loopback ports, and holds admitted channels in a bounded dialplan wait.
 SIPp exercises both gateway registrations, authenticated calls with a telephone number in `From`, wrong credentials, an unknown identity, and a request without authentication.
 Independent Asterisk REST Interface (ARI) observations require the exact endpoint, context, and original caller number.

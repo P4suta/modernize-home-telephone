@@ -7,7 +7,7 @@ diff --git a/crates/server/src/rtp.rs b/crates/server/src/rtp.rs
 
 +async fn send_control(socket: &UdpSocket, bytes: &[u8], peer: SocketAddr) {
 +    if let Err(error) = send(socket, bytes, peer).await {
-+        tracing::debug!(%error, "RTCP delivery failed");
++        tracing::debug!(name: "rtcp_send_failed", %error, "RTCP delivery failed");
 +    }
 +}
 +
