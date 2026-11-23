@@ -299,16 +299,7 @@ async fn authorize(
         .as_deref()
         .zip(bearer)
         .is_some_and(|(expected, actual)| bool::from(expected.as_bytes().ct_eq(actual.as_bytes())));
-    let identity = request
-        .headers()
-        .get("tailscale-user-login")
-        .and_then(|value| value.to_str().ok())
-        .is_some_and(|value| {
-            app.config
-                .allowed_users
-                .iter()
-                .any(|allowed| allowed == value)
-        });
+    let identity = crate::tailnet::authenticated(request.headers());
     if app.config.mode == Mode::Production && !token && !identity {
         return Err(ApiError::unauthorized());
     }
@@ -335,6 +326,8 @@ async fn status(State(app): State<Arc<App>>) -> Json<Status> {
     Json(service_status(&app))
 }
 fn service_status(app: &App) -> Status {
+    let ai = app.config.ai.provider == "mock"
+        || (app.config.ai.provider == "openai" && app.secrets.openai_key.is_some());
     Status {
         instance_id: app.config.instance_id,
         mode: match app.config.mode {
@@ -343,7 +336,7 @@ fn service_status(app: &App) -> Status {
         }
         .into(),
         gateway_ready: app.control.ready(),
-        ai_configured: app.config.ai.provider == "mock" || app.secrets.openai_key.is_some(),
+        ai_configured: ai,
         vapid_public_key: crate::notifications::public_key(app.secrets.vapid_pem.as_deref()),
     }
 }

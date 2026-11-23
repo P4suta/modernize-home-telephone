@@ -1,4 +1,11 @@
 [[cases]]
+source = "xtask/tests/rootless.rs"
+test = "installation_operations_run_only_through_the_selected_engine"
+invariant = "Installation, update, rollback, and rehearsal operations run every container command through the selected engine."
+previous_gap = "Release image retention listed, tagged, and removed images through Docker, so a rootless Podman installation reported a failure after every committed update."
+enforcement = "Scan the manager and operation adapters for direct Docker or Podman invocations and refuse any call that bypasses the engine selection."
+
+[[cases]]
 source = "xtask/tests/cached_packages.rs"
 test = "prefetched_packages_do_not_require_repository_downloads"
 invariant = "APT's acquisition plan must request no repository download for a prefetched package."
@@ -314,6 +321,62 @@ previous_gap = "A small fixture hid history page truncation and deletion of rows
 enforcement = "More than ten thousand earlier tombstones precede available recordings, and successive bounded expiry batches check file and row consistency."
 
 [[cases]]
+source = "crates/phone-core/tests/plugins.rs"
+test = "unavailable_reception_preserves_ringing_and_explicit_block_rules"
+invariant = "An unavailable reception plugin preserves ordinary ringing and explicit block rules."
+previous_gap = "The default screening rule selected reception even when no plugin was available."
+enforcement = "Native cases cross every rule and availability value, and a Kani harness checks the production decision without assumptions."
+
+[[cases]]
+source = "xtask/tests/plugins.rs"
+test = "plugin_dependencies_cannot_reach_the_host_or_another_plugin"
+invariant = "Optional plugin implementations cannot depend on the host or another plugin."
+previous_gap = "Optional implementations shared the host crate without an executable dependency boundary."
+enforcement = "The fast gate checks Cargo metadata, rejects missing inventories and forbidden dependencies, and compiles every feature combination."
+
+[[cases]]
+source = "xtask/tests/rootless.rs"
+test = "rootless_units_preserve_the_selected_engine_without_a_system_docker_dependency"
+invariant = "Rootless supervision retains Podman and uses the service account's user manager."
+previous_gap = "The manager rejected the engine option and generated only a system Docker dependency."
+enforcement = "The public command must generate the Podman environment and user target without a system Docker service or User directive."
+
+[[cases]]
+source = "crates/phone-server/tests/config_contract.rs"
+test = "production_accepts_explicit_local_calls_with_ai_off"
+invariant = "Production can select ordinary calls without AI."
+previous_gap = "Production configuration required an OpenAI provider even for ordinary telephone service."
+enforcement = "The complete production configuration must accept the explicit provider selection while existing HTTPS and identity checks remain required."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "ai_off_rings_unknown_callers_without_answering_recording_or_voicemail"
+invariant = "Unknown callers ring normally with AI off and unanswered calls end without automatic media."
+previous_gap = "Missing AI reception still answered the line and started a recording before fallback."
+enforcement = "An HTTP observer and persisted call state reject automatic answering, recordings, media creation, and voicemail during an unanswered call."
+
+[[cases]]
+source = "crates/phone-server/tests/postcall_faults.rs"
+test = "ai_off_never_sends_preserved_recordings_to_a_provider"
+invariant = "AI off prevents cloud inference for preserved recordings even when a credential exists."
+previous_gap = "The inference worker treated every non-mock provider as OpenAI."
+enforcement = "A real HTTP observer must see no request, completion must succeed, and the preserved audio bytes must remain intact."
+
+[[cases]]
+source = "crates/phone-server/tests/provider_off.rs"
+test = "ai_off_refuses_media_before_any_request_even_with_credentials"
+invariant = "AI off refuses a media session before an external effect."
+previous_gap = "Any present key admitted media creation regardless of provider selection."
+enforcement = "A real HTTP observer must remain empty when the media entry point receives synthetic credentials with AI off."
+
+[[cases]]
+source = "crates/phone-server/tests/http_contract.rs"
+test = "identity_headers_require_loopback_and_delegate_user_authorization_to_the_tailnet"
+invariant = "The tailnet policy authorizes remote users while only loopback peers can supply trusted identity headers."
+previous_gap = "A duplicate application user list could reject a user already authorized by the tailnet policy."
+enforcement = "Native HTTP cases accept distinct identities without a local list and refuse missing or blank identities and nonloopback peers."
+
+[[cases]]
 source = "xtask/tests/gateway_migration.rs"
 test = "the_published_asterisk_configuration_upgrades_with_its_original_credentials"
 invariant = "An installation initialized by the published Asterisk release can use its existing credentials after the update."
@@ -410,3 +473,199 @@ test = "committed_replacements_select_only_superseded_release_images_that_no_con
 invariant = "A committed update or rollback leaves the engine with the running and replaced releases, every image a container uses, and no older release image."
 previous_gap = "Updates loaded every candidate and never removed one, so each superseded release kept its images and Podman's ID-mapped copies."
 enforcement = "Selection covers qualified Podman names, container-held images, unrelated repositories, and foreign registries; the deployment rehearsal removes a synthetic superseded tag through the real engine and reverifies the running release."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "a_terminal_ingress_cannot_be_admitted_again_or_block_the_next_call"
+invariant = "One gateway ingress channel can create at most one incoming call."
+previous_gap = "Admission recognized a repeated channel only while its first call still owned the line."
+enforcement = "Replay a completed ingress and require refusal, one original record, no repeated ringing, and admission of a distinct channel with the same caller."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "deleting_history_does_not_allow_a_retired_ingress_to_ring_again"
+invariant = "Deleting call history cannot reopen a consumed gateway ingress."
+previous_gap = "No admission identity survived terminal cleanup or deletion of its call record."
+enforcement = "Delete a completed call, replay its ingress, and require no call record or ringing while a distinct ingress remains admissible."
+
+[[cases]]
+source = "crates/phone-server/tests/store_contract.rs"
+test = "ingress_consumption_survives_deletion_retention_and_restart"
+invariant = "Consumed ingress identities survive history deletion and restart without suppressing a new channel generation."
+previous_gap = "Admission identities disappeared with live resources."
+enforcement = "Reopen after deletion and retention, refuse an equivalent timestamp, and accept the same ID with a new creation instant."
+
+[[cases]]
+source = "crates/phone-server/tests/store_contract.rs"
+test = "ingress_event_and_resource_admission_roll_back_together"
+invariant = "Ingress consumption, its initial event, and root resource commit atomically."
+previous_gap = "No storage fault exercised ingress identity consumption with event and resource insertion."
+enforcement = "Abort event and resource inserts separately, require complete rollback, and then accept the same ingress."
+
+[[cases]]
+source = "crates/phone-server/tests/store_contract.rs"
+test = "ingress_schema_migration_preserves_previous_calls_and_refuses_future_versions"
+invariant = "Schema migration preserves existing calls and refuses unknown database versions."
+previous_gap = "No migration test covered persistent ingress protection."
+enforcement = "Migrate a previous schema with retained calls, verify its version, and reject a newer unsupported version."
+
+[[cases]]
+source = "crates/phone-server/tests/gateway_contract.rs"
+test = "ingress_identity_requires_valid_creation_metadata_and_normalizes_offsets"
+invariant = "Ingress identity includes a validated canonical creation instant."
+previous_gap = "A process restart can reuse an Asterisk channel ID."
+enforcement = "Normalize equivalent offsets, distinguish creation instants, and refuse missing or invalid identity metadata."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "stale_gateway_events_cannot_reuse_or_terminate_another_channel_generation"
+invariant = "Lifecycle events belong to the exact channel generation that produced them."
+previous_gap = "Active root matching discarded channel creation metadata."
+enforcement = "Deliver a stale terminal event through the gateway WebSocket, wait for a causal event barrier, and preserve the newer call while refusing competing generations."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "rejected_ingress_cleanup_failure_blocks_admission_until_reconciled"
+invariant = "Rejected live ingress remains recoverable after cleanup failure."
+previous_gap = "A refused ingress could return without tracking an orphan channel."
+enforcement = "Fail rejected-channel deletion, require quarantine and durable tracking, then reconcile before admitting another call."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "rejected_orphan_quarantine_preserves_the_active_call"
+invariant = "Unowned-channel quarantine preserves an already-owned live call."
+previous_gap = "The unavailable gate could delete the active root before checking its identity."
+enforcement = "Fail orphan cleanup beside an active call and require idempotent acceptance of its live root without ending it."
+
+[[cases]]
+source = "crates/phone-server/tests/store_contract.rs"
+test = "concurrent_ingress_admission_commits_one_initial_event"
+invariant = "Concurrent ingress attempts can commit one initial call and event."
+previous_gap = "A second active-call constraint could mask missing ingress deduplication."
+enforcement = "Require one explicit replay outcome, one accepted outcome, and one call, event, outbox row, and root."
+
+[[cases]]
+source = "crates/phone-server/tests/store_contract.rs"
+test = "a_failed_ingress_migration_preserves_the_previous_schema"
+invariant = "Failed migration leaves the previous schema and retained data intact."
+previous_gap = "An interrupted multi-statement migration could leave a partial ingress table."
+enforcement = "Force migration failure after table creation and require the previous version without the new table."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "malformed_ingress_cannot_delete_live_root_or_peer_channels"
+invariant = "Invalid ingress metadata cannot delete channels belonging to the active call."
+previous_gap = "Orphan rejection tests omitted malformed events naming an active root or peer."
+enforcement = "Reject missing creation metadata for the live root and both peers, preserve resources and readiness, and accept the valid repeated root without gateway effects."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "gateway_admission_preserves_numbers_and_normalizes_unavailable_callers"
+invariant = "Gateway admission preserves numeric callers and normalizes unavailable incoming identity."
+previous_gap = "Controller tests checked call phases without asserting caller identity across directions."
+enforcement = "Admit numbered incoming, unavailable incoming, and numbered outgoing calls and verify their persisted caller and direction independently."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "valid_peer_replays_preserve_ringing_and_connected_calls"
+invariant = "Valid repeated ingress cannot delete a channel retained by the active call."
+previous_gap = "Ownership tests supplied missing creation metadata and omitted the busy admission branch."
+enforcement = "Offer valid ringing peers and the connected winner and require no gateway request or phase change."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "endpoint_replays_preserve_the_winner_and_discard_late_losers"
+invariant = "Repeated endpoint events preserve the winner while late losing endpoints remain disposable."
+previous_gap = "Endpoint rejection deleted a connected winner and phase assertions could not observe the fake gateway deletion."
+enforcement = "Replay native endpoint events, use causal barriers, reject winner deletion requests, and require deletion of the late loser."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "failed_busy_channel_cleanup_quarantines_the_orphan_and_preserves_the_call"
+invariant = "Failed cleanup during busy admission preserves the current call and tracks the orphan for recovery."
+previous_gap = "Busy admission logged deletion failures without durable tracking or quarantine."
+enforcement = "Fail deletion of an unconsumed foreign root, preserve the live owner, then release and reconcile before another call."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "gateway_start_events_preserve_inbound_and_outbound_identity"
+invariant = "Gateway start events preserve incoming identity and use the outgoing dial target."
+previous_gap = "Direct control offers bypassed native event dispatch."
+enforcement = "Send incoming and outgoing WebSocket events and verify distinct persisted calls, caller values, direction, and termination."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "browser_originator_events_dial_the_carrier_for_the_owned_root"
+invariant = "A browser originator can dial the carrier through its currently owned root."
+previous_gap = "No native originator event checked the root ownership guard."
+enforcement = "Deliver foreign and owned originator events with causal barriers and require carrier origination for the owned root."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "gateway_terminal_events_end_the_owned_root_and_winning_peer"
+invariant = "Valid terminal events release the current root or winning peer."
+previous_gap = "Stale event refusal lacked positive terminal event observations."
+enforcement = "Exercise both gateway terminal event variants against the root and winner and require persisted termination and released ownership."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "quarantined_calls_keep_their_deadline_and_end_once"
+invariant = "Orphan quarantine preserves the current call through its normal terminal deadline."
+previous_gap = "Immediate assertions could finish before an incorrect reconciliation tick destroyed ownership."
+enforcement = "Fail orphan deletion during an active call, wait for its normal no-answer deadline, and require one terminal event and subsequent admission."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "a_replayed_ingress_leaves_a_new_channel_generation_with_the_same_id_alone"
+invariant = "Replay cleanup deletes a channel only while the gateway still lists the replayed generation."
+previous_gap = "Replay cleanup deleted by channel identifier, so a reused identifier could end a new incoming call."
+enforcement = "Replay a retired ingress while the gateway lists a successor with the same identifier and count channel deletions."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "resuming_admission_cannot_reconcile_away_a_live_call"
+invariant = "Resuming admission refuses to reconcile while a live call awaits recovery."
+previous_gap = "A resume request reconciled gateway resources and released the line without ending the call."
+enforcement = "Fail a rejected channel cleanup during a ringing call, then request resume and check the call phase and line owner."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "unavailable_read_aloud_tracks_no_media_channel"
+invariant = "Read-aloud without an available provider records no media channel."
+previous_gap = "Each refused read-aloud request left a tracked channel that hangup then tried to delete."
+enforcement = "Repeat read-aloud on a connected call with AI off and compare the tracked resources."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "ringing_deadlines_select_reception_and_outgoing_no_answer"
+invariant = "Available reception handles unanswered incoming calls while outgoing calls end without voicemail."
+previous_gap = "Deadline tests covered disabled reception without distinguishing the outgoing terminal reason."
+enforcement = "Use short controller deadlines with the mock provider, require incoming voicemail and capture stop before channel deletion, and require outgoing no-answer without voicemail or capture stop."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "each_cleanup_failure_retains_ownership_until_retry_succeeds"
+invariant = "Every independent gateway cleanup failure retains ownership until a successful retry."
+previous_gap = "Simultaneous channel and bridge failures masked weakened failure accumulation and recording-stop failures were absent."
+enforcement = "Fail recording stop, channel deletion, and bridge deletion independently while other operations succeed, refuse reassignment, then recover."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "normal_cleanup_preserves_a_pending_gateway_ingress"
+invariant = "Ordinary call cleanup cannot delete a later ingress awaiting admission."
+previous_gap = "An empty gateway snapshot hid unnecessary global reconciliation after normal cleanup."
+enforcement = "Advertise a pending application channel during normal hangup, reject its deletion, and admit the distinct next call."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "endpoint_identity_guards_reject_each_invalid_condition"
+invariant = "Endpoint admission requires both the current call identity and a tracked peer."
+previous_gap = "A foreign endpoint also carried a foreign call identity, masking weakened independent guards."
+enforcement = "Reject a tracked peer with a foreign call identity without deletion, and delete an untracked peer with the correct call identity without connecting it."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_shutdown.rs"
+test = "shutdown_releases_the_actor_database_owner_before_returning"
+invariant = "Completed shutdown releases the actor's database ownership before another instance opens it."
+previous_gap = "Shutdown acknowledged cancellation before the actor dropped its store handle."
+enforcement = "Repeat immediate close and reopen on a multithreaded runtime without waiting for a favorable schedule."

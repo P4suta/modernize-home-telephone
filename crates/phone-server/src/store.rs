@@ -5,7 +5,10 @@ const MAX_BACKOFF_EXPONENT: u32 = 6;
 const DELIVERY_LEASE_SECONDS: u64 = 60;
 const EVENT_QUEUE_CAPACITY: usize = 256;
 
-use crate::model::{Call, Delivery, Event, Phase, PushSubscription, Settings};
+use crate::{
+    gateway::{CallRoot, IngressId},
+    model::{Call, Delivery, Event, Phase, PushSubscription, Settings},
+};
 use anyhow::{Context, ensure};
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 use std::{
@@ -16,6 +19,11 @@ use std::{
     },
     time::Duration,
 };
+
+pub enum Admission {
+    Created(Box<Event>),
+    Replayed,
+}
 
 #[derive(Clone)]
 pub struct Store {
@@ -51,8 +59,9 @@ impl Store {
             connection.pragma_update(None, "journal_mode", "WAL")?;
             connection.pragma_update(None, "synchronous", "FULL")?;
             let version: u32 = connection.pragma_query_value(None, "user_version", |row| row.get(0))?;
-            ensure!(version <= 1, "database schema is newer than this application");
+            ensure!(version <= 2, "database schema is newer than this application");
             connection.execute_batch("
+                BEGIN IMMEDIATE;
                 CREATE TABLE IF NOT EXISTS calls (
                     id TEXT PRIMARY KEY, phase TEXT NOT NULL, started_at INTEGER NOT NULL,
                     ended_at INTEGER, payload TEXT NOT NULL
@@ -68,11 +77,13 @@ impl Store {
                 CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY CHECK(id=1), payload TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS push_subscriptions (endpoint TEXT PRIMARY KEY, payload TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS resources (channel_id TEXT PRIMARY KEY);
+                CREATE TABLE IF NOT EXISTS call_ingress (fingerprint BLOB PRIMARY KEY CHECK(typeof(fingerprint)='blob' AND length(fingerprint)=32)) WITHOUT ROWID;
                 CREATE TABLE IF NOT EXISTS jobs (call_id TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0, next_at INTEGER NOT NULL);
                 CREATE TABLE IF NOT EXISTS capture_jobs (call_id TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0, next_at INTEGER NOT NULL);
                 INSERT OR IGNORE INTO capture_jobs(call_id,next_at) SELECT id,0 FROM calls WHERE ended_at IS NOT NULL AND json_extract(payload,'$.recording.status')='pending';
                 CREATE TABLE IF NOT EXISTS recording_cleanup (name TEXT PRIMARY KEY, next_at INTEGER NOT NULL);
-                PRAGMA user_version=1;
+                PRAGMA user_version=2;
+                COMMIT;
             ")?;
             Ok(Self { events: tokio::sync::broadcast::channel(EVENT_QUEUE_CAPACITY).0, connection: Arc::new(Mutex::new(connection)), lease: Arc::new(lease), recording_gate: Arc::new(tokio::sync::RwLock::new(())), background_paused: Arc::new(AtomicBool::new(false)), owner:Arc::new(Mutex::new(None)) })
         }).await?
@@ -93,6 +104,41 @@ impl Store {
             operation(&mut locked)
         })
         .await?
+    }
+
+    pub async fn ingress_admitted(&self, ingress: &IngressId) -> anyhow::Result<bool> {
+        let fingerprint = ingress.fingerprint();
+        self.with(move |connection| {
+            Ok(connection.query_row(
+                "SELECT EXISTS(SELECT 1 FROM call_ingress WHERE fingerprint=?1)",
+                [fingerprint.as_slice()],
+                |row| row.get(0),
+            )?)
+        })
+        .await
+    }
+
+    pub async fn admit(
+        &self,
+        call: &Call,
+        source: &CallRoot,
+        now: u64,
+    ) -> anyhow::Result<Admission> {
+        let call = call.clone();
+        let root = source.channel_id(call.id);
+        let fingerprint = source.fingerprint();
+        let events = self.events.clone();
+        self.with(move |connection| {
+            let transaction = connection.transaction()?;
+            if let Some(fingerprint) = fingerprint
+                && transaction.execute("INSERT INTO call_ingress(fingerprint) VALUES(?1) ON CONFLICT(fingerprint) DO NOTHING", [fingerprint.as_slice()])? == 0 {
+                return Ok(Admission::Replayed);
+            }
+            let event = save_transaction(&transaction, &call, "incoming", now)?;
+            transaction.execute("INSERT OR IGNORE INTO resources(channel_id) VALUES(?1)", [root])?;
+            transaction.commit()?;
+            Ok(Admission::Created(Box::new(Self::committed(&events, event))))
+        }).await
     }
 
     pub async fn save(&self, call: &Call, kind: &str, now: u64) -> anyhow::Result<Event> {
@@ -555,6 +601,15 @@ impl Store {
                 "INSERT OR IGNORE INTO resources(channel_id) VALUES(?1)",
                 [id],
             )?;
+            Ok(())
+        })
+        .await
+    }
+
+    pub(crate) async fn forget_resource(&self, id: &str) -> anyhow::Result<()> {
+        let id = id.to_owned();
+        self.with(move |connection| {
+            connection.execute("DELETE FROM resources WHERE channel_id=?1", [id])?;
             Ok(())
         })
         .await

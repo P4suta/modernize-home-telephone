@@ -97,7 +97,6 @@ struct BootConfiguration {
     mode: &'static str,
     data_dir: PathBuf,
     public_origin: String,
-    allowed_users: Vec<String>,
     ai: AiConfiguration,
     sip: SipConfiguration,
 }
@@ -114,10 +113,9 @@ pub fn initialize(
     directory: &Path,
     address: IpAddr,
     origin: String,
-    owner: Option<String>,
     lab: bool,
 ) -> anyhow::Result<()> {
-    initialize_with(directory, address, origin, owner, lab, generate_keys)
+    initialize_with(directory, address, origin, lab, generate_keys)
 }
 
 pub fn generate_keys(keys: &Path) -> anyhow::Result<()> {
@@ -161,14 +159,12 @@ pub fn initialize_with<F: FnOnce(&Path) -> anyhow::Result<()>>(
     directory: &Path,
     address: IpAddr,
     origin: String,
-    owner: Option<String>,
     lab: bool,
     keys: F,
 ) -> anyhow::Result<()> {
     ensure!(
-        lab || (origin.starts_with("https://")
-            && owner.as_ref().is_some_and(|owner| !owner.is_empty())),
-        "production requires an HTTPS origin and an allowed user"
+        lab || origin.starts_with("https://"),
+        "production requires an HTTPS origin"
     );
     ensure!(
         !directory.join("config").exists(),
@@ -244,9 +240,8 @@ pub fn initialize_with<F: FnOnce(&Path) -> anyhow::Result<()>>(
             mode: if lab { "lab" } else { "production" },
             data_dir: directory.join("data"),
             public_origin: origin,
-            allowed_users: owner.into_iter().collect(),
             ai: AiConfiguration {
-                provider: if lab { "mock" } else { "openai" },
+                provider: if lab { "mock" } else { "disabled" },
             },
             sip: SipConfiguration {
                 carrier_endpoint: if lab { "lab-carrier" } else { "fxo" },
@@ -313,7 +308,7 @@ pub fn start_gateway(
     let group = Command::new("id").arg("-g").output()?;
     ensure!(group.status.success(), "cannot determine the service GID");
     let user = format!("{user}:{}", String::from_utf8(group.stdout)?.trim());
-    let mut command = Command::new("docker");
+    let mut command = crate::container::command()?;
     let configuration: toml::Value = toml::from_str(&std::fs::read_to_string(
         directory.join("config/homephone.toml"),
     )?)?;
@@ -345,13 +340,10 @@ pub fn start_gateway(
         "512m",
         "--cpus",
         "2",
-        "--log-opt",
-        "max-size=10m",
-        "--log-opt",
-        "max-file=3",
         "--tmpfs",
         "/tmp:rw,noexec,nosuid,size=32m",
     ]);
+    command.args(crate::container::selected()?.run_options());
     for &(source, target, readonly) in mounts {
         let suffix = if readonly { ",readonly" } else { "" };
         command.args([

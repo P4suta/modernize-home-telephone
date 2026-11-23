@@ -94,7 +94,7 @@ async fn main() -> anyhow::Result<()> {
         app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
     )
     .with_graceful_shutdown(async move {
-        shutdown_signal().await;
+        phone_server::shutdown::wait().await;
         control.shutdown().await;
     })
     .await?;
@@ -103,26 +103,4 @@ async fn main() -> anyhow::Result<()> {
     processing.context("recording worker shutdown failed")?;
     notifying.context("notification worker shutdown failed")?;
     Ok(())
-}
-
-async fn shutdown_signal() {
-    #[cfg(unix)]
-    {
-        match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
-            Ok(mut terminate) => {
-                tokio::select! { _ = terminate.recv() => {}, _ = tokio::signal::ctrl_c() => {} }
-            }
-            Err(_) => {
-                if tokio::signal::ctrl_c().await.is_err() {
-                    tracing::warn!(operation = "shutdown_signal", code = "ctrl_c_failed");
-                }
-            }
-        }
-    }
-    #[cfg(not(unix))]
-    {
-        if tokio::signal::ctrl_c().await.is_err() {
-            tracing::warn!(operation = "shutdown_signal", code = "ctrl_c_failed");
-        }
-    }
 }

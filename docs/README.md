@@ -6,6 +6,7 @@ Start with the [contribution guide](../CONTRIBUTING.md) for prerequisites and ve
 
 Use the [local lab](local-lab.md) to exercise calls without an analog line or paid provider.
 Use the [Raspberry Pi operations guide](raspberry-pi.md) to create an installation, supervise boot, and preserve or recover its data.
+The [optional plugin guide](plugins.md) explains builds and operation with independently selected features.
 The [hardware acceptance procedure](hardware-acceptance.md) separates documented HT813 capabilities from the measurements still needed on the BL3000HM connection.
 
 The [assurance contracts](assurance.md) define the proof domains, fault injection, mutation campaigns, and source-bound result gates.

@@ -13,6 +13,7 @@ use phone_server::{
     store::Store,
 };
 use std::sync::Arc;
+#[cfg(feature = "plugin-ai")]
 use tokio::sync::Notify;
 
 fn wav() -> Vec<u8> {
@@ -50,6 +51,18 @@ async fn fixture(
     tempfile::TempDir,
     tokio::task::JoinHandle<()>,
 ) {
+    fixture_with_provider(app, if openai { "openai" } else { "mock" }).await
+}
+
+async fn fixture_with_provider(
+    app: Router,
+    provider: &str,
+) -> (
+    Processor,
+    Store,
+    tempfile::TempDir,
+    tokio::task::JoinHandle<()>,
+) {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
     let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
@@ -61,7 +74,7 @@ async fn fixture(
         data_dir: root.path().into(),
         ..Config::default()
     };
-    config.ai.provider = if openai { "openai" } else { "mock" }.into();
+    config.ai.provider = provider.into();
     config.ari.url = format!("http://{address}/ari");
     let ari = Ari::new(config.ari.clone(), "test-ari-secret".into()).unwrap();
     let processor = Processor::new_for_loopback(
@@ -73,6 +86,70 @@ async fn fixture(
     )
     .unwrap();
     (processor, store, root, server)
+}
+
+#[tokio::test]
+async fn ai_off_never_sends_preserved_recordings_to_a_provider() {
+    let requests = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let observed = requests.clone();
+    let router = Router::new().fallback(axum::routing::any(move || {
+        let observed = observed.clone();
+        async move {
+            observed.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            StatusCode::SERVICE_UNAVAILABLE
+        }
+    }));
+    let (processor, store, root, server) = fixture_with_provider(router, "disabled").await;
+    let mut call = finished();
+    let bytes = wav();
+    call.recording = Recording::Available {
+        bytes: bytes.len() as u64,
+    };
+    call.last_error = Some("post_call_processing_failed".into());
+    let mut failed = finished();
+    failed.recording = Recording::Failed {
+        reason: "capture_failed".into(),
+    };
+    failed.last_error = Some("recording_capture_failed".into());
+    store.save(&failed, "ended", now()).await.unwrap();
+    store.finish_job(failed.id).await.unwrap();
+    processor.process(failed.id).await.unwrap();
+    assert_eq!(
+        store
+            .get(failed.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .last_error
+            .as_deref(),
+        Some("recording_capture_failed")
+    );
+    store.delete_finished(failed.id, now()).await.unwrap();
+    tokio::fs::create_dir_all(root.path().join("recordings"))
+        .await
+        .unwrap();
+    tokio::fs::write(
+        root.path().join(format!("recordings/{}.wav", call.id)),
+        &bytes,
+    )
+    .await
+    .unwrap();
+    store.save(&call, "ended", now()).await.unwrap();
+    let result = processor.process(call.id).await;
+    server.abort();
+    assert_eq!(requests.load(std::sync::atomic::Ordering::SeqCst), 0);
+    result.unwrap();
+    let saved = store.get(call.id).await.unwrap().unwrap();
+    assert_eq!(saved.processing, "complete");
+    assert_eq!(saved.last_error, None);
+    assert!(saved.transcript.is_empty());
+    assert!(saved.summary.is_none());
+    assert_eq!(
+        tokio::fs::read(root.path().join(format!("recordings/{}.wav", call.id)))
+            .await
+            .unwrap(),
+        bytes
+    );
 }
 
 #[tokio::test]
@@ -238,6 +315,7 @@ async fn interrupted_downloads_remove_partial_files_and_can_be_retried() {
     server.abort();
 }
 
+#[cfg(feature = "plugin-ai")]
 #[tokio::test]
 async fn stalled_cloud_inference_cannot_block_recording_capture_or_quota_enforcement() {
     let root = tempfile::tempdir().unwrap();

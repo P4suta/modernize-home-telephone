@@ -28,7 +28,8 @@ pub struct Config {
     pub listen: SocketAddr,
     pub data_dir: PathBuf,
     pub public_origin: String,
-    pub allowed_users: Vec<String>,
+    #[serde(rename = "allowed_users", skip_serializing)]
+    pub legacy_allowed_users: Vec<String>,
     pub api_token_env: String,
     pub ari: Ari,
     pub ai: Ai,
@@ -96,7 +97,7 @@ impl Default for Config {
             listen: DEFAULT_LISTEN_ADDRESS.parse().expect("literal address"),
             data_dir: ".local/data".into(),
             public_origin: DEFAULT_PUBLIC_ORIGIN.into(),
-            allowed_users: vec![],
+            legacy_allowed_users: vec![],
             api_token_env: "HOMEPHONE_API_TOKEN".into(),
             ari: Ari::default(),
             ai: Ai::default(),
@@ -120,7 +121,12 @@ impl Default for Ari {
 impl Default for Ai {
     fn default() -> Self {
         Self {
-            provider: "mock".into(),
+            provider: if cfg!(feature = "plugin-ai") {
+                "mock"
+            } else {
+                "disabled"
+            }
+            .into(),
             key_env: "OPENAI_API_KEY".into(),
             realtime_model: "gpt-realtime-2.1".into(),
             transcription_model: "gpt-transcribe".into(),
@@ -199,14 +205,17 @@ impl Config {
         if self.mode == Mode::Production {
             ensure!(origin.scheme() == "https", "production requires HTTPS");
             ensure!(
-                !self.allowed_users.is_empty(),
-                "production requires allowed tailnet users"
+                matches!(self.ai.provider.as_str(), "openai" | "disabled"),
+                "production refuses mock AI"
             );
-            ensure!(self.ai.provider == "openai", "production refuses mock AI");
         }
         ensure!(
-            matches!(self.ai.provider.as_str(), "mock" | "openai"),
+            matches!(self.ai.provider.as_str(), "mock" | "openai" | "disabled"),
             "unknown AI provider"
+        );
+        ensure!(
+            self.ai.provider == "disabled" || cfg!(feature = "plugin-ai"),
+            "AI plugin is not installed"
         );
         let ari = url::Url::parse(&self.ari.url)?;
         ensure!(

@@ -68,6 +68,7 @@ async fn a_failed_admission_commit_closes_its_external_channel_without_requiring
         control
             .offer(
                 Channel {
+                    creationtime: Some("2026-11-15T05:32:13.000+0900".into()),
                     id: "uncommitted-external".into(),
                     state: "Ring".into(),
                     caller: Caller {

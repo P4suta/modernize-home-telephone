@@ -7,7 +7,6 @@ fn installation(root: &Path) -> std::path::PathBuf {
         &directory,
         "192.0.2.10".parse().unwrap(),
         "https://phone.example.net".into(),
-        Some("fixture@example.net".into()),
         false,
         |keys| {
             for name in ["vapid.pem", "dtls.crt", "dtls.key"] {

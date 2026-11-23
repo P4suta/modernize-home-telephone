@@ -180,7 +180,6 @@ pub fn run(directory: &Path, gateway: &crate::manager::Image) -> anyhow::Result<
         &directory,
         "127.0.0.1".parse()?,
         "http://localhost:8787".into(),
-        None,
         true,
     )?;
     let config = crate::rusterisk::render(&crate::rusterisk::Configuration {

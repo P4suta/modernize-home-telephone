@@ -347,3 +347,20 @@ fn playback_marks_cannot_overrun_or_move_backwards() {
     }
     assert_eq!(sent.acknowledge(first).is_ok(), first <= bytes);
 }
+#[kani::proof]
+fn unavailable_reception_preserves_ordinary_calls() {
+    let rule: Rule = kani::any();
+    let available: bool = kani::any();
+    let result = crate::plugins::route_with_optional_reception(rule, available);
+    assert!(
+        (result == Route::Ring) == (rule == Rule::Allow || (rule == Rule::Screen && !available))
+    );
+    assert!((result == Route::End) == (rule == Rule::Block));
+    assert!((result == Route::Screen) == (rule == Rule::Screen && available));
+    kani::cover!(rule == Rule::Allow && available);
+    kani::cover!(rule == Rule::Allow && !available);
+    kani::cover!(rule == Rule::Block && available);
+    kani::cover!(rule == Rule::Block && !available);
+    kani::cover!(rule == Rule::Screen && available);
+    kani::cover!(rule == Rule::Screen && !available);
+}

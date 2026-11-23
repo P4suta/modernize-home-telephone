@@ -338,3 +338,23 @@ Returning only the second error would erase the operation that initiated recover
 The update tests inject both faults in the same run and require the returned error chain to preserve both causes.
 The real rehearsal additionally checks service readiness and the sample recording after rejecting a candidate.
 Neither an informative error string nor a successful rollback state alone establishes that the restored service can answer another call.
+
+## Optional reception and publication
+
+The optional-reception harness quantifies every call rule and both availability values without input assumptions.
+It checks the production routing function: unavailable reception preserves ordinary ringing, and explicit blocking remains effective.
+The proof doesn't establish that the host reports actual plugin availability correctly.
+Native HTTP observers check automatic-answer refusal, media isolation, and preserved recordings.
+The dependency gate rejects plugins that depend on the host or another plugin and checks each host feature combination.
+Compiled plugins share process memory, so the routing proof establishes no process-crash isolation.
+Real handset behavior and notification receipt require installation observations.
+
+## Gateway admission
+
+Gateway admission validates the ARI channel ID and canonical creation instant before consuming its generation.
+Native controller and SQLite tests cover terminal replay, history deletion, restart, atomic rollback, migration, and valid later generations.
+Consumed fingerprints contain no caller or recording data and remain independent of history retention.
+Kani checks pure line transitions.
+Physical disconnect signaling requires hardware observations.
+Schema 2 requires a database snapshot when rolling back to an earlier server.
+The [admission decision](adr/consume-gateway-ingress-identities-before-publishing-calls.md) records the boundary.

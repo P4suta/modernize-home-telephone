@@ -107,7 +107,12 @@ fn sample(installation: &Installation) -> anyhow::Result<uuid::Uuid> {
 }
 fn retire_synthetic_release(running: &Release) -> anyhow::Result<()> {
     let (synthetic, _) = image_references(&"0".repeat(SHA256_HEX_DIGITS), uuid::Uuid::nil())?;
-    output(Command::new("docker").args(["image", "tag", &running.app.reference, &synthetic]))?;
+    output(crate::container::command()?.args([
+        "image",
+        "tag",
+        &running.app.reference,
+        &synthetic,
+    ]))?;
     let observed = [
         synthetic.as_str(),
         &running.app.reference,

@@ -1,9 +1,29 @@
 [package]
 name = "phone-server"
+default-run = "phone-server"
 version = "0.0.0"
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
+
+[features]
+default = ["plugin-ai"]
+plugin-ai = ["phone-plugin-ai/runtime"]
+
+[[test]]
+name = "media_faults"
+path = "tests/media_faults.rs"
+required-features = ["plugin-ai"]
+
+[[test]]
+name = "media_contract"
+path = "tests/media_contract.rs"
+required-features = ["plugin-ai"]
+
+[[test]]
+name = "gateway_readiness_faults"
+path = "tests/gateway_readiness_faults.rs"
+required-features = ["plugin-ai"]
 
 [dependencies]
 tower = { version = "0.5", features = ["util"] }
@@ -16,6 +36,7 @@ futures-util = "0.3"
 hmac = "0.12"
 hound = "3.5"
 phone-core = { path = "../phone-core" }
+phone-plugin-ai = { path = "../phone-plugin-ai", default-features = false }
 reqwest = { version = "0.13.5", features = ["json", "multipart", "stream"] }
 rusqlite = { version = "0.41.1", features = ["bundled", "backup"] }
 serde = { version = "1", features = ["derive"] }
@@ -23,6 +44,7 @@ serde_json = "1"
 sha2 = "0.10"
 subtle = "2"
 thiserror = "2"
+time = { version = "0.3", features = ["formatting", "parsing"] }
 tokio = { version = "1", features = ["full", "test-util"] }
 tokio-tungstenite = { version = "0.30.0", features = [
   "rustls-tls-webpki-roots",
