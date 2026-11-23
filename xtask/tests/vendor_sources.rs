@@ -183,7 +183,15 @@ fn inaccessible_archive_members_are_errors_instead_of_an_absent_archive() {
 
     let root = fixture();
     let executable = root.path().join("source-test");
-    std::fs::copy(std::env::current_exe().unwrap(), &executable).unwrap();
+    // Concurrent test forks would inherit an in-process write descriptor and fail exec with ETXTBSY.
+    assert!(
+        Command::new("cp")
+            .arg(std::env::current_exe().unwrap())
+            .arg(&executable)
+            .status()
+            .unwrap()
+            .success()
+    );
     std::fs::set_permissions(root.path(), std::fs::Permissions::from_mode(0o755)).unwrap();
     std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o755)).unwrap();
     let archive = root.path().join(REFERENCE).join("upstream");
