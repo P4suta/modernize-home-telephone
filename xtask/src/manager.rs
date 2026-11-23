@@ -1070,3 +1070,39 @@ fn gateway_fixture_starts_only_the_inspected_release_image() {
     image["RootFS"]["Layers"][0] = "replacement".into();
     assert!(verified_id(&expected, &image).is_err());
 }
+
+#[cfg(test)]
+#[test]
+fn podman_inspection_reproduces_the_fingerprint_recorded_from_docker() {
+    let podman = serde_json::json!({
+        "Id": "15f496c7123856f1f7092c8fc18826abb429c76c26bdc4d917e0a85e3b7e87ed",
+        "Architecture": "arm64",
+        "Os": "linux",
+        "Config": {
+            "User": "10001:10001",
+            "Env": ["PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],
+            "Entrypoint": ["/usr/local/bin/phone-server"],
+            "WorkingDir": "/opt/homephone"
+        },
+        "RootFS": {"Type": "layers", "Layers": [
+            "sha256:04e61ff9ed2c84e88795bf7562d69d0980188e2bb6d6152d6fe721383e10db9e",
+            "sha256:4a148950ff72db529d512efc5ba2564637666887cab5b47b3efb82532844e62a",
+            "sha256:f7e50594272bf245b65dd88a3e63e4533e507794f42827bdba0d091941b194c7",
+            "sha256:6ff2b57e53017eb072f778a69f472eb5096c0db0600caa79419b7e4f9781a4fe",
+            "sha256:fac08dbb3ef5cdbc7fd35f648df4bed73be6680b1e41d4a15adce2cd6b69b463",
+            "sha256:b7e1d69edd3433cd9b096b318b32733c55318143e4acbb1e50a431ad1ab7c145",
+            "sha256:af6ed2d6d4b63e27d0b6e78aac258f264da5992af6951445da9d76d395ced81e",
+            "sha256:6d9b984ee0aa7a3ca8270f229930bc2bdf539a62281090d76d0013efa496d274",
+            "sha256:214f086335fc4da5d128cc23b17027ea8d8decb9f187ae59cc6e81dbd4667489",
+            "sha256:f116cccc1d8c09882eb0b2e60ca34e49969ef788a76e125ea385974b0d877c22"
+        ]}
+    });
+    let recorded_with_docker = Image {
+        reference: "homephone-app:installed".into(),
+        fingerprint: "9ae83d587c833a3a9c0738f85a341c060c5474dd6e34cd1582c6c84ad6074548".into(),
+    };
+    assert_eq!(
+        verified_id(&recorded_with_docker, &podman).unwrap(),
+        "sha256:15f496c7123856f1f7092c8fc18826abb429c76c26bdc4d917e0a85e3b7e87ed"
+    );
+}
