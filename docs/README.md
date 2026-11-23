@@ -9,6 +9,7 @@ Use the [Raspberry Pi operations guide](raspberry-pi.md) to create an installati
 Use the [gateway console guide](ht813-console.md) for Japanese device administration and the complete parameter reference.
 The [optional plugin guide](plugins.md) explains builds and operation with independently selected features.
 The [notification guide](notifications.md) describes private incoming-call publication.
+The [Public Phonebook guide](phonebook.md) describes caller names from a local directory copy.
 The [recording guide](recordings.md) describes handset recording, NAS storage, and manual retention.
 The [hardware acceptance procedure](hardware-acceptance.md) separates documented HT813 capabilities from the measurements still needed on the BL3000HM connection.
 

@@ -77,7 +77,7 @@ Native report upload and the final evidence check exercise the real file-permiss
 ## Prove the pure production boundary
 
 The [Kani inventory](../verification/contracts.toml) imports executable production functions from `phone-core`.
-It covers call ownership, every call and update action, terminal state refusal, number validation, path traversal refusal, routing, retention, playback marks, deadlines, input lengths, and streamed byte budgets.
+It covers call ownership, every call and update action, terminal state refusal, number validation, directory number normalization, shared caller labels, path traversal refusal, routing, retention, playback marks, deadlines, input lengths, and streamed byte budgets.
 Enums use their complete generated domains.
 Integer properties quantify the declared Rust integer domains, including zero, exact limits, integer extrema, checked overflow, and clock regression where applicable.
 The proof target uses 64-bit integer and pointer semantics, matching the intended ARM64 runtime's integer widths.
@@ -85,6 +85,9 @@ It doesn't establish equivalence of arbitrary platform libraries or operating sy
 
 The path proof admits arbitrary byte content and lengths through 257 bytes, with the public parser accepting at most 256 bytes.
 The dial-number proof admits arbitrary byte content through 33 bytes.
+The national-number proof admits the same domain and checks that only complete Japanese numbers normalize.
+The spelling proof quantifies every nine- and ten-digit sequence in its `0` and `+81` forms.
+The caller-label proof quantifies up to three matches over three names and doesn't check rendered text.
 An independently checked length predicate covers the entire `usize` domain, and an Abstract Syntax Tree (AST) gate binds the public rejection guards to that predicate.
 The composition accounts for inputs larger than the finite backing arrays without assuming that every input already fits.
 The AST gate also checks the proof inventory, permitted assumptions, public parser wrapper, observation erasure, and loop decrease form.

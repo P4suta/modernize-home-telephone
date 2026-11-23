@@ -4,6 +4,7 @@
 pub mod artifact;
 pub mod bytes;
 pub mod console;
+pub mod directory;
 pub mod notification;
 pub mod plugins;
 pub mod timers;

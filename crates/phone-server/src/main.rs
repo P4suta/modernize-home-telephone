@@ -31,6 +31,13 @@ enum Operation {
         #[arg(long)]
         output: PathBuf,
     },
+    SyncPhonebook {
+        #[arg(long, default_value = "https://www.dial.page")]
+        origin: String,
+    },
+    LookupPhonebook {
+        number: String,
+    },
 }
 
 #[tokio::main]
@@ -72,6 +79,50 @@ async fn main() -> anyhow::Result<()> {
     if matches!(cli.command, Some(Operation::CheckConfig)) {
         println!("Configuration is valid.");
         return Ok(());
+    }
+    if let Some(Operation::SyncPhonebook { origin }) = &cli.command {
+        #[cfg(feature = "plugin-phonebook")]
+        {
+            let sync = phone_plugin_phonebook::Sync::new(
+                origin,
+                config.mode == phone_server::config::Mode::Lab,
+            )?;
+            match sync.run(&config.data_dir).await? {
+                phone_plugin_phonebook::Report::Unchanged { snapshot } => {
+                    println!("公共電話帳は最新です。スナップショット: {snapshot}");
+                }
+                phone_plugin_phonebook::Report::Installed {
+                    snapshot,
+                    contacts,
+                    numbers,
+                    labels,
+                    skipped,
+                } => {
+                    println!(
+                        "公共電話帳を取り込みました。スナップショット: {snapshot}、連絡先: {contacts}件、番号: {numbers}件、表示名: {labels}件、除外: {skipped}件"
+                    );
+                }
+            }
+            return Ok(());
+        }
+        #[cfg(not(feature = "plugin-phonebook"))]
+        {
+            let _ = origin;
+            anyhow::bail!("Public Phonebook is absent from this build");
+        }
+    }
+    if let Some(Operation::LookupPhonebook { number }) = &cli.command {
+        #[cfg(feature = "plugin-phonebook")]
+        {
+            let label = phone_plugin_phonebook::label(&config.data_dir, number)?;
+            println!("{}", label.as_deref().unwrap_or("未登録"));
+            return Ok(());
+        }
+        #[cfg(not(feature = "plugin-phonebook"))]
+        {
+            let _ = number;
+            anyhow::bail!("Public Phonebook is absent from this build");
+        }
     }
     if matches!(cli.command, Some(Operation::CheckRecordingStorage)) {
         #[cfg(feature = "plugin-nas")]

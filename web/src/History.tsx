@@ -6,6 +6,7 @@ import {
 	useState,
 } from "react";
 import type { Perform } from "./App";
+import { CallerName } from "./CallerName";
 import type { Call } from "./contracts";
 import { phoneStore } from "./service";
 
@@ -170,7 +171,7 @@ export function History({
 				.map((call) => (
 					<article className="history-call" key={call.id}>
 						<div className="section-heading">
-							<h3>{call.caller || "非通知"}</h3>
+							<CallerName call={call} />
 							<time dateTime={new Date(call.started_at * 1000).toISOString()}>
 								{callTime(call.started_at)}
 							</time>

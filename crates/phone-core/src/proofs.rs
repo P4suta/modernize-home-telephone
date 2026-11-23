@@ -496,3 +496,90 @@ fn unavailable_reception_preserves_ordinary_calls() {
     kani::cover!(rule == Rule::Screen && available);
     kani::cover!(rule == Rule::Screen && !available);
 }
+
+#[kani::proof]
+#[kani::unwind(36)]
+fn only_complete_japanese_numbers_normalize() {
+    use crate::directory::NationalNumber;
+    let bytes: [u8; 33] = kani::any();
+    let input = &bytes[..usize::from(kani::any::<u8>() % 34)];
+    let subscriber = match input {
+        [b'+', b'8', b'1', rest @ ..] | [b'0', rest @ ..] => Some(rest),
+        _ => None,
+    };
+    let complete = DialNumber::parse(input).is_ok()
+        && subscriber
+            .is_some_and(|digits| (digits.len() == 9 || digits.len() == 10) && digits[0] != b'0');
+    let national = DialNumber::parse(input)
+        .ok()
+        .and_then(NationalNumber::from_dial);
+    assert_eq!(national.is_some(), complete);
+    if let Some(national) = national {
+        assert!(NationalNumber::from_key(national.key()) == Some(national));
+        kani::cover!(input[0] == b'+' && input.len() == 13);
+        kani::cover!(input[0] == b'0' && input.len() == 10);
+    }
+    kani::cover!(!complete && input.len() == 11);
+}
+
+#[kani::proof]
+#[kani::unwind(14)]
+fn domestic_and_international_spellings_share_one_key() {
+    use crate::directory::NationalNumber;
+    let digits: [u8; 10] = kani::any();
+    let length = 9 + usize::from(kani::any::<bool>());
+    let mut domestic = [b'0'; 11];
+    let mut international = [b'+', b'8', b'1', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    for index in 0..length {
+        domestic[index + 1] = digits[index];
+        international[index + 3] = digits[index];
+    }
+    let domestic = DialNumber::parse(&domestic[..length + 1])
+        .ok()
+        .and_then(NationalNumber::from_dial);
+    let international = DialNumber::parse(&international[..length + 3])
+        .ok()
+        .and_then(NationalNumber::from_dial);
+    assert!(domestic == international);
+    kani::cover!(domestic.is_some() && length == 9);
+    kani::cover!(domestic.is_some() && length == 10);
+    kani::cover!(domestic.is_none());
+}
+
+#[kani::proof]
+#[kani::unwind(5)]
+fn shared_labels_count_every_distinct_directory_name() {
+    use crate::directory::{CallerLabel, DirectoryMatch, caller_label};
+    let matches = [0; 3].map(|_| DirectoryMatch {
+        name: if kani::any() {
+            "a"
+        } else if kani::any() {
+            "b"
+        } else {
+            "c"
+        },
+        category: "c",
+    });
+    let length = usize::from(kani::any::<u8>() & 3);
+    let present = &matches[..length];
+    let mut distinct = 0;
+    for (index, candidate) in present.iter().enumerate() {
+        if present[..index]
+            .iter()
+            .all(|earlier| earlier.name != candidate.name)
+        {
+            distinct += 1;
+        }
+    }
+    match caller_label(present) {
+        None => assert!(length == 0),
+        Some(CallerLabel::Shared { names }) => {
+            assert!(distinct >= 2 && names.get() == distinct)
+        }
+        Some(CallerLabel::Named { name, matches }) => {
+            assert!(distinct == 1 && name == present[0].name && matches.len() == length)
+        }
+    }
+    kani::cover!(distinct == 1 && length == 3);
+    kani::cover!(distinct == 3);
+}

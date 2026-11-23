@@ -35,6 +35,40 @@ async fn committed_calls_events_and_settings_survive_reopening() {
 }
 
 #[tokio::test]
+async fn calls_stored_before_directory_labels_load_without_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("phone.sqlite");
+    let store = Store::open(&path).await.unwrap();
+    let mut labeled = Call::offered("0775511234".into(), "inbound".into(), 100);
+    labeled.caller_label = Some("さくら病院（病院・診療所）".into());
+    store.save(&labeled, "incoming", 100).await.unwrap();
+    drop(store);
+    let mut legacy = Call::offered("0312345678".into(), "inbound".into(), 50);
+    legacy.phase = Phase::Ended;
+    legacy.ended_at = Some(51);
+    let mut payload = serde_json::to_value(&legacy).unwrap();
+    payload.as_object_mut().unwrap().remove("caller_label");
+    rusqlite::Connection::open(&path)
+        .unwrap()
+        .execute(
+            "INSERT INTO calls(id,phase,started_at,ended_at,payload) VALUES(?1,'ended',50,51,?2)",
+            [legacy.id.to_string(), payload.to_string()],
+        )
+        .unwrap();
+    let reopened = Store::open(&path).await.unwrap();
+    assert_eq!(reopened.get(legacy.id).await.unwrap(), Some(legacy));
+    assert_eq!(
+        reopened
+            .get(labeled.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .caller_label,
+        labeled.caller_label
+    );
+}
+
+#[tokio::test]
 async fn database_also_refuses_two_active_external_calls() {
     let dir = tempfile::tempdir().unwrap();
     let store = Store::open(&dir.path().join("phone.sqlite")).await.unwrap();

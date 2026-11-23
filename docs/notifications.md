@@ -43,6 +43,7 @@ The server sends the publisher token only through the Authorization header and r
 The response must identify the selected topic and notification sequence within a 16 KiB body limit.
 Existing numbers accept ASCII digits and an optional leading plus sign, with a 32-byte limit.
 Unavailable or invalid numbers display `非通知・番号取得不可`.
+A [Public Phonebook label](phonebook.md) stored at admission opens the message with `公共電話帳:` when the number is valid and the label is visible text of at most 512 bytes.
 No transcript, summary, recording, or diagnostic text enters the payload.
 
 Only the original inbound `incoming` event in the offered phase can publish.

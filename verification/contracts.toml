@@ -19,4 +19,7 @@ harnesses = [
   "proofs::closed_recording_policy_preserves_exact_boundaries",
   "proofs::recording_capacity_reserves_all_copies_without_integer_overflow",
   "proofs::playback_marks_cannot_overrun_or_move_backwards",
+  "proofs::only_complete_japanese_numbers_normalize",
+  "proofs::domestic_and_international_spellings_share_one_key",
+  "proofs::shared_labels_count_every_distinct_directory_name",
 ]

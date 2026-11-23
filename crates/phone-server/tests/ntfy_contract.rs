@@ -233,6 +233,35 @@ async fn delayed_ntfy_retries_expire_and_do_not_publish_stale_calls() {
 }
 
 #[tokio::test]
+async fn directory_labels_lead_the_message_only_when_they_are_visible_and_bounded() {
+    let plain = "発信者番号: 0775511234\n着信時刻: 1970-01-01T09:00:10+09:00";
+    let long = "あ".repeat(171);
+    for (label, message) in [
+        (
+            Some("さくら病院（病院・診療所）"),
+            "公共電話帳: さくら病院（病院・診療所）\n発信者番号: 0775511234\n着信時刻: 1970-01-01T09:00:10+09:00".to_owned(),
+        ),
+        (None, plain.to_owned()),
+        (Some(""), plain.to_owned()),
+        (Some("病院\n発信者番号: 0000000000"), plain.to_owned()),
+        (Some(long.as_str()), plain.to_owned()),
+    ] {
+        let fixture = Fixture::start().await;
+        let directory = tempfile::tempdir().unwrap();
+        let store = Store::open(&directory.path().join("phone.sqlite"))
+            .await
+            .unwrap();
+        let mut call = Call::offered("0775511234".into(), "inbound".into(), 10);
+        call.caller_label = label.map(Into::into);
+        store.save(&call, "incoming", 10).await.unwrap();
+        fixture.notifier(store, false).pump(10).await.unwrap();
+        let captured = fixture.captured.lock().unwrap();
+        assert_eq!(captured.ntfy.len(), 1);
+        assert_eq!(captured.ntfy[0].1["message"], message.as_str(), "{label:?}");
+    }
+}
+
+#[tokio::test]
 async fn unknown_caller_values_never_enter_the_notification_body() {
     for caller in [
         "",
@@ -247,7 +276,8 @@ async fn unknown_caller_values_never_enter_the_notification_body() {
         let store = Store::open(&directory.path().join("phone.sqlite"))
             .await
             .unwrap();
-        let call = Call::offered(caller.into(), "inbound".into(), 10);
+        let mut call = Call::offered(caller.into(), "inbound".into(), 10);
+        call.caller_label = Some("さくら病院（病院・診療所）".into());
         store.save(&call, "incoming", 10).await.unwrap();
         fixture.notifier(store, false).pump(10).await.unwrap();
         let captured = fixture.captured.lock().unwrap();

@@ -268,6 +268,7 @@ impl Store {
                 params![id.to_string(), i64::try_from(now)?],
             )?;
             call.caller.clear();
+            call.caller_label = None;
             call.transcript.clear();
             call.summary = None;
             call.last_error = None;

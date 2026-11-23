@@ -218,6 +218,7 @@ export interface components {
 	schemas: {
 		Call: {
 			caller: string;
+			caller_label?: string;
 			direction: string;
 			/** Format: int64 */
 			ended_at?: number | null;

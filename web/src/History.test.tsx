@@ -43,6 +43,43 @@ test("history distinguishes archive retries from completed local capture", (): v
 	).toBeInTheDocument();
 });
 
+test("history shows a directory label above the caller number", (): void => {
+	const call: Call = {
+		id: "20dd9efa-244c-47d3-8653-52bb05fab038",
+		direction: "inbound",
+		caller: "0775511234",
+		phase: "ended",
+		started_at: 1,
+		ended_at: 2,
+		reason: null,
+		transcript: [],
+		summary: null,
+		recording: { status: "none" },
+		processing: "complete",
+		last_error: null,
+	};
+	const perform = async (operation: () => Promise<unknown>): Promise<void> => {
+		await operation();
+	};
+	const view = render(
+		<History
+			calls={[{ ...call, caller_label: "さくら病院（病院・診療所）" }]}
+			busy={false}
+			perform={perform}
+		/>,
+	);
+	const number = screen.getByRole("heading", { level: 3, name: "0775511234" });
+	const label = screen.getByText("公共電話帳: さくら病院（病院・診療所）");
+	expect(
+		label.compareDocumentPosition(number) & Node.DOCUMENT_POSITION_FOLLOWING,
+	).toBeTruthy();
+	view.rerender(<History calls={[call]} busy={false} perform={perform} />);
+	expect(screen.queryByText(/公共電話帳/)).not.toBeInTheDocument();
+	expect(
+		screen.getByRole("heading", { level: 3, name: "0775511234" }),
+	).toBeInTheDocument();
+});
+
 test("recording playback reloads the source after a storage outage", async (): Promise<void> => {
 	const call: Call = {
 		id: "20dd9efa-244c-47d3-8653-52bb05fab038",

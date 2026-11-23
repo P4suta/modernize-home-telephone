@@ -1582,3 +1582,88 @@ async fn endpoint_identity_guards_reject_each_invalid_condition() {
     assert_eq!(after_wrong_peer.phase, Phase::Ringing);
     assert!(untracked_deleted);
 }
+
+#[cfg(feature = "plugin-phonebook")]
+fn install_directory(directory: &std::path::Path) {
+    let number = phone_core::directory::NationalNumber::from_dial(
+        phone_core::DialNumber::parse(b"0775511234").unwrap(),
+    )
+    .unwrap();
+    phone_plugin_phonebook::install(
+        directory,
+        &"1".repeat(64),
+        &"2".repeat(64),
+        1,
+        &[(number, "さくら病院（病院・診療所）".into())],
+    )
+    .unwrap();
+}
+
+#[cfg(feature = "plugin-phonebook")]
+fn calling(id: &str, number: &str) -> Channel {
+    Channel {
+        caller: Caller {
+            number: number.into(),
+        },
+        ..channel(id)
+    }
+}
+
+#[cfg(feature = "plugin-phonebook")]
+#[tokio::test]
+async fn inbound_calls_keep_the_directory_label_found_at_admission() {
+    let (control, task, directory) = setup().await;
+    install_directory(directory.path());
+    let call = control
+        .offer(calling("carrier-1", "+81775511234"), "inbound".into())
+        .await
+        .unwrap();
+    assert_eq!(
+        call.caller_label.as_deref(),
+        Some("さくら病院（病院・診療所）")
+    );
+    let events = control.store.events_after(0).await.unwrap();
+    assert!(!events.is_empty());
+    for event in events {
+        assert_eq!(event.call.unwrap().caller_label, call.caller_label);
+    }
+    let ended = control.command(call.id, Command::Hangup).await.unwrap();
+    assert_eq!(ended.caller_label, call.caller_label);
+    task.abort();
+}
+
+#[cfg(feature = "plugin-phonebook")]
+#[tokio::test]
+async fn admission_continues_without_a_label_when_the_directory_cannot_answer() {
+    let (control, task, directory) = setup().await;
+    let index = directory.path().join(phone_plugin_phonebook::INDEX_FILE);
+    let admit = |id: &'static str, number: &'static str| {
+        let control = control.clone();
+        async move {
+            let started = std::time::Instant::now();
+            let call = control
+                .offer(calling(id, number), "inbound".into())
+                .await
+                .unwrap();
+            control.command(call.id, Command::Hangup).await.unwrap();
+            (call.caller_label, started.elapsed())
+        }
+    };
+    assert_eq!(admit("missing", "0775511234").await.0, None);
+    std::fs::write(&index, b"not a database").unwrap();
+    assert_eq!(admit("damaged", "0775511234").await.0, None);
+    install_directory(directory.path());
+    assert_eq!(admit("incomplete", "1").await.0, None);
+    let writer = rusqlite::Connection::open(&index).unwrap();
+    writer.execute_batch("BEGIN EXCLUSIVE").unwrap();
+    let (label, elapsed) = admit("locked", "0775511234").await;
+    assert_eq!(label, None);
+    assert!(
+        elapsed < std::time::Duration::from_millis(900),
+        "{elapsed:?}"
+    );
+    writer.execute_batch("ROLLBACK").unwrap();
+    let outbound = control.originate("0775511234".into()).await.unwrap();
+    assert_eq!(outbound.caller_label, None);
+    task.abort();
+}

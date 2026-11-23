@@ -6,6 +6,7 @@ export const callSchema = z.object({
 	id: z.uuid(),
 	direction: z.enum(["inbound", "outbound"]),
 	caller: z.string().max(256),
+	caller_label: z.string().min(1).max(512).exactOptional(),
 	phase: z.enum([
 		"offered",
 		"screening",

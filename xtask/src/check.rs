@@ -553,15 +553,7 @@ pub fn fast() -> anyhow::Result<()> {
         ],
     )?;
     crate::plugins::check(Path::new("."))?;
-    for features in [
-        None,
-        Some("plugin-ai"),
-        Some("plugin-ntfy"),
-        Some("plugin-nas"),
-        Some("plugin-ai,plugin-ntfy"),
-        Some("plugin-ai,plugin-nas"),
-        Some("plugin-ntfy,plugin-nas"),
-    ] {
+    for features in crate::plugins::host_feature_sets() {
         let mut args = vec![
             "clippy",
             "--locked",
@@ -569,8 +561,8 @@ pub fn fast() -> anyhow::Result<()> {
             "phone-server",
             "--no-default-features",
         ];
-        if let Some(features) = features {
-            args.extend(["--features", features]);
+        if !features.is_empty() {
+            args.extend(["--features", &features]);
         }
         args.extend(["--", "-D", "warnings"]);
         trace.run("cargo", &args)?;
