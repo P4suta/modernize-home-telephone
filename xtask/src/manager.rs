@@ -172,6 +172,65 @@ pub fn verify_images(release: &Release) -> anyhow::Result<()> {
     }
     Ok(())
 }
+const RELEASE_TAG_PREFIXES: [&str; 2] = ["homephone-app:source-", "homephone-gateway:source-"];
+const ENGINE_NAMESPACES: [&str; 2] = ["docker.io/library/", "localhost/"];
+fn local_reference(reference: &str) -> &str {
+    ENGINE_NAMESPACES
+        .iter()
+        .find_map(|namespace| reference.strip_prefix(namespace))
+        .unwrap_or(reference)
+}
+pub fn superseded_references(
+    listed: &[String],
+    in_use: &[String],
+    retained: &[&Release],
+) -> Vec<String> {
+    let kept: std::collections::BTreeSet<&str> = retained
+        .iter()
+        .flat_map(|release| [&release.app.reference, &release.gateway.reference])
+        .chain(in_use)
+        .map(|reference| local_reference(reference))
+        .collect();
+    listed
+        .iter()
+        .filter(|reference| {
+            let local = local_reference(reference);
+            RELEASE_TAG_PREFIXES
+                .iter()
+                .any(|prefix| local.starts_with(prefix))
+                && !kept.contains(local)
+        })
+        .cloned()
+        .collect()
+}
+fn engine_lines(arguments: &[&str]) -> anyhow::Result<Vec<String>> {
+    Ok(
+        String::from_utf8(output(Command::new("docker").args(arguments))?)?
+            .lines()
+            .map(str::to_owned)
+            .collect(),
+    )
+}
+fn release_images() -> anyhow::Result<Vec<String>> {
+    engine_lines(&["image", "ls", "--format", "{{.Repository}}:{{.Tag}}"])
+}
+fn container_images() -> anyhow::Result<Vec<String>> {
+    engine_lines(&["ps", "--all", "--format", "{{.Image}}"])
+}
+fn remove_images(references: &[String]) -> anyhow::Result<()> {
+    for reference in references {
+        output(Command::new("docker").args(["image", "rm", reference]))?;
+    }
+    Ok(())
+}
+fn retire_superseded(running: &Release, previous: &Release) -> anyhow::Result<()> {
+    remove_images(&superseded_references(
+        &release_images()?,
+        &container_images()?,
+        &[running, previous],
+    ))
+    .context("the replacement committed, but removing superseded release images failed")
+}
 pub fn atomic_json<T: Serialize>(path: &Path, value: &T) -> anyhow::Result<()> {
     let parent = path.parent().context("state file requires a parent")?;
     private_directory(parent)?;
@@ -757,32 +816,55 @@ impl crate::update_flow::Port for Replacement {
 }
 pub fn update(directory: &Path, package: &Path, backup: &Path) -> anyhow::Result<()> {
     let candidate = load_package(package)?;
-    replace(directory, candidate, backup, None)
+    replace(
+        directory,
+        candidate,
+        backup,
+        None,
+        Retention::RunningAndPrevious,
+    )
 }
 pub fn rollback(directory: &Path, snapshot: &Path, backup: &Path) -> anyhow::Result<()> {
     bundle::verify(snapshot, Kind::Backup)?;
     let candidate: Release =
         serde_json::from_slice(&std::fs::read(snapshot.join("config/images.json"))?)?;
     verify_images(&candidate)?;
-    replace(directory, candidate, backup, Some(snapshot.to_owned()))
+    replace(
+        directory,
+        candidate,
+        backup,
+        Some(snapshot.to_owned()),
+        Retention::RunningAndPrevious,
+    )
+}
+#[derive(Clone, Copy)]
+enum Retention {
+    RunningAndPrevious,
+    AllReleases,
 }
 fn replace(
     directory: &Path,
     candidate: Release,
     backup: &Path,
     restore_candidate: Option<PathBuf>,
+    retention: Retention,
 ) -> anyhow::Result<()> {
     let directory = absolute(directory)?;
     let _lock = lock(&directory)?;
     require_settled(&directory)?;
     let installation = Installation::open(&directory)?;
+    let previous = installation.release.clone();
+    let running = candidate.clone();
     crate::update_flow::replace(&mut Replacement {
         installation,
         candidate,
         backup: absolute(backup)?,
         restore_candidate,
     })?;
-    Ok(())
+    match retention {
+        Retention::RunningAndPrevious => retire_superseded(&running, &previous),
+        Retention::AllReleases => Ok(()),
+    }
 }
 pub fn load_package(directory: &Path) -> anyhow::Result<Release> {
     let release = crate::package::validate(directory)?;
@@ -879,7 +961,7 @@ pub fn lab(directory: &Path) -> anyhow::Result<()> {
         .context("lab requires a parent")?
         .join("backups")
         .join(uuid::Uuid::new_v4().to_string());
-    replace(directory, candidate, &backup, None)
+    replace(directory, candidate, &backup, None, Retention::AllReleases)
 }
 pub fn require_lab(directory: &Path) -> anyhow::Result<()> {
     let config: toml::Value = toml::from_str(&std::fs::read_to_string(

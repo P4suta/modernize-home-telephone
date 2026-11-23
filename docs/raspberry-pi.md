@@ -111,6 +111,13 @@ A fresh restore receives a new installation identity and refuses an occupied des
 Only one installation may own the configured HTTP and SIP ports at a time.
 Restoring an earlier snapshot intentionally restores its earlier call history.
 
+A committed update or rollback keeps the images of the running release and the release it replaced.
+It then removes every other `homephone-app` and `homephone-gateway` source image that no container uses.
+A removal failure reports an error after the commit, and the new release keeps running.
+Keep one installation in each container engine store, because the manager can't see the releases of another installation without containers.
+Before rolling back to an older backup, load its release images with `docker load --input PACKAGE/app.tar` and `docker load --input PACKAGE/gateway.tar`.
+Keep the package directories of the running and previous releases, and delete older package directories after a successful update.
+
 The default recording policy keeps finished recordings for 30 days with a 4 GiB quota.
 Capture and quota enforcement continue independently of slow transcription or summary requests.
 Active and quarantined calls remain protected until gateway cleanup releases ownership.

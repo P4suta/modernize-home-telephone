@@ -105,6 +105,33 @@ fn sample(installation: &Installation) -> anyhow::Result<uuid::Uuid> {
     }
     anyhow::bail!("the mock call did not finish and capture its recording")
 }
+fn retire_synthetic_release(running: &Release) -> anyhow::Result<()> {
+    let (synthetic, _) = image_references(&"0".repeat(SHA256_HEX_DIGITS), uuid::Uuid::nil())?;
+    output(Command::new("docker").args(["image", "tag", &running.app.reference, &synthetic]))?;
+    let observed = [
+        synthetic.as_str(),
+        &running.app.reference,
+        &running.gateway.reference,
+    ];
+    let listed: Vec<_> = release_images()?
+        .into_iter()
+        .filter(|reference| observed.contains(&local_reference(reference)))
+        .collect();
+    ensure!(
+        listed.len() == observed.len(),
+        "the engine did not list the rehearsal release images"
+    );
+    remove_images(&superseded_references(
+        &listed,
+        &container_images()?,
+        &[running],
+    ))?;
+    ensure!(
+        inspect(&synthetic).is_err(),
+        "retirement kept a superseded release image"
+    );
+    verify_images(running)
+}
 pub fn run(directory: &Path) -> anyhow::Result<()> {
     require_lab(directory)?;
     let directory = absolute(directory)?;
@@ -128,10 +155,18 @@ pub fn run(directory: &Path) -> anyhow::Result<()> {
             installation.release.clone(),
             &run.join("successful-update"),
             None,
+            Retention::AllReleases,
         )?;
+        retire_synthetic_release(&installation.release)?;
         let mut broken = installation.release.clone();
         broken.app = broken.gateway.clone();
-        let failed = replace(&directory, broken, &run.join("failed-candidate"), None);
+        let failed = replace(
+            &directory,
+            broken,
+            &run.join("failed-candidate"),
+            None,
+            Retention::AllReleases,
+        );
         ensure!(
             failed.is_err(),
             "the deliberately invalid app unexpectedly passed candidate health"
