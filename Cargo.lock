@@ -1380,6 +1380,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "phone-plugin-ntfy"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "futures-util",
+ "phone-core",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "time",
+ "url",
+ "uuid",
+]
+
+[[package]]
 name = "phone-server"
 version = "0.0.0"
 dependencies = [
@@ -1396,6 +1411,7 @@ dependencies = [
  "openssl",
  "phone-core",
  "phone-plugin-ai",
+ "phone-plugin-ntfy",
  "proptest",
  "reqwest",
  "rusqlite",

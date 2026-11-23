@@ -63,7 +63,7 @@ async fn main() -> anyhow::Result<()> {
                 .unwrap_or_else(|_| "phone_server=info".into()),
         )
         .init();
-    let secrets = Secrets::load_with_file(&config, secrets_file.as_deref())?;
+    let secrets = Secrets::load_for_calls(&config, secrets_file.as_deref())?;
     let listener = tokio::net::TcpListener::bind(config.listen).await?;
     let store = Store::open(&config.data_dir.join("phone.sqlite")).await?;
     let ari = Ari::new(config.ari.clone(), secrets.ari_password.clone())?;
@@ -83,8 +83,12 @@ async fn main() -> anyhow::Result<()> {
         store.clone(),
         secrets.openai_key.clone(),
     )?;
+    let mut notification_config = config.clone();
+    if notification_config.notifications.ntfy.is_some() && secrets.ntfy_token.is_none() {
+        notification_config.notifications.ntfy = None;
+    }
     let notifier =
-        phone_server::notifications::Notifier::new(config.clone(), store, secrets.clone())?;
+        phone_server::notifications::Notifier::new(notification_config, store, secrets.clone())?;
     let processing = tokio::spawn(processor.run(stop.clone()));
     let notifying = tokio::spawn(notifier.run(stop.clone()));
     let app = router(config.clone(), control.clone(), ari, secrets);

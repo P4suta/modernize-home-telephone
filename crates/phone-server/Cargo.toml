@@ -7,8 +7,9 @@ license.workspace = true
 publish.workspace = true
 
 [features]
-default = ["plugin-ai"]
+default = ["plugin-ai", "plugin-ntfy"]
 plugin-ai = ["phone-plugin-ai/runtime"]
+plugin-ntfy = ["dep:phone-plugin-ntfy"]
 
 [[test]]
 name = "media_faults"
@@ -37,6 +38,7 @@ hmac = "0.12"
 hound = "3.5"
 phone-core = { path = "../phone-core" }
 phone-plugin-ai = { path = "../phone-plugin-ai", default-features = false }
+phone-plugin-ntfy = { path = "../phone-plugin-ntfy", optional = true }
 reqwest = { version = "0.13.5", features = ["json", "multipart", "stream"] }
 rusqlite = { version = "0.41.1", features = ["bundled", "backup"] }
 serde = { version = "1", features = ["derive"] }

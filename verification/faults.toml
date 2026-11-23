@@ -97,6 +97,111 @@ previous_gap = "Sound downloads shared the untested checksum boundary, and cache
 enforcement = "Each attempt and archive has unique content; the real Docker instruction accepts valid bytes, rejects the injected corrupt digest, and accepts corruption after removing only its checksum option."
 
 [[cases]]
+source = "crates/phone-core/tests/notification.rs"
+test = "fresh_inbound_notifications_preserve_exact_time_boundaries"
+invariant = "Incoming publication includes the exact 120-second bound and refuses expired or inconsistent timestamps without overflow."
+previous_gap = "Incoming notification eligibility had no production decision or boundary tests."
+enforcement = "Core tests check zero, the exact bound, the next second, clock regression, and integer extrema, with a source-bound Kani property."
+
+[[cases]]
+source = "crates/phone-core/tests/notification.rs"
+test = "only_the_original_inbound_offered_event_can_notify"
+invariant = "Only the original inbound offered event permits an incoming notification."
+previous_gap = "Incoming and ringing events could both be treated as a request to notify."
+enforcement = "The native test crosses every event, direction, and call phase, and the Kani harness quantifies their complete domains."
+
+[[cases]]
+source = "crates/phone-core/tests/notification.rs"
+test = "notification_names_reject_unknown_and_misleading_external_values"
+invariant = "Stored event and direction names map to their exact notification meaning."
+previous_gap = "The notification boundary had no checked mapping for unknown names or trailing characters."
+enforcement = "Native parsing tests require every supported name and refuse changed case, empty values, unknown names, and trailing spaces."
+
+[[cases]]
+source = "crates/phone-server/tests/config_contract.rs"
+test = "ntfy_is_optional_and_accepts_the_private_server_configuration"
+invariant = "An absent ntfy section preserves disabled publication while a complete private configuration is accepted."
+previous_gap = "The configuration rejected the ntfy section as an unknown field."
+enforcement = "The native TOML test parses the private server shape and validates the unchanged default configuration."
+
+[[cases]]
+source = "crates/phone-server/tests/config_contract.rs"
+test = "ntfy_configuration_refuses_ambiguous_origins_topics_and_secret_names"
+invariant = "Ntfy configuration admits only a bounded topic and an unambiguous server origin with protected transport."
+previous_gap = "Ntfy had no endpoint, topic, or credential-reference validation."
+enforcement = "Independent invalid inputs cover URL components, topic characters and length, environment names, and production refusal of loopback HTTP."
+
+[[cases]]
+source = "crates/phone-server/tests/secrets_contract.rs"
+test = "ntfy_requires_a_private_header_safe_publisher_token_when_enabled"
+invariant = "Enabled ntfy publication requires a bounded credential that cannot inject a header."
+previous_gap = "Secret loading ignored the ntfy publisher token."
+enforcement = "Native tests refuse missing, empty, whitespace, control, Unicode, and oversized values while accepting the exact limit and disabled publication."
+
+[[cases]]
+source = "crates/phone-server/tests/ntfy_contract.rs"
+test = "incoming_calls_publish_private_japanese_ntfy_payloads"
+invariant = "Ntfy receives only the Japanese incoming notification and its selected publisher authorization."
+previous_gap = "No ntfy adapter existed and no test restricted its payload."
+enforcement = "A real HTTP fixture requires the exact payload, original call time, private app link, and bearer header without diagnostic or summary text."
+
+[[cases]]
+source = "crates/phone-server/tests/ntfy_contract.rs"
+test = "successful_ntfy_calls_stay_suppressed_across_events_and_restarts"
+invariant = "Acknowledged ntfy publication for a call survives repeated events and service restart."
+previous_gap = "A successful HTTP request alone left no durable per-call checkpoint."
+enforcement = "Repeated incoming and ringing events and a reopened SQLite store must leave the observed publication count at one."
+
+[[cases]]
+source = "crates/phone-server/tests/ntfy_contract.rs"
+test = "ntfy_and_webhook_failures_retry_without_repeating_successful_channels"
+invariant = "One notification channel failure cannot prevent another channel from being attempted or repeat its completed work."
+previous_gap = "Sequential publication stopped after the first failure and retried successful work after another channel failed."
+enforcement = "Each channel fails independently through real HTTP, and a retry must contact only the unfinished channel with a stable ntfy payload."
+
+[[cases]]
+source = "crates/phone-server/tests/ntfy_contract.rs"
+test = "delayed_ntfy_retries_expire_and_do_not_publish_stale_calls"
+invariant = "An old incoming event cannot become a new ntfy notification after recovery."
+previous_gap = "The durable outbox had no incoming publication age limit."
+enforcement = "A failed request remains pending until a retry beyond the publication window settles without another ntfy request."
+
+[[cases]]
+source = "crates/phone-server/tests/ntfy_contract.rs"
+test = "unknown_caller_values_never_enter_the_notification_body"
+invariant = "An unavailable or invalid caller value becomes a fixed Japanese explanation."
+previous_gap = "No ntfy payload contract excluded arbitrary caller text."
+enforcement = "HTTP observations check missing, anonymous, injected, Unicode, and oversized caller values against the exact safe body."
+
+[[cases]]
+source = "crates/phone-server/tests/ntfy_contract.rs"
+test = "rejected_or_unverified_ntfy_responses_remain_pending"
+invariant = "Only a bounded acknowledgement for the selected topic and sequence completes ntfy publication."
+previous_gap = "No ntfy response contract distinguished rejection or unrelated successful responses from acceptance."
+enforcement = "HTTP fixtures inject redirects, authentication and rate failures, malformed and oversized JSON, and independently incorrect acknowledgement fields before a successful retry."
+
+[[cases]]
+source = "crates/phone-server/tests/ntfy_contract.rs"
+test = "failed_ntfy_checkpoint_writes_keep_the_same_pending_notification"
+invariant = "A failed checkpoint write cannot discard an uncertain publication or change its sequence."
+previous_gap = "Notification tests did not fail the durable write after remote acceptance."
+enforcement = "A SQLite trigger rejects the checkpoint after HTTP acceptance, and a reopened store must retry the same payload after the fault is removed."
+
+[[cases]]
+source = "crates/phone-server/tests/ntfy_contract.rs"
+test = "notification_checkpoints_follow_call_deletion_and_history_retention"
+invariant = "Notification checkpoints retain no call identity after its event history is deleted."
+previous_gap = "Adding checkpoints initially left their rows behind during deletion and history pruning."
+enforcement = "Independent deletion and retention paths must remove the observed checkpoint rows without publishing another notification."
+
+[[cases]]
+source = "crates/phone-server/tests/ntfy_contract.rs"
+test = "ineligible_events_and_disabled_configuration_never_contact_ntfy"
+invariant = "Disabled publication and ineligible persisted events cause no ntfy request."
+previous_gap = "Core eligibility alone did not check its HTTP adapter wiring or the disabled configuration."
+enforcement = "A real HTTP observer must remain empty for outbound, unknown, ringing, completed, expired, future, and non-offered cases and default configuration."
+
+[[cases]]
 source = "xtask/tests/vendor_sources.rs"
 test = "inaccessible_archive_members_are_errors_instead_of_an_absent_archive"
 invariant = "A source member lookup failure cannot masquerade as an absent optional archive."
@@ -369,6 +474,12 @@ invariant = "AI off refuses a media session before an external effect."
 previous_gap = "Any present key admitted media creation regardless of provider selection."
 enforcement = "A real HTTP observer must remain empty when the media entry point receives synthetic credentials with AI off."
 
+[[cases]]
+source = "crates/phone-server/tests/secrets_contract.rs"
+test = "missing_ntfy_credentials_do_not_prevent_loading_the_call_service"
+invariant = "Unavailable ntfy credentials do not prevent ordinary call-service startup."
+previous_gap = "An optional publisher credential was required by the main service secret loader."
+enforcement = "The call-service loader must preserve required telephone credentials without ntfy while still refusing missing production credentials."
 [[cases]]
 source = "crates/phone-server/tests/http_contract.rs"
 test = "identity_headers_require_loopback_and_delegate_user_authorization_to_the_tailnet"

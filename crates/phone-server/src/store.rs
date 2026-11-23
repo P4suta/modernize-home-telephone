@@ -7,7 +7,7 @@ const EVENT_QUEUE_CAPACITY: usize = 256;
 
 use crate::{
     gateway::{CallRoot, IngressId},
-    model::{Call, Delivery, Event, Phase, PushSubscription, Settings},
+    model::{Call, Delivery, Event, NotificationReceipt, Phase, PushSubscription, Settings},
 };
 use anyhow::{Context, ensure};
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
@@ -73,6 +73,10 @@ impl Store {
                 CREATE TABLE IF NOT EXISTS outbox (
                     id INTEGER PRIMARY KEY, payload TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0,
                     next_at INTEGER NOT NULL, delivered INTEGER NOT NULL DEFAULT 0
+                );
+                CREATE TABLE IF NOT EXISTS notification_receipts (
+                    channel TEXT NOT NULL, identity TEXT NOT NULL, event_id INTEGER NOT NULL,
+                    PRIMARY KEY(channel,identity)
                 );
                 CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY CHECK(id=1), payload TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS push_subscriptions (endpoint TEXT PRIMARY KEY, payload TEXT NOT NULL);
@@ -231,6 +235,10 @@ impl Store {
             };
             let mut call: Call = serde_json::from_str(&payload)?;
             ensure!(call.phase == Phase::Ended, "cannot delete an active call");
+            transaction.execute(
+                "DELETE FROM notification_receipts WHERE event_id IN (SELECT id FROM events WHERE json_extract(payload,'$.call.id')=?1)",
+                [id.to_string()],
+            )?;
             transaction.execute(
                 "DELETE FROM outbox WHERE json_extract(payload,'$.call.id')=?1",
                 [id.to_string()],
@@ -502,6 +510,39 @@ impl Store {
         }).await
     }
 
+    pub(crate) async fn notification_sent(
+        &self,
+        receipt: NotificationReceipt,
+    ) -> anyhow::Result<bool> {
+        let (channel, identity) = receipt.key();
+        self.with(move |connection| {
+            Ok(connection
+                .query_row(
+                    "SELECT 1 FROM notification_receipts WHERE channel=?1 AND identity=?2",
+                    params![channel, identity],
+                    |_| Ok(()),
+                )
+                .optional()?
+                .is_some())
+        })
+        .await
+    }
+
+    pub(crate) async fn record_notification(
+        &self,
+        receipt: NotificationReceipt,
+        event_id: i64,
+    ) -> anyhow::Result<()> {
+        let (channel, identity) = receipt.key();
+        self.with(move |connection| {
+            connection.execute(
+                "INSERT OR IGNORE INTO notification_receipts(channel,identity,event_id) SELECT ?1,?2,?3 WHERE EXISTS(SELECT 1 FROM outbox WHERE id=?3)",
+                params![channel, identity, event_id],
+            )?;
+            Ok(())
+        }).await
+    }
+
     pub async fn due(&self, now: u64) -> anyhow::Result<Vec<Delivery>> {
         let now = i64::try_from(now)?;
         self.with(move |connection| {
@@ -585,6 +626,10 @@ impl Store {
             )?;
             transaction.execute(
                 "DELETE FROM outbox WHERE id IN (SELECT id FROM events WHERE created_at<?1)",
+                [cutoff],
+            )?;
+            transaction.execute(
+                "DELETE FROM notification_receipts WHERE event_id IN (SELECT id FROM events WHERE created_at<?1)",
                 [cutoff],
             )?;
             transaction.execute("DELETE FROM events WHERE created_at<?1", [cutoff])?;

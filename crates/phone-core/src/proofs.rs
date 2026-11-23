@@ -1,6 +1,34 @@
 use super::*;
 
 #[kani::proof]
+fn incoming_notifications_require_a_fresh_inbound_offer() {
+    use crate::notification::{CallNotification, Direction, EventKind, Publication};
+    let event: EventKind = kani::any();
+    let direction: Direction = kani::any();
+    let phase: Phase = kani::any();
+    let started_at: u64 = kani::any();
+    let created_at: u64 = kani::any();
+    let now: u64 = kani::any();
+    let input = CallNotification {
+        event,
+        direction,
+        phase,
+        started_at,
+        created_at,
+    };
+    let expected = event == EventKind::Incoming
+        && direction == Direction::Inbound
+        && phase == Phase::Offered
+        && started_at <= created_at
+        && created_at <= now
+        && (now as u128) <= (started_at as u128) + 120;
+    assert_eq!(input.incoming(now) == Publication::Publish, expected);
+    kani::cover!(input.incoming(now) == Publication::Publish && started_at == 0 && now == 120);
+    kani::cover!(input.incoming(now) == Publication::Publish && started_at == u64::MAX);
+    kani::cover!(input.incoming(now) == Publication::Skip && now < started_at);
+}
+
+#[kani::proof]
 fn input_length_guards_cover_the_entire_integer_domain() {
     let length: usize = kani::any();
     let limit: usize = kani::any();
