@@ -485,6 +485,11 @@
           "caller": {
             "type": "string"
           },
+          "caller_label": {
+            "type": "string",
+            "maxLength": 512,
+            "minLength": 1
+          },
           "direction": {
             "type": "string"
           },

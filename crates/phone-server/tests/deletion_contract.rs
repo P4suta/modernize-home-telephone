@@ -10,6 +10,7 @@ async fn deleting_history_cannot_be_undone_by_a_late_post_call_worker() {
         .await
         .unwrap();
     let mut call = Call::offered("12345".into(), "inbound".into(), 10);
+    call.caller_label = Some("さくら病院（病院・診療所）".into());
     store.save(&call, "incoming", 10).await.unwrap();
     assert!(store.delete_finished(call.id, 11).await.is_err());
     call.phase = Phase::Ended;
@@ -40,5 +41,6 @@ async fn deleting_history_cannot_be_undone_by_a_late_post_call_worker() {
     let serialized = serde_json::to_string(&store.events_after(0).await.unwrap()).unwrap();
     assert!(!serialized.contains("Private message"));
     assert!(!serialized.contains("12345"));
+    assert!(!serialized.contains("さくら病院"));
     assert_eq!(store.due(100).await.unwrap().len(), 1);
 }

@@ -14,8 +14,10 @@ Add `notifications.ntfy` and its publisher token to enable incoming-call publica
 The `plugin-nas` feature selects `phone-plugin-nas`.
 Explicit `recording` configuration enables handset recording independently of AI reception.
 Add `recording.nas` and its credentials to transfer verified audio to the NAS.
+The `plugin-phonebook` feature selects `phone-plugin-phonebook`.
+Run `sync-phonebook` to name incoming callers from a local [Public Phonebook](phonebook.md) copy.
 
-All three implementations are available in the standard image.
+All four implementations are available in the standard image.
 Production initialization keeps AI off and omits explicit call recording configuration.
 Explicit block rules still apply, and unanswered calls end without voicemail.
 

@@ -189,8 +189,12 @@ impl Notifier {
         if self.store.notification_sent(receipt).await? {
             return Ok(());
         }
+        let caller_label = call
+            .caller_label
+            .as_deref()
+            .and_then(|label| phone_core::directory::CallerLabelText::new(label).ok());
         plugin
-            .publish(call.id, &call.caller, call.started_at)
+            .publish(call.id, &call.caller, caller_label, call.started_at)
             .await?;
         self.store.record_notification(receipt, event.id).await
     }

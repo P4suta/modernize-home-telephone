@@ -26,6 +26,8 @@ Dependency licenses remain in effect.
 The console's exported icons include the [Lucide and Feather notices](console/static/licenses/lucide.txt) and [Simple Design System license](console/static/licenses/simple-design-system.txt).
 The console supplies original Japanese explanations and parameter facts.
 The runtime images also contain Debian packages under their package-specific terms.
+The optional Public Phonebook sync downloads directory data at run time, and each record keeps its source's reuse terms.
+The project distributes no directory data.
 
 The gateway builds [Rusterisk](https://github.com/P4suta/Rusterisk/tree/v0.1.0) from the digest-pinned source in `deploy/rusterisk/Dockerfile`.
 The archive at `gateway-source/rusterisk.tar.gz` includes the media transport, recording, and endpoint registration changes used in the build.

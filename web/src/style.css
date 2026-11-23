@@ -263,6 +263,15 @@
 	.note {
 		font-size: 0.875rem;
 	}
+	.caller {
+		display: grid;
+		gap: 0.25rem;
+		min-width: 0;
+	}
+	.caller-label {
+		font-size: 0.875rem;
+		overflow-wrap: anywhere;
+	}
 	.error {
 		border: 2px solid #000;
 		padding: 1rem;

@@ -74,22 +74,26 @@ impl Ntfy {
         &self,
         id: uuid::Uuid,
         caller: &str,
+        caller_label: Option<phone_core::directory::CallerLabelText<'_>>,
         started_at: u64,
     ) -> anyhow::Result<()> {
-        let caller = if phone_core::DialNumber::parse(caller.as_bytes()).is_ok() {
-            caller
+        let (caller, caller_label) = if phone_core::DialNumber::parse(caller.as_bytes()).is_ok() {
+            (caller, caller_label)
         } else {
-            "非通知・番号取得不可"
+            ("非通知・番号取得不可", None)
         };
         let timestamp = time::OffsetDateTime::from_unix_timestamp(i64::try_from(started_at)?)?
             .checked_to_offset(time::UtcOffset::from_hms(9, 0, 0)?)
             .context("incoming call time is outside the supported range")?
             .format(&time::format_description::well_known::Rfc3339)?;
+        let directory = caller_label
+            .map(|label| format!("公共電話帳: {}\n", label.as_str()))
+            .unwrap_or_default();
         let sequence_id = format!("homephone-{}", id);
         let payload = serde_json::json!({
             "topic": self.topic,
             "title": "固定電話に着信",
-            "message": format!("発信者番号: {caller}\n着信時刻: {timestamp}"),
+            "message": format!("{directory}発信者番号: {caller}\n着信時刻: {timestamp}"),
             "priority": 4,
             "tags": ["telephone_receiver"],
             "click": self.origin.as_str(),

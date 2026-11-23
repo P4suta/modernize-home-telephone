@@ -7,10 +7,11 @@ license.workspace = true
 publish.workspace = true
 
 [features]
-default = ["plugin-ai", "plugin-ntfy", "plugin-nas"]
+default = ["plugin-ai", "plugin-ntfy", "plugin-nas", "plugin-phonebook"]
 plugin-ai = ["phone-plugin-ai/runtime"]
 plugin-ntfy = ["dep:phone-plugin-ntfy"]
 plugin-nas = ["dep:phone-plugin-nas"]
+plugin-phonebook = ["dep:phone-plugin-phonebook"]
 console-fixture = []
 nas-lab = ["plugin-nas"]
 
@@ -53,6 +54,7 @@ phone-core = { path = "../phone-core" }
 phone-plugin-ai = { path = "../phone-plugin-ai", default-features = false }
 phone-plugin-ntfy = { path = "../phone-plugin-ntfy", optional = true }
 phone-plugin-nas = { path = "../phone-plugin-nas", optional = true }
+phone-plugin-phonebook = { path = "../phone-plugin-phonebook", optional = true }
 reqwest = { version = "0.13.5", features = [
   "cookies",
   "form",

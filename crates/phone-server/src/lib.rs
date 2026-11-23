@@ -2,6 +2,7 @@ pub mod app;
 pub mod config;
 pub mod console;
 pub mod controller;
+pub mod directory;
 pub mod gateway;
 mod http_body;
 pub mod maintenance;

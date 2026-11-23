@@ -79,6 +79,18 @@ describe("durable call events", (): void => {
 		).toBe(false);
 		expect(callSchema.parse(exampleCall)).toEqual(exampleCall);
 	});
+	it("accepts only a nonempty bounded directory label", (): void => {
+		const label = "さくら病院（病院・診療所）";
+		expect(
+			callSchema.parse({ ...exampleCall, caller_label: label }).caller_label,
+		).toBe(label);
+		expect(callSchema.parse(exampleCall).caller_label).toBeUndefined();
+		for (const caller_label of ["", "あ".repeat(513), null]) {
+			expect(
+				callSchema.safeParse({ ...exampleCall, caller_label }).success,
+			).toBe(false);
+		}
+	});
 	it("applies each event once and removes deleted calls", (): void => {
 		const first: Timeline = { cursor: 1, calls: [] };
 		const event = { id: 2, kind: "ringing", call: exampleCall, created_at: 10 };

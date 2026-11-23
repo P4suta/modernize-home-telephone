@@ -516,7 +516,13 @@ impl Actor {
         } else {
             channel.caller.number
         };
-        let call = Call::offered(caller, direction.clone(), now());
+        let caller_label = if direction == "inbound" {
+            crate::directory::caller_label(&self.config.data_dir, &caller).await
+        } else {
+            None
+        };
+        let mut call = Call::offered(caller, direction.clone(), now());
+        call.caller_label = caller_label;
         let id = call.id;
         if let Err(error) = self.admit(call, CallRoot::Gateway(ingress)).await {
             if self.active.is_some() {

@@ -1354,6 +1354,27 @@ previous_gap = "The configuration checker bounded the entire directory while the
 enforcement = "Accept a segment at 128 bytes and refuse the first unsupported byte before runtime."
 
 [[cases]]
+source = "crates/phone-plugin-phonebook/tests/sync_contract.rs"
+test = "a_failed_sync_keeps_the_previous_index_intact"
+invariant = "A rejected directory listing, download, archive, or limit leaves the installed index byte-identical and removes the partial index."
+previous_gap = "No caller directory existed, so archive identity, size, format, and row checks had no failure contract."
+enforcement = "Serve each fault from a loopback fixture after a successful sync and compare the index bytes, a lookup, and the data directory entries."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "admission_continues_without_a_label_when_the_directory_cannot_answer"
+invariant = "A missing, damaged, or locked caller directory admits the call within the lookup bound and without a label."
+previous_gap = "Admission had no external read before the call was created."
+enforcement = "Offer real calls against absent, corrupt, and exclusively locked SQLite indexes and bound the admission time."
+
+[[cases]]
+source = "crates/phone-server/tests/ntfy_contract.rs"
+test = "directory_labels_lead_the_message_only_when_they_are_visible_and_bounded"
+invariant = "Only nonempty, control-free directory labels of at most 512 bytes enter the ntfy message, and never for an invalid caller."
+previous_gap = "The payload carried only the validated caller number and call time."
+enforcement = "Publish labeled, unlabeled, empty, multiline, and oversized labels to a loopback ntfy fixture and compare the exact message."
+
+[[cases]]
 source = "crates/phone-server/tests/nas_archive_contract.rs"
 test = "isolated_smb_archive_preserves_verified_audio_and_recovers_durable_work"
 invariant = "Native SMB effects preserve verified audio and durable ownership through storage and process faults."
