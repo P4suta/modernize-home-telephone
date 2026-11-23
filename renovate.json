@@ -6,6 +6,7 @@
       "matchFileNames": [
         "deploy/app/Dockerfile",
         "deploy/asterisk/Dockerfile",
+        "verification/Dockerfile.nas",
         "verification/Dockerfile.sip",
         "verification/Dockerfile.web"
       ],

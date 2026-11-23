@@ -3,7 +3,8 @@ fn plugin_dependencies_cannot_reach_the_host_or_another_plugin() {
     let clean = serde_json::json!({"packages":[
         {"name":"phone-core","dependencies":[]},
         {"name":"phone-plugin-ai","dependencies":[{"name":"phone-core"}]},
-        {"name":"phone-plugin-ntfy","dependencies":[{"name":"phone-core"}]}
+        {"name":"phone-plugin-ntfy","dependencies":[{"name":"phone-core"}]},
+        {"name":"phone-plugin-nas","dependencies":[]}
     ]});
     xtask::plugins::validate_dependencies(&clean).unwrap();
     for (package, dependency) in [
@@ -13,6 +14,9 @@ fn plugin_dependencies_cannot_reach_the_host_or_another_plugin() {
         (1, "xtask"),
         (1, "phone-plugin-ntfy"),
         (2, "phone-plugin-ai"),
+        (3, "phone-server"),
+        (3, "xtask"),
+        (3, "phone-plugin-ntfy"),
     ] {
         let mut bad = clean.clone();
         bad["packages"][package]["dependencies"]

@@ -4,7 +4,12 @@ pub fn validate_dependencies(metadata: &serde_json::Value) -> anyhow::Result<()>
     let packages = metadata["packages"]
         .as_array()
         .context("missing package inventory")?;
-    for name in ["phone-core", "phone-plugin-ai", "phone-plugin-ntfy"] {
+    for name in [
+        "phone-core",
+        "phone-plugin-ai",
+        "phone-plugin-ntfy",
+        "phone-plugin-nas",
+    ] {
         let matching = packages
             .iter()
             .filter(|package| package["name"] == name)

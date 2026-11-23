@@ -100,7 +100,10 @@ export function RecordingPlayer({ call }: { call: Call }): ReactElement {
 					const value = audio.current?.duration ?? 0;
 					setDuration(Number.isFinite(value) ? value : 0);
 				}}
-				onError={(): void => setError(true)}
+				onError={(): void => {
+					setPlaying(false);
+					setError(true);
+				}}
 			/>
 			<button
 				type="button"
@@ -109,6 +112,7 @@ export function RecordingPlayer({ call }: { call: Call }): ReactElement {
 					if (!player) return;
 					if (playing) player.pause();
 					else {
+						if (error) player.load();
 						setError(false);
 						void player.play().catch((): void => setError(true));
 					}
@@ -187,6 +191,13 @@ export function History({
 										? "音声処理を再試行中"
 										: "音声処理待ち"}
 						</p>
+						{call.last_error === "nas_archive_unavailable" && (
+							<div role="status" aria-label="録音の保存状況" className="panel">
+								<h4>NASへの保存を再試行中</h4>
+								<p>録音は本体で保持しています。</p>
+								<p>NASへの接続が戻ると自動で保存します。</p>
+							</div>
+						)}
 						{call.summary && <p>{call.summary}</p>}
 						<Transcript call={call} />
 						{call.recording.status === "available" ? (

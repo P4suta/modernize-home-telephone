@@ -33,6 +33,7 @@ async fn app(production: bool) -> (axum::Router, tempfile::TempDir) {
         webhook_secret: None,
         vapid_pem: None,
         ntfy_token: None,
+        nas_credentials: None,
     };
     let ari = Ari::new(config.ari.clone(), secrets.ari_password.clone()).unwrap();
     let store = Store::open(&dir.path().join("phone.sqlite")).await.unwrap();

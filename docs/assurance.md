@@ -209,9 +209,41 @@ The container deadline is only a resource stop condition.
 
 `just mutants` selects every production Rust file in the core and excludes only the proof harness file.
 The gate requires every generated mutant to trigger a test failure or a compilation refusal, with both categories retained in the report.
-`just web-mutants` uses Stryker on the frontend's pure timeline reducer with per-test coverage and the pinned TypeScript checker.
-The TypeScript mutation result covers only the timeline reducer.
+`just web-mutants` uses Stryker on the frontend's pure timeline reducer and recording duration and capacity conversion functions.
+It uses per-test coverage and the pinned TypeScript checker.
+The TypeScript mutation result covers those selected functions.
 The Kani broken-parser and broken-alphabet controls also challenge macro implementation changes.
+
+## Bound independent NAS recording
+
+The core capacity proof quantifies every 64-bit usage, pending count, recording size, quota, and free-space value.
+An independent wide-integer specification checks the four-copy reservation and refuses checked overflow.
+Manual retention leaves finished history untouched by elapsed time.
+Filesystem statistics, complete bounded directory traversal, and actual recording byte limits connect the pure decision to the runtime.
+The proof assumes the external filesystem reports free space accurately and other processes don't consume reserved space after the observation.
+Other processes can still consume physical blocks after the check.
+
+The [NAS inventory](../verification/nas.toml) requires fifteen complete native cases.
+An encrypted loopback Server Message Block (SMB) server uses synthetic credentials and audio inside a network-isolated ARM64 container.
+The server maps an account containing spaces through Samba's documented [username mapping](https://www.samba.org/samba/docs/current/man-html/smb.conf.5.html) and authenticates it with the real client.
+Cases cover capture with AI off, unavailable and unwritable storage, separate-session readback, restart, and stable archive identity after restore.
+They also cover authenticated overlapping byte ranges, changed and oversize audio, interrupted child cleanup, failed database commit, durable deletion, probe cleanup, and automatic archive retry.
+An independently mounted 16 MiB share must return an actual remote disk-full status while the local spool retains its audio.
+The production storage-check command also runs with the runtime's unprivileged numeric user and checks valid and invalid credentials containing Unicode and significant whitespace.
+The worker case runs the production background loops and observes durable retry state before restoring the SMB service.
+The collector rejects missing, duplicated, skipped, retried, unknown, or late cases.
+
+Native database tests preserve unrelated call faults, refuse mismatched archive receipts, prevent publication after deletion, and ignore legacy expiry and local quotas for NAS audio.
+The controller releases its store handle before shutdown returns.
+Readiness publishes after the controller unpauses background processing.
+NAS storage probes use a fixed non-call object identity, verify a synthetic file, and remove the probe without opening a call-service database or listener.
+
+The browser journey checks manual retention, the local quota boundary, keyboard-operated contextual help, narrow layout, enlarged text, and playback retry after a storage failure.
+The project combines [200 percent text resizing](https://www.w3.org/WAI/WCAG22/Understanding/resize-text.html) and [text-spacing overrides](https://www.w3.org/WAI/WCAG22/Understanding/text-spacing.html) at a narrow viewport as an assurance target.
+Browser storage selection uses a typed status fixture.
+The native SMB lab supplies the remote-storage behavior.
+Neither fixture establishes a physical handset recording or actual NAS interoperability.
+The [recording guide](recordings.md) describes those installation boundaries.
 
 `just security` checks the locked Rust and JavaScript dependencies and scans maintained source for credentials with redacted output.
 The gate validates the exact 14-entry source checksum inventory even when a public checkout has no manufacturer originals.

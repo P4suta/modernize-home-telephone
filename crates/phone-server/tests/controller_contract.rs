@@ -34,6 +34,9 @@ enum CleanupFault {
 struct GatewayState {
     cleanup_fault: Option<CleanupFault>,
     channels: Vec<Channel>,
+    recording: bool,
+    recording_queries: Vec<String>,
+    recording_finished: bool,
 }
 
 type GatewayStateHandle = std::sync::Arc<std::sync::Mutex<GatewayState>>;
@@ -85,6 +88,7 @@ async fn setup_with_gateway_state(
     Requests,
 ) {
     let requests: Requests = Default::default();
+    let recording = state.lock().unwrap().recording;
     let observed = requests.clone();
     let application_state = state.clone();
     let channel_state = state.clone();
@@ -141,8 +145,13 @@ async fn setup_with_gateway_state(
         )
         .fallback(any(move |method: axum::http::Method, uri: axum::http::Uri| {
             let failed = failed.clone();
-            let fault=state.lock().unwrap().cleanup_fault;
+            let (fault,recording_finished)={
+                let mut state=state.lock().unwrap();
+                if uri.path().ends_with("/record"){state.recording_queries.push(uri.query().unwrap_or_default().to_owned());}
+                (state.cleanup_fault,state.recording_finished)
+            };
             async move {
+                if recording_finished && method==axum::http::Method::POST && uri.path().starts_with("/ari/recordings/live/") && uri.path().ends_with("/stop") {return StatusCode::NOT_FOUND;}
                 let injected = fault.is_some_and(|fault| match fault {
                     CleanupFault::Recording => method == axum::http::Method::POST
                         && uri.path().starts_with("/ari/recordings/live/")
@@ -184,6 +193,16 @@ async fn setup_with_gateway_state(
     config.ari.url = format!("http://{address}/ari/");
     config.ai.provider = provider.into();
     config.timers.ringing_seconds = ringing_seconds;
+    if recording {
+        let spool = dir.path().join("spool");
+        tokio::fs::create_dir(&spool).await.unwrap();
+        config.recording = Some(phone_server::config::CallRecording {
+            enabled: true,
+            max_seconds: 2,
+            gateway_spool_dir: spool,
+            nas: None,
+        });
+    }
     let store = Store::open(&dir.path().join("phone.sqlite")).await.unwrap();
     store
         .set_settings(&Settings {
@@ -196,6 +215,171 @@ async fn setup_with_gateway_state(
     let control = Control::start(config, ari, store);
     control.wait_ready().await.unwrap();
     (control, task, dir, requests)
+}
+
+#[tokio::test]
+async fn a_full_recording_spool_preserves_calls_and_recovers_after_space_is_freed() {
+    let (frames, _) = tokio::sync::broadcast::channel::<String>(16);
+    let state = std::sync::Arc::new(std::sync::Mutex::new(GatewayState {
+        recording: true,
+        ..GatewayState::default()
+    }));
+    let (control, task, directory, requests) = setup_with_gateway_state(
+        Default::default(),
+        "disabled",
+        30,
+        Some(frames.clone()),
+        state.clone(),
+    )
+    .await;
+    let mut settings = control.store.settings().await.unwrap();
+    settings.recording_limit_bytes = Some(1048576);
+    control.store.set_settings(&settings).await.unwrap();
+    let filled = directory.path().join("spool/filled.wav");
+    std::fs::File::create(&filled)
+        .unwrap()
+        .set_len(1048576)
+        .unwrap();
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        while frames.receiver_count() == 0 {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    for blocked in [true, false] {
+        let root = channel(if blocked {
+            "full-spool"
+        } else {
+            "recovered-spool"
+        });
+        let call = control.offer(root.clone(), "inbound".into()).await.unwrap();
+        let peer = control
+            .store
+            .resources()
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|id| id.ends_with("-peer-0"))
+            .unwrap();
+        frames.send(endpoint_event(&peer, call.id)).unwrap();
+        let connected = gateway_event_barrier(
+            &control,
+            &frames,
+            &requests,
+            &root,
+            if blocked {
+                "full-spool-connected"
+            } else {
+                "recovered-spool-connected"
+            },
+        )
+        .await;
+        assert_eq!(connected.phase, Phase::Connected, "blocked={blocked}");
+        assert_eq!(
+            connected.recording,
+            if blocked {
+                phone_server::model::Recording::Failed {
+                    reason: "local_capacity".into(),
+                }
+            } else {
+                phone_server::model::Recording::Pending
+            }
+        );
+        control.command(call.id, Command::Hangup).await.unwrap();
+        if blocked {
+            std::fs::remove_file(&filled).unwrap();
+        }
+    }
+    control.shutdown().await;
+    task.abort();
+    assert_eq!(state.lock().unwrap().recording_queries.len(), 1);
+    assert!(
+        !requests
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|path| path.ends_with("/externalMedia") || path.ends_with("/play"))
+    );
+}
+
+#[tokio::test]
+async fn explicit_recording_captures_ordinary_calls_without_ai_or_provider_media() {
+    let (frames, _) = tokio::sync::broadcast::channel::<String>(16);
+    let state = std::sync::Arc::new(std::sync::Mutex::new(GatewayState {
+        recording: true,
+        ..GatewayState::default()
+    }));
+    let (control, task, _directory, requests) = setup_with_gateway_state(
+        Default::default(),
+        "disabled",
+        30,
+        Some(frames.clone()),
+        state.clone(),
+    )
+    .await;
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        while frames.receiver_count() == 0 {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let root = channel("recorded-handset");
+    let call = control.offer(root.clone(), "inbound".into()).await.unwrap();
+    assert_eq!(call.recording, phone_server::model::Recording::None);
+    let peer = control
+        .store
+        .resources()
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|id| id.ends_with("-peer-0"))
+        .unwrap();
+    frames.send(endpoint_event(&peer, call.id)).unwrap();
+    let connected =
+        gateway_event_barrier(&control, &frames, &requests, &root, "recording-connected").await;
+    assert_eq!(connected.phase, Phase::Connected);
+    assert_eq!(connected.recording, phone_server::model::Recording::Pending);
+    state.lock().unwrap().recording_finished = true;
+    frames.send(serde_json::json!({"type":"RecordingFinished","recording":{"name":format!("hp-{}",call.id),"format":"wav","state":"done","duration":2}}).to_string()).unwrap();
+    let after_limit = gateway_event_barrier(
+        &control,
+        &frames,
+        &requests,
+        &root,
+        "recording-limit-reached",
+    )
+    .await;
+    assert_eq!(after_limit.phase, Phase::Connected);
+    control.command(call.id, Command::Hangup).await.unwrap();
+    control.shutdown().await;
+    task.abort();
+    let requests = requests.lock().unwrap();
+    assert_eq!(
+        requests
+            .iter()
+            .filter(|path| path.ends_with("/record"))
+            .count(),
+        1
+    );
+    assert!(
+        !requests
+            .iter()
+            .any(|path| path.ends_with("/externalMedia") || path.ends_with("/play"))
+    );
+    let state = state.lock().unwrap();
+    assert_eq!(state.recording_queries.len(), 1);
+    let query = url::form_urlencoded::parse(state.recording_queries[0].as_bytes())
+        .collect::<std::collections::BTreeMap<_, _>>();
+    assert_eq!(
+        query.get("maxDurationSeconds").map(|value| value.as_ref()),
+        Some("2")
+    );
+    assert_eq!(
+        query.get("terminateOn").map(|value| value.as_ref()),
+        Some("none")
+    );
 }
 
 #[tokio::test]

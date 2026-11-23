@@ -17,26 +17,32 @@ struct Case {
     enforcement: String,
 }
 fn tests(source: &str) -> anyhow::Result<BTreeSet<String>> {
-    Ok(syn::parse_file(source)?
-        .items
-        .into_iter()
-        .filter_map(|item| {
-            let syn::Item::Fn(function) = item else {
-                return None;
-            };
-            function
-                .attrs
-                .iter()
-                .any(|attribute| {
-                    attribute
-                        .path()
-                        .segments
-                        .last()
-                        .is_some_and(|segment| segment.ident == "test")
-                })
-                .then(|| function.sig.ident.to_string())
-        })
-        .collect())
+    fn visit(items: &[syn::Item], prefix: &str, names: &mut BTreeSet<String>) {
+        for item in items {
+            match item {
+                syn::Item::Fn(function)
+                    if function.attrs.iter().any(|attribute| {
+                        attribute
+                            .path()
+                            .segments
+                            .last()
+                            .is_some_and(|segment| segment.ident == "test")
+                    }) =>
+                {
+                    names.insert(format!("{prefix}{}", function.sig.ident));
+                }
+                syn::Item::Mod(module) => {
+                    if let Some((_, items)) = &module.content {
+                        visit(items, &format!("{prefix}{}::", module.ident), names);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    let mut names = BTreeSet::new();
+    visit(&syn::parse_file(source)?.items, "", &mut names);
+    Ok(names)
 }
 pub fn check(root: &Path, catalog: &str) -> anyhow::Result<()> {
     let catalog: Catalog = toml::from_str(catalog)?;

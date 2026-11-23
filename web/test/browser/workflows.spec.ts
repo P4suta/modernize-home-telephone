@@ -25,7 +25,7 @@ test("settings validate input, persist across reload, and remove number rules", 
 	try {
 		await page.goto("/");
 		await page.getByRole("button", { name: "設定を読み込む" }).click();
-		await page.getByLabel("履歴と録音の保存日数").fill("0");
+		await page.getByLabel("履歴と録音の保存日数").fill("-1");
 		await page.getByRole("button", { name: "設定を保存する" }).click();
 		expect(
 			await page
@@ -173,6 +173,22 @@ test("recordings play and seek, transcript failures retry, and confirmed deletio
 	await expect(history.getByRole("alert")).toHaveCount(0);
 	await expect(history.locator("details strong").first()).toBeVisible();
 	expect(detailRequests).toBe(2);
+	let recordingUnavailable = true;
+	await page.route(
+		`**/api/calls/${id}/recording`,
+		async (route): Promise<void> => {
+			if (recordingUnavailable)
+				await route.fulfill({ status: 503, body: "unavailable" });
+			else await route.continue();
+		},
+	);
+	await history
+		.getByRole("button", { name: "録音を再生", exact: true })
+		.click();
+	await expect(history.getByRole("alert")).toHaveText(
+		"録音を再生できませんでした。",
+	);
+	recordingUnavailable = false;
 	await history
 		.getByRole("button", { name: "録音を再生", exact: true })
 		.click();

@@ -2,6 +2,7 @@ import { type FormEvent, type ReactElement, useState } from "react";
 import { z } from "zod";
 import type { Perform } from "./App";
 import type { Settings, Status } from "./contracts";
+import { RecordingSettings } from "./RecordingSettings";
 import { phoneStore, request } from "./service";
 
 export function Preferences({
@@ -69,45 +70,14 @@ export function Preferences({
 							});
 						}}
 					>
-						<label htmlFor="retention">履歴と録音の保存日数</label>
-						<input
-							id="retention"
-							type="number"
-							min={1}
-							max={365}
-							required
-							value={settings.retention_days ?? 30}
-							onChange={(event): void => {
+						<RecordingSettings
+							settings={settings}
+							recording={status?.recording}
+							onChange={(value): void => {
 								setSaved(false);
-								setSettings({
-									...settings,
-									retention_days: Number(event.target.value),
-								});
+								setSettings(value);
 							}}
 						/>
-						<label htmlFor="quota">録音の保存容量（GiB）</label>
-						<input
-							id="quota"
-							type="number"
-							min={0.001}
-							step={0.001}
-							required
-							value={
-								(settings.recording_limit_bytes ?? 4294967296) / 1073741824
-							}
-							onChange={(event): void => {
-								setSaved(false);
-								setSettings({
-									...settings,
-									recording_limit_bytes: Math.round(
-										Number(event.target.value) * 1073741824,
-									),
-								});
-							}}
-						/>
-						<p className="note">
-							容量を超えると終了済みの古い録音から削除します。
-						</p>
 						<label htmlFor="webhook">通知先Webhook URL（任意）</label>
 						<input
 							id="webhook"

@@ -26,6 +26,11 @@ enum Operation {
         output: PathBuf,
     },
     CheckConfig,
+    CheckRecordingStorage,
+    ExportNasCredentials {
+        #[arg(long)]
+        output: PathBuf,
+    },
 }
 
 #[tokio::main]
@@ -52,9 +57,32 @@ async fn main() -> anyhow::Result<()> {
         None => Config::default(),
     };
     config.validate()?;
+    if let Some(Operation::ExportNasCredentials { output }) = &cli.command {
+        Secrets::export_nas_credentials(
+            &config,
+            secrets_file
+                .as_deref()
+                .context("a configuration file is required")?,
+            output,
+            |name| std::env::var(name).ok(),
+        )?;
+        println!("NASの認証情報を秘密ファイルへ保存しました。");
+        return Ok(());
+    }
     if matches!(cli.command, Some(Operation::CheckConfig)) {
         println!("Configuration is valid.");
         return Ok(());
+    }
+    if matches!(cli.command, Some(Operation::CheckRecordingStorage)) {
+        #[cfg(feature = "plugin-nas")]
+        {
+            let secrets = Secrets::load_with_file(&config, secrets_file.as_deref())?;
+            phone_server::recordings::probe(&config, secrets.nas_credentials.as_ref()).await?;
+            println!("NASへの書き込みと読み取り照合を確認しました。");
+            return Ok(());
+        }
+        #[cfg(not(feature = "plugin-nas"))]
+        anyhow::bail!("NAS recording storage is absent from this build");
     }
     tracing_subscriber::fmt()
         .json()
@@ -66,6 +94,15 @@ async fn main() -> anyhow::Result<()> {
     let secrets = Secrets::load_for_calls(&config, secrets_file.as_deref())?;
     let listener = tokio::net::TcpListener::bind(config.listen).await?;
     let store = Store::open(&config.data_dir.join("phone.sqlite")).await?;
+    if phone_server::recordings::cleanup_temporary(&config.data_dir)
+        .await
+        .is_err()
+    {
+        tracing::warn!(
+            operation = "recording_temporary_cleanup",
+            code = "startup_cleanup_failed"
+        );
+    }
     let ari = Ari::new(config.ari.clone(), secrets.ari_password.clone())?;
     let control = Control::start_quiesced(
         config.clone(),
@@ -82,7 +119,8 @@ async fn main() -> anyhow::Result<()> {
         ari.clone(),
         store.clone(),
         secrets.openai_key.clone(),
-    )?;
+    )?
+    .with_archive_credentials(secrets.nas_credentials.clone());
     let mut notification_config = config.clone();
     if notification_config.notifications.ntfy.is_some() && secrets.ntfy_token.is_none() {
         notification_config.notifications.ntfy = None;

@@ -1380,6 +1380,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "phone-plugin-nas"
+version = "0.0.0"
+dependencies = [
+ "sha2",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "phone-plugin-ntfy"
 version = "0.0.0"
 dependencies = [
@@ -1411,10 +1422,12 @@ dependencies = [
  "openssl",
  "phone-core",
  "phone-plugin-ai",
+ "phone-plugin-nas",
  "phone-plugin-ntfy",
  "proptest",
  "reqwest",
  "rusqlite",
+ "rustix",
  "serde",
  "serde_json",
  "sha2",

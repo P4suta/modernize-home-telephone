@@ -11,6 +11,57 @@ fn browser_calls_use_registered_sip_for_new_and_existing_configurations() {
     assert_eq!(custom.browser_endpoint, "PJSIP/office");
 }
 
+#[cfg(feature = "plugin-nas")]
+#[test]
+fn nas_directory_segments_match_the_archive_adapters_input_limits() {
+    let mut config = Config {
+        data_dir: "/srv/telephone/data".into(),
+        ..Config::default()
+    };
+    config.ai.provider = "disabled".into();
+    config.storage.retention_days = 0;
+    config.recording = Some(phone_server::config::CallRecording {
+        enabled: true,
+        max_seconds: 7200,
+        gateway_spool_dir: "/tmp/spool".into(),
+        nas: Some(phone_server::config::Nas {
+            archive_id: uuid::Uuid::new_v4(),
+            server: "nas.invalid".into(),
+            share: "home".into(),
+            directory: "a".repeat(128),
+            port: 445,
+            username_env: "NAS_USERNAME".into(),
+            password_env: "NAS_PASSWORD".into(),
+        }),
+    });
+    config.validate().unwrap();
+    config
+        .recording
+        .as_mut()
+        .unwrap()
+        .nas
+        .as_mut()
+        .unwrap()
+        .directory
+        .push('a');
+    assert!(config.validate().is_err());
+    config
+        .recording
+        .as_mut()
+        .unwrap()
+        .nas
+        .as_mut()
+        .unwrap()
+        .directory
+        .pop();
+    config.validate().unwrap();
+    config.data_dir = ".local/data".into();
+    assert!(
+        config.validate().is_err(),
+        "the NAS adapter needs absolute local paths"
+    );
+}
+
 #[test]
 fn production_accepts_explicit_local_calls_with_ai_off() {
     let config: Config = toml::from_str(

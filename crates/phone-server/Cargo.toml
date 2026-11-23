@@ -7,9 +7,21 @@ license.workspace = true
 publish.workspace = true
 
 [features]
-default = ["plugin-ai", "plugin-ntfy"]
+default = ["plugin-ai", "plugin-ntfy", "plugin-nas"]
 plugin-ai = ["phone-plugin-ai/runtime"]
 plugin-ntfy = ["dep:phone-plugin-ntfy"]
+plugin-nas = ["dep:phone-plugin-nas"]
+nas-lab = ["plugin-nas"]
+
+[[bin]]
+name = "nas-lab"
+path = "src/bin/nas-lab.rs"
+required-features = ["nas-lab"]
+
+[[test]]
+name = "nas_archive_contract"
+path = "tests/nas_archive_contract.rs"
+required-features = ["nas-lab"]
 
 [[test]]
 name = "media_faults"
@@ -39,6 +51,7 @@ hound = "3.5"
 phone-core = { path = "../phone-core" }
 phone-plugin-ai = { path = "../phone-plugin-ai", default-features = false }
 phone-plugin-ntfy = { path = "../phone-plugin-ntfy", optional = true }
+phone-plugin-nas = { path = "../phone-plugin-nas", optional = true }
 reqwest = { version = "0.13.5", features = ["json", "multipart", "stream"] }
 rusqlite = { version = "0.41.1", features = ["bundled", "backup"] }
 serde = { version = "1", features = ["derive"] }
@@ -61,6 +74,9 @@ utoipa = { version = "5", features = ["uuid"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 ece = "2.4.2"
 openssl = "0.10.82"
+
+[target.'cfg(unix)'.dependencies]
+rustix = { version = "=1.1.6", features = ["fs", "process"] }
 
 [dev-dependencies]
 http-body-util = "0.1"

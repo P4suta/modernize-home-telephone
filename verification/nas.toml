@@ -1,0 +1,17 @@
+cases = [
+  "recording_capture_ai_off",
+  "nas_outage_preserves_audio",
+  "storage_probe_cleanup",
+  "unprivileged_storage_probe",
+  "verified_archive_releases_local",
+  "archive_restart_cleanup",
+  "restored_archive_identity",
+  "authenticated_range_playback",
+  "corrupt_and_oversized_readback",
+  "interrupted_readback_cleanup",
+  "failed_database_commit_retries_existing_object",
+  "unwritable_archive_preserves_audio",
+  "nas_capacity_preserves_audio",
+  "durable_remote_deletion",
+  "background_capture_and_archive_retry",
+]

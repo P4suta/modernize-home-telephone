@@ -334,19 +334,41 @@ fn closed_recording_policy_preserves_exact_boundaries() {
     let limit: u64 = kani::any();
     let result = recording_policy(Recording::Closed { ended_at }, now, retention, used, limit);
     match result {
-        Purge::Expired => assert!(now >= ended_at && now - ended_at >= retention),
+        Purge::Expired => assert!(retention != 0 && now >= ended_at && now - ended_at >= retention),
         Purge::Quota => assert!(used > limit),
         Purge::Keep => assert!(used <= limit),
     }
-    let expired = now
-        .checked_sub(ended_at)
-        .is_some_and(|age| age >= retention);
+    let expired = retention != 0
+        && now
+            .checked_sub(ended_at)
+            .is_some_and(|age| age >= retention);
     assert_eq!(result == Purge::Expired, expired);
     assert_eq!(result == Purge::Quota, !expired && used > limit);
     assert_eq!(result == Purge::Keep, !expired && used <= limit);
     kani::cover!(result == Purge::Expired);
     kani::cover!(result == Purge::Quota);
     kani::cover!(result == Purge::Keep);
+}
+
+#[kani::proof]
+fn recording_capacity_reserves_all_copies_without_integer_overflow() {
+    let used: u64 = kani::any();
+    let pending: u64 = kani::any();
+    let maximum: u64 = kani::any();
+    let limit: u64 = kani::any();
+    let free: u64 = kani::any();
+    let allowed = recording_capacity(used, pending, maximum, limit, free);
+    if let Some(count) = pending.checked_add(4) {
+        let reserved = count as u128 * maximum as u128;
+        assert_eq!(
+            allowed,
+            maximum != 0 && reserved <= free as u128 && used as u128 + reserved <= limit as u128
+        );
+    } else {
+        assert!(!allowed);
+    }
+    kani::cover!(allowed);
+    kani::cover!(!allowed && pending == u64::MAX);
 }
 
 #[kani::proof]
