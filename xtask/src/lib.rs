@@ -16,6 +16,7 @@ pub mod check;
 pub mod console;
 pub mod container;
 pub mod fault_catalog;
+pub mod footprint;
 pub mod manager;
 pub mod operations;
 pub mod package;

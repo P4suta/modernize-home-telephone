@@ -43,6 +43,12 @@ enum Operation {
         #[arg(long)]
         nas_only: bool,
     },
+    Footprint {
+        #[arg(value_enum)]
+        phase: xtask::footprint::Phase,
+        #[arg(long, default_value = ".local/telephone")]
+        directory: PathBuf,
+    },
     Rehearse {
         #[arg(long, default_value = ".local/telephone")]
         directory: PathBuf,
@@ -184,6 +190,7 @@ fn main() -> anyhow::Result<()> {
                 xtask::manager::lab(&directory)
             }
         }
+        Operation::Footprint { phase, directory } => xtask::check::footprint(&directory, phase),
         Operation::Rehearse { directory } => xtask::manager::rehearse(&directory),
         Operation::Boot { directory } => xtask::manager::boot(&directory),
         Operation::Stop { directory } => xtask::manager::stop(&directory),

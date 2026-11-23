@@ -1,0 +1,36 @@
+settle_seconds = 15
+window_seconds = 30
+
+[images]
+app = 328000000
+gateway = 183000000
+
+[started.app]
+anonymous_kib = 5376
+threads = 8
+switches_per_minute = 1350
+
+[started.console]
+anonymous_kib = 3072
+threads = 3
+switches_per_minute = 50
+
+[started.gateway]
+anonymous_kib = 3328
+threads = 5
+switches_per_minute = 13850
+
+[settled.app]
+anonymous_kib = 10240
+threads = 18
+switches_per_minute = 1450
+
+[settled.console]
+anonymous_kib = 3072
+threads = 3
+switches_per_minute = 50
+
+[settled.gateway]
+anonymous_kib = 8448
+threads = 5
+switches_per_minute = 13700

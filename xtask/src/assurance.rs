@@ -1178,7 +1178,14 @@ pub fn verify(check: Check) -> anyhow::Result<()> {
     }
 }
 pub fn receipts() -> anyhow::Result<()> {
-    for name in ["check", "security", "browser", "console_browser"] {
+    for name in [
+        "check",
+        "security",
+        "footprint-started",
+        "browser",
+        "footprint-settled",
+        "console_browser",
+    ] {
         crate::check::evidence(name)?;
     }
     crate::manager::deployment_evidence()?;
@@ -1215,7 +1222,7 @@ pub fn receipts() -> anyhow::Result<()> {
         }
     }
     println!(
-        "Verified current-source evidence: fast checks, security, browser/SIPp, deployment recovery, {} Kani harnesses with three negative controls, Miri, 40000 fuzz executions, Rust mutation testing, and TypeScript mutation testing.",
+        "Verified current-source evidence: fast checks, security, idle footprint budgets, browser/SIPp, deployment recovery, {} Kani harnesses with three negative controls, Miri, 40000 fuzz executions, Rust mutation testing, and TypeScript mutation testing.",
         names()?.len()
     );
     Ok(())

@@ -72,8 +72,12 @@ jobs:
         run: mise x -- just package-inputs
       - name: Build the native ARM64 lab
         run: mise x -- just lab
+      - name: Bound the idle footprint after startup
+        run: mise x -- just footprint started
       - name: Verify browser, WebRTC, and SIPp audio
         run: mise x -- just browser
+      - name: Bound the idle footprint after calls
+        run: mise x -- just footprint settled
       - name: Verify deployment recovery
         run: mise x -- just deployment
       - name: Verify TypeScript mutation testing
