@@ -1,0 +1,11 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Icon/cable">
+<path id="Vector" d="M17 19C16.7348 19 16.4804 18.8946 16.2929 18.7071C16.1054 18.5196 16 18.2652 16 18V16C16 15.4696 16.2107 14.9609 16.5858 14.5858C16.9609 14.2107 17.4696 14 18 14H20C20.5304 14 21.0391 14.2107 21.4142 14.5858C21.7893 14.9609 22 15.4696 22 16V18C22 18.2652 21.8946 18.5196 21.7071 18.7071C21.5196 18.8946 21.2652 19 21 19H17Z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke="#1F2328"/>
+<path id="Vector_2" d="M17 21V19" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke="#1F2328"/>
+<path id="Vector_3" d="M19 14V6.5C19 5.57174 18.6313 4.6815 17.9749 4.02513C17.3185 3.36875 16.4283 3 15.5 3C14.5717 3 13.6815 3.36875 13.0251 4.02513C12.3687 4.6815 12 5.57174 12 6.5V17.5C12 18.4283 11.6313 19.3185 10.9749 19.9749C10.3185 20.6313 9.42826 21 8.5 21C7.57174 21 6.6815 20.6313 6.02513 19.9749C5.36875 19.3185 5 18.4283 5 17.5V10" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke="#1F2328"/>
+<path id="Vector_4" d="M21 21V19" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke="#1F2328"/>
+<path id="Vector_5" d="M3 5V3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke="#1F2328"/>
+<path id="Vector_6" d="M4 10C3.46957 10 2.96086 9.78929 2.58579 9.41421C2.21071 9.03914 2 8.53043 2 8V6C2 5.73478 2.10536 5.48043 2.29289 5.29289C2.48043 5.10536 2.73478 5 3 5H7C7.26522 5 7.51957 5.10536 7.70711 5.29289C7.89464 5.48043 8 5.73478 8 6V8C8 8.53043 7.78929 9.03914 7.41421 9.41421C7.03914 9.78929 6.53043 10 6 10H4Z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke="#1F2328"/>
+<path id="Vector_7" d="M7 5V3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke="#1F2328"/>
+</g>
+</svg>

@@ -21,8 +21,10 @@ The [publication guide](docs/publication.md) explains why the existing local Git
 
 ## Runtime and development dependencies
 
-`Cargo.lock` and `web/pnpm-lock.yaml` identify the resolved Rust and JavaScript dependency versions.
+`Cargo.lock`, `web/pnpm-lock.yaml`, and `console/pnpm-lock.yaml` identify the resolved Rust and JavaScript dependency versions.
 Dependency licenses remain in effect.
+The console's exported icons include the [Lucide and Feather notices](console/static/licenses/lucide.txt) and [Simple Design System license](console/static/licenses/simple-design-system.txt).
+The console supplies original Japanese explanations and parameter facts.
 The runtime images also contain Debian packages under their package-specific terms.
 
 The gateway builds [Rusterisk](https://github.com/P4suta/Rusterisk/tree/v0.1.0) from the digest-pinned source in `deploy/rusterisk/Dockerfile`.

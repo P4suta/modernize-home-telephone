@@ -32,7 +32,7 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-          key: dependencies-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'fuzz/Cargo.lock', 'web/pnpm-lock.yaml', 'mise.toml') }}
+          key: dependencies-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'fuzz/Cargo.lock', 'web/pnpm-lock.yaml', 'console/pnpm-lock.yaml', 'mise.toml') }}
       - name: Verify software contracts
         run: mise x -- just check
       - name: Check dependencies and public sources for secrets

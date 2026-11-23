@@ -23,6 +23,10 @@ Treat the BL3000HM combination as awaiting hardware acceptance until call tests 
 Read [setup and routing](references/setup-and-routing.md) for wiring, management access, SIP registration, direct peering, caller identification, and handset fallback.
 Read [provisioning and troubleshooting](references/provisioning-and-troubleshooting.md) for firmware checks, configuration backups, XML provisioning, and call failures.
 Load the reference relevant to the requested operation.
+Read the [console guide](../../../docs/ht813-console.md) when using the Japanese management interface.
+Distinguish firmware template examples from documented factory defaults.
+Keep conflicting parameter descriptions unresolved until observation establishes the matching firmware behavior.
+After a timed-out submission, retrieve effective settings before deciding whether to submit again.
 Use the project's [hardware acceptance procedure](../../../docs/hardware-acceptance.md) for measured BL3000HM integration and the [Pi operations guide](../../../docs/raspberry-pi.md) for the administration executable.
 
 Use the [preserved source catalog](references/source-catalog.md) to locate full manuals, release notes, and parameter templates.
@@ -33,7 +37,13 @@ Keep saved source bytes intact and record interpretations in the authored refere
 
 ## Apply and verify settings
 
-Use the observed Web UI or the documented XML provisioning mechanism.
+Prefer the [authenticated console CLI](../../../docs/ht813-console.md#command-line-operations) for headless reads, reviewed plans, submission, and reconciliation when the installed console supports the observed firmware.
+Use an independent CLI session without extracting browser storage or supplying identity headers.
+Use `--json` for structured automation and the default terminal presentation for interactive operation.
+Keep session, plan, change, and secret files private, and pass secret file paths rather than password arguments.
+Treat submission exit 2 as requiring independent secret verification and exit 3 as an uncertain submission.
+After an uncertain submission, use `reconcile` before creating another plan.
+Use the observed Web UI or the documented XML provisioning mechanism when the console can't qualify the firmware.
 Check the HT813 documentation and firmware template before generating P values or relying on a setting's default.
 Don't invent HTTP endpoints or copy another HT8xx model's parameters.
 Keep device addresses, MAC addresses, credentials, backups, and captured call content outside the skill.

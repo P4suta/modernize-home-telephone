@@ -1,0 +1,266 @@
+[
+	{
+		"key": "parameter-p28772",
+		"title": "音声内DTMFの送信音量",
+		"aliases": ["Inband DTMF Tx Gain"],
+		"parameters": ["P28772"],
+		"category": "電話機（FXS） / 数字ボタンの信号",
+		"summary": "DTMFは数字ボタンを押したときの信号です。\n音声に含めて送るDTMFの大きさを調整します。",
+		"input": "-12〜12 dBの整数です。\n0は音量の増減なし、負の値は小さく、正の値は大きくします。",
+		"default_value": "0 dB（実機の標準値表示）",
+		"recommendation": "通常は0のまま使用してください。\n音声内DTMFを使い、相手が数字を認識しない場合に限り、相手の指定と試験結果を確認して調整してください。",
+		"impact": "音声内DTMFの認識に影響します。\nDTMFを音声外のRTPイベントで送る方式は別項目で選択します。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/",
+		"template_value": null,
+		"reference": {
+			"kind": "device",
+			"firmware": "1.0.19.6"
+		},
+		"ranges": [
+			{
+				"min": -12,
+				"max": 12
+			}
+		],
+		"note": "実機1.0.19.6の項目番号と入力欄を確認しています。",
+		"read_only": false
+	},
+	{
+		"key": "parameter-p28773",
+		"title": "音声内DTMFの送信音量",
+		"aliases": ["Inband DTMF Tx Gain"],
+		"parameters": ["P28773"],
+		"category": "電話回線（FXO） / 数字ボタンの信号",
+		"summary": "DTMFは数字ボタンを押したときの信号です。\n音声に含めて送るDTMFの大きさを調整します。",
+		"input": "-12〜12 dBの整数です。\n0は音量の増減なし、負の値は小さく、正の値は大きくします。",
+		"default_value": "0 dB（実機の標準値表示）",
+		"recommendation": "通常は0のまま使用してください。\n音声内DTMFを使い、相手が数字を認識しない場合に限り、相手の指定と試験結果を確認して調整してください。",
+		"impact": "音声内DTMFの認識に影響します。\nDTMFを音声外のRTPイベントで送る方式は別項目で選択します。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/",
+		"template_value": null,
+		"reference": {
+			"kind": "device",
+			"firmware": "1.0.19.6"
+		},
+		"ranges": [
+			{
+				"min": -12,
+				"max": 12
+			}
+		],
+		"note": "実機1.0.19.6の項目番号と入力欄を確認しています。",
+		"read_only": false
+	},
+	{
+		"key": "parameter-p2383",
+		"title": "暗号化音声の鍵の長さ",
+		"aliases": ["SRTP Key Length"],
+		"parameters": ["P2383"],
+		"category": "電話機（FXS） / 音声の暗号化",
+		"summary": "SRTPは音声パケットを暗号化する仕組みです。\n暗号化に使えるAES鍵の長さを選びます。",
+		"input": "0は128・256ビットの両方、1は128ビット、2は256ビットです。",
+		"default_value": "128・256ビットの両方（0）",
+		"recommendation": "通常は両方に対応する設定を維持してください。\nSRTPを利用する場合は、相手の対応する鍵の長さと合わせてください。",
+		"impact": "SRTPを有効にした通話の暗号方式の合意に影響します。\n鍵の長さが合わない相手とは通話できなくなる場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/",
+		"template_value": null,
+		"reference": {
+			"kind": "device",
+			"firmware": "1.0.19.6"
+		},
+		"ranges": [
+			{
+				"min": 0,
+				"max": 2
+			}
+		],
+		"note": "実機1.0.19.6の項目番号と入力欄を確認しています。",
+		"read_only": false
+	},
+	{
+		"key": "parameter-p2483",
+		"title": "暗号化音声の鍵の長さ",
+		"aliases": ["SRTP Key Length"],
+		"parameters": ["P2483"],
+		"category": "電話回線（FXO） / 音声の暗号化",
+		"summary": "SRTPは音声パケットを暗号化する仕組みです。\n暗号化に使えるAES鍵の長さを選びます。",
+		"input": "0は128・256ビットの両方、1は128ビット、2は256ビットです。",
+		"default_value": "128・256ビットの両方（0）",
+		"recommendation": "通常は両方に対応する設定を維持してください。\nSRTPを利用する場合は、相手の対応する鍵の長さと合わせてください。",
+		"impact": "SRTPを有効にした通話の暗号方式の合意に影響します。\n鍵の長さが合わない相手とは通話できなくなる場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/",
+		"template_value": null,
+		"reference": {
+			"kind": "device",
+			"firmware": "1.0.19.6"
+		},
+		"ranges": [
+			{
+				"min": 0,
+				"max": 2
+			}
+		],
+		"note": "実機1.0.19.6の項目番号と入力欄を確認しています。",
+		"read_only": false
+	},
+	{
+		"key": "parameter-p4429",
+		"title": "電話機を鳴らす信号の周波数",
+		"aliases": ["Ring Frequency"],
+		"parameters": ["P4429"],
+		"category": "電話機（FXS） / 呼び出し",
+		"summary": "接続した電話機のベルを鳴らす電気信号の周波数です。\n呼び出し音を何秒鳴らすかという設定は別項目です。",
+		"input": "20 Hzまたは25 Hzを選びます。",
+		"default_value": "20 Hz",
+		"recommendation": "電話機が正常に鳴っている場合は20 Hzのまま使用してください。\n電話機の仕様が別の周波数を指定する場合に確認して変更してください。",
+		"impact": "接続した電話機の着信ベルに影響します。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/",
+		"template_value": null,
+		"reference": {
+			"kind": "device",
+			"firmware": "1.0.19.6"
+		},
+		"ranges": [
+			{
+				"min": 20,
+				"max": 20
+			},
+			{
+				"min": 25,
+				"max": 25
+			}
+		],
+		"note": "実機1.0.19.6の項目番号と入力欄を確認しています。",
+		"read_only": false
+	},
+	{
+		"key": "parameter-p26140",
+		"title": "DNS SRVによる接続先の切り替え",
+		"aliases": ["DNS SRV Failover Mode"],
+		"parameters": ["P26140"],
+		"category": "電話回線（FXO） / SIP接続先",
+		"summary": "DNS SRVは接続先の候補と優先順位を取得する仕組みです。\n複数のSIPサーバーがある場合の切り替え方を選びます。",
+		"input": "0は優先順位に従う標準動作、1はDNSの有効期限まで現在のサーバーを維持、2は応答がなくなるまで維持、3は復帰タイマーで主サーバーへ戻す動作です。",
+		"default_value": "標準動作（0）",
+		"recommendation": "固定IPアドレスのサーバーを使う場合は変更不要です。\nDNS SRVを利用するサービスから指定がある場合に合わせてください。",
+		"impact": "障害時の接続先と主サーバーへ戻るタイミングに影響します。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/",
+		"template_value": null,
+		"reference": {
+			"kind": "device",
+			"firmware": "1.0.19.6"
+		},
+		"ranges": [
+			{
+				"min": 0,
+				"max": 3
+			}
+		],
+		"note": "実機1.0.19.6の項目番号と入力欄を確認しています。",
+		"read_only": false
+	},
+	{
+		"key": "parameter-p2485",
+		"title": "Opusの音声形式番号",
+		"aliases": ["OPUS Payload Type"],
+		"parameters": ["P2485"],
+		"category": "電話回線（FXO） / コーデック",
+		"summary": "Opusは音声を圧縮する方式です。\n音声パケットの中でOpusを識別する番号を指定します。",
+		"input": "96〜127の整数です。\n同じ接続で使う別の音声形式と番号が重ならないよう、相手の指定に合わせます。",
+		"default_value": "123",
+		"recommendation": "通常は123のまま使用してください。\n相手のSIPサービスから番号の指定がある場合に変更してください。",
+		"impact": "Opusで通話する際の音声形式の識別に影響します。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/",
+		"template_value": null,
+		"reference": {
+			"kind": "device",
+			"firmware": "1.0.19.6"
+		},
+		"ranges": [
+			{
+				"min": 96,
+				"max": 127
+			}
+		],
+		"note": "実機1.0.19.6の項目番号と入力欄を確認しています。",
+		"read_only": false
+	},
+	{
+		"key": "parameter-p28174",
+		"title": "DTMFイベントの送信回数",
+		"aliases": ["RFC2833 Events Count"],
+		"parameters": ["P28174"],
+		"category": "電話回線（FXO） / 数字ボタンの信号",
+		"summary": "数字ボタンの信号をRTPイベントで送る際のイベント数を指定します。",
+		"input": "2〜10の整数です。",
+		"default_value": "8",
+		"recommendation": "通常は8のまま使用してください。\n相手が数字を認識しない場合は、先にDTMFの方式と相手の指定を確認してください。",
+		"impact": "ネットワーク上の数字ボタン信号の送信に影響します。\n変更後は自動音声案内などで数字の認識を確認してください。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/",
+		"template_value": null,
+		"reference": {
+			"kind": "device",
+			"firmware": "1.0.19.6"
+		},
+		"ranges": [
+			{
+				"min": 2,
+				"max": 10
+			}
+		],
+		"note": "実機1.0.19.6の項目番号と入力欄を確認しています。",
+		"read_only": false
+	},
+	{
+		"key": "parameter-p28178",
+		"title": "DTMF終了イベントの送信回数",
+		"aliases": ["RFC2833 End Events Count"],
+		"parameters": ["P28178"],
+		"category": "電話回線（FXO） / 数字ボタンの信号",
+		"summary": "数字ボタンを離したことを知らせるRTPイベントの送信回数を指定します。",
+		"input": "2〜10の整数です。",
+		"default_value": "3",
+		"recommendation": "通常は3のまま使用してください。\n相手が数字を認識しない場合は、先にDTMFの方式と相手の指定を確認してください。",
+		"impact": "ネットワーク上の数字ボタン信号の送信に影響します。\n変更後は自動音声案内などで数字の認識を確認してください。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/",
+		"template_value": null,
+		"reference": {
+			"kind": "device",
+			"firmware": "1.0.19.6"
+		},
+		"ranges": [
+			{
+				"min": 2,
+				"max": 10
+			}
+		],
+		"note": "実機1.0.19.6の項目番号と入力欄を確認しています。",
+		"read_only": false
+	},
+	{
+		"key": "parameter-p8723",
+		"title": "Syslogのヘッダー形式",
+		"aliases": ["Syslog Header Format"],
+		"parameters": ["P8723"],
+		"category": "詳細設定 / ログ",
+		"summary": "Syslogは機器のログを収集先へ送る仕組みです。\nRFC3164形式では時刻やホスト名などを含むヘッダーを使います。",
+		"input": "0は機器の形式、1はRFC3164形式です。",
+		"default_value": "メーカー資料で工場出荷時の値を確定できません。\n接続中の値は設定画面で確認してください。",
+		"recommendation": "Syslogを利用していない場合は変更不要です。\n収集先がRFC3164形式を要求する場合に合わせてください。",
+		"impact": "ログ収集先が内容を読み取れるかに影響します。\n送信先とログレベルは別項目で指定します。",
+		"source": "https://www.rfc-editor.org/rfc/rfc3164.html#section-4.1",
+		"template_value": null,
+		"reference": {
+			"kind": "device",
+			"firmware": "1.0.19.6"
+		},
+		"ranges": [
+			{
+				"min": 0,
+				"max": 1
+			}
+		],
+		"note": "実機1.0.19.6の選択肢を確認しています。\n保存テンプレートには項目がありません。",
+		"read_only": false
+	}
+]

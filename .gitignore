@@ -23,3 +23,5 @@
 /fuzz/artifacts/
 /.agents/skills/grandstream-ht813/references/upstream/
 
+console/packages/*/dist/
+console/packages/*/.svelte-kit/

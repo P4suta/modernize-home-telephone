@@ -6,6 +6,7 @@ Start with the [contribution guide](../CONTRIBUTING.md) for prerequisites and ve
 
 Use the [local lab](local-lab.md) to exercise calls without an analog line or paid provider.
 Use the [Raspberry Pi operations guide](raspberry-pi.md) to create an installation, supervise boot, and preserve or recover its data.
+Use the [gateway console guide](ht813-console.md) for Japanese device administration and the complete parameter reference.
 The [optional plugin guide](plugins.md) explains builds and operation with independently selected features.
 The [notification guide](notifications.md) describes private incoming-call publication.
 The [recording guide](recordings.md) describes handset recording, NAS storage, and manual retention.

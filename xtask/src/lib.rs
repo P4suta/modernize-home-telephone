@@ -13,6 +13,7 @@ pub mod assurance;
 pub mod asterisk;
 pub mod bundle;
 pub mod check;
+pub mod console;
 pub mod container;
 pub mod fault_catalog;
 pub mod manager;

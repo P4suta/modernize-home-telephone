@@ -29,6 +29,88 @@ fn incoming_notifications_require_a_fresh_inbound_offer() {
 }
 
 #[kani::proof]
+fn console_revisions_preserve_exact_values_and_never_wrap() {
+    use crate::console::{Phase, Refusal, Revision, SubmissionGuard};
+    let raw: u64 = kani::any();
+    let changed: bool = kani::any();
+    match Revision::new(raw) {
+        Err(error) => {
+            assert!(raw == 0 && error == Refusal::InvalidRevision);
+        }
+        Ok(revision) => {
+            assert!(raw != 0 && revision.get() == raw);
+            let guard = SubmissionGuard::new(revision);
+            assert!(guard.phase() == Phase::Ready && guard.revision() == revision);
+            assert!(guard.submitted() == Err(Refusal::InvalidTransition));
+            match guard.refreshed(changed) {
+                Ok(refreshed) => {
+                    assert!(refreshed.phase() == Phase::Ready);
+                    if changed {
+                        assert!(raw < u64::MAX && refreshed.revision().get() == raw + 1);
+                    } else {
+                        assert!(refreshed.revision() == revision);
+                    }
+                }
+                Err(error) => {
+                    assert!(changed && raw == u64::MAX && error == Refusal::RevisionExhausted)
+                }
+            }
+        }
+    }
+    kani::cover!(raw == 0);
+    kani::cover!(raw == u64::MAX && changed);
+    kani::cover!(raw == u64::MAX && !changed);
+}
+
+#[kani::proof]
+fn console_submissions_require_fresh_review_and_readback() {
+    use crate::console::{Mode, Phase, Refusal, Revision, SubmissionGuard};
+    let raw: u64 = kani::any();
+    let expected_raw: u64 = kani::any();
+    let changes: usize = kani::any();
+    let apply: bool = kani::any();
+    let changed: bool = kani::any();
+    let revision = match Revision::new(raw) {
+        Ok(value) => value,
+        Err(error) => {
+            assert!(raw == 0 && error == Refusal::InvalidRevision);
+            return;
+        }
+    };
+    let expected = Revision::new(expected_raw).unwrap_or(Revision::new(1).unwrap());
+    let mode = if apply {
+        Mode::SaveAndApply
+    } else {
+        Mode::Save
+    };
+    let guard = SubmissionGuard::new(revision);
+    let result = guard.plan(expected, changes, mode);
+    if expected != revision {
+        assert!(result == Err(Refusal::StaleRevision));
+    } else if changes == 0 {
+        assert!(result == Err(Refusal::NoChanges));
+    } else if raw == u64::MAX {
+        assert!(result == Err(Refusal::RevisionExhausted));
+    } else {
+        assert!(result.is_ok());
+        let plan = result.unwrap();
+        assert!(plan.mode() == mode && plan.guard().revision() == revision);
+        assert!(plan.guard().phase() == Phase::InFlight);
+        assert!(plan.guard().plan(expected, changes, mode) == Err(Refusal::Busy));
+        assert!(plan.guard().refreshed(changed) == Err(Refusal::Busy));
+        let submitted = plan.guard().submitted().unwrap();
+        assert!(submitted.phase() == Phase::ReconciliationRequired);
+        assert!(submitted.plan(expected, changes, mode) == Err(Refusal::ReconciliationRequired));
+        assert!(submitted.submitted() == Err(Refusal::InvalidTransition));
+        let refreshed = submitted.refreshed(changed).unwrap();
+        assert!(refreshed.phase() == Phase::Ready && refreshed.revision().get() == raw + 1);
+    }
+    kani::cover!(result.is_ok() && apply);
+    kani::cover!(result.is_ok() && !apply);
+    kani::cover!(result == Err(Refusal::StaleRevision));
+}
+
+#[kani::proof]
 fn input_length_guards_cover_the_entire_integer_domain() {
     let length: usize = kani::any();
     let limit: usize = kani::any();

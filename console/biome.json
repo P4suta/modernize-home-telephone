@@ -1,0 +1,16 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.6.4/schema.json",
+	"files": {
+		"includes": [
+			"**/*.ts",
+			"**/*.js",
+			"**/*.json",
+			"**/*.css",
+			"!**/node_modules",
+			"!**/dist",
+			"!**/.svelte-kit",
+			"!**/src/lib/generated"
+		]
+	},
+	"formatter": { "indentStyle": "tab", "lineWidth": 100 }
+}

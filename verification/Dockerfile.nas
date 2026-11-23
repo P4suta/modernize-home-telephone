@@ -4,6 +4,7 @@ ENV CARGO_BUILD_JOBS=2
 COPY Cargo.toml Cargo.lock ./
 COPY crates/ ./crates/
 COPY xtask/ ./xtask/
+COPY console/src/lib/parameters.json console/src/lib/settings.json console/src/lib/firmware-parameters.json ./console/src/lib/
 RUN --mount=type=cache,id=homephone-cargo-registry,sharing=locked,target=/usr/local/cargo/registry --mount=type=cache,id=homephone-rust-1.99.1-arm64,sharing=locked,target=/build/target cargo build --release --locked -p phone-server --no-default-features --features nas-lab --bin nas-lab --bin phone-server && cp target/release/nas-lab /nas-lab && cp target/release/phone-server /phone-server
 
 FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2

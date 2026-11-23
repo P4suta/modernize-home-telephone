@@ -1,5 +1,13 @@
 target
 **/node_modules
+console/dist
+console/packages/*/dist
+console/packages/*/.svelte-kit
+console/.svelte-kit
+console/reports
+console/.stryker-tmp
+console/test-results
+console/playwright-report
 web/dist
 web/test-results
 web/playwright-report

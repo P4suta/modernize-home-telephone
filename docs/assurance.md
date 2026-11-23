@@ -212,6 +212,14 @@ The gate requires every generated mutant to trigger a test failure or a compilat
 `just web-mutants` uses Stryker on the frontend's pure timeline reducer and recording duration and capacity conversion functions.
 It uses per-test coverage and the pinned TypeScript checker.
 The TypeScript mutation result covers those selected functions.
+`just console-mutants` independently mutates the console adapter, the settings-workflow core, and its Svelte adapter.
+The core tests check 49 ordered edit pairs and 294 changed-value readbacks over selections of at most two values.
+The adapter tests check all 1,296 four-action traces for a fixed valid draft and matching readback.
+Those finite checks establish their stated bounds without claiming an unbounded TypeScript proof.
+The Rust submission guard remains subject to the maintained Kani harnesses.
+Installed-instrumenter regressions require Svelte snippet defaults and render arguments to produce mutations at their original positions.
+Each instrumented fixture must compile for both client and server rendering.
+Both TypeScript collectors reject empty inventories and every status other than killed or compile error, including survivors, timeouts, ignored cases, and runtime errors.
 The Kani broken-parser and broken-alphabet controls also challenge macro implementation changes.
 
 ## Bound independent NAS recording
@@ -290,6 +298,39 @@ Verification containers have explicit CPU, memory, swap, process, and time limit
 Each run isolates compiler and proof outputs to prevent reuse of stale generated models.
 Hardware-free results establish software behavior under the stated service and filesystem assumptions.
 The [hardware acceptance procedure](hardware-acceptance.md) remains the boundary for BL3000HM interoperability, HT813 fallback, actual Pi startup, storage power loss, paid AI behavior, and external push delivery.
+
+## Verify gateway administration
+
+Two submission harnesses quantify the production guard over every u64 revision, every usize change count, both write modes, and each admitted phase.
+They reject revision zero and exhaustion, stale reviews, empty changes, concurrent submissions, and reuse before readback.
+The harnesses contain no input assumptions.
+They establish guard behavior without modeling native HTTP, firmware scripts, browser lifetimes, or device persistence.
+
+Native adapter contracts cover hidden tokens, exact submitters, form encoding, `disabled` controls, private credentials, source constraints, and read-only refusal.
+The reviewed native-script profile binds resource hashes, bounded dynamic literals, dependent control identities, and generated-control positions.
+Rejecting fixtures cover missing resources, changed behavior, moved generators, port collisions, stale derived constraints, and conflicting choice aliases.
+Offline browser comparison uses private captured firmware pages and exact resources, with every network request intercepted.
+The comparison checks all entries and their order for both save and apply on each observed settings page.
+Hash equality establishes source identity rather than script semantics, and the Kani guard proof doesn't model the native parser or script-profile translator.
+HTTP contracts bind reviews to a browser view and page and require fresh native tokens before one submission.
+Readback requires the same parameter identity and control kind.
+A secret edit can't conceal an unsuccessful public edit.
+Matching public values leave secret changes independently unverified.
+
+The browser fixture exercises navigation caches, pending drafts, console and native authentication expiry, keyboard help, review cancellation, stale preflight, and uncertain results.
+It also rejects unapproved inline scripts and styles and verifies cache headers.
+Automatic accessibility and narrow-layout checks complement the interaction cases.
+Lighthouse checks seven routes in mobile and desktop modes.
+The private console's indexing refusal is intentional.
+Every other applicable Search Engine Optimization (SEO) audit remains required.
+
+The parameter gate binds all 598 preserved definitions, source lines, and available template assignments.
+A separate 597-field inventory binds the four observed settings forms to complete help coverage.
+Ten supplemental definitions keep their firmware sources separate from template assignments.
+The help schema distinguishes a template line from a device form, and negative fixtures reject empty, duplicated, or misrepresented supplements.
+Documentation separates factory claims from template examples and refuses ambiguous numeric definitions.
+These checks establish the checked software contracts.
+Actual firmware compatibility and analog operation require separate observations.
 
 ## Follow ownership across failures
 
@@ -386,7 +427,14 @@ The dependency gate rejects plugins that depend on the host or another plugin an
 Compiled plugins share process memory, so the routing proof establishes no process-crash isolation.
 Real handset behavior and notification receipt require installation observations.
 
-## Gateway admission
+## Headless gateway operations
+
+The headless console client uses the same native validation and source-bound submission guard as browser writes.
+Synthetic process tests exercise private files, secret redaction, sealed plans, concurrent claims, stale revisions, ambiguous outcomes, and session cleanup.
+Native pseudo-terminal subprocesses exercise automatic human output, explicit JSON, and unstyled output preferences.
+Presentation regressions preserve submission exit codes and reject active terminal controls in device text.
+A hash-based message authentication code and operating-system file permissions remain cryptographic and kernel assumptions rather than Kani-proved implementations.
+CLI readback doesn't establish runtime activation or physical telephone acceptance.
 
 Gateway admission validates the ARI channel ID and canonical creation instant before consuming its generation.
 Native controller and SQLite tests cover terminal replay, history deletion, restart, atomic rollback, migration, and valid later generations.
