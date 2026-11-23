@@ -23,7 +23,6 @@ async fn app(production: bool) -> (axum::Router, tempfile::TempDir) {
     if production {
         config.mode = Mode::Production;
         config.ai.provider = "openai".into();
-        config.allowed_users = vec!["owner@example.invalid".into()];
         config.public_origin = "https://phone.example.ts.net".into();
     }
     let secrets = Secrets {
@@ -94,15 +93,17 @@ async fn lab_serves_calls_and_health_without_cloud_credentials() {
 }
 
 #[tokio::test]
-async fn identity_headers_require_loopback_and_an_explicit_allowed_user() {
+async fn identity_headers_require_loopback_and_delegate_user_authorization_to_the_tailnet() {
     let (app, _dir) = app(true).await;
     for (user, peer, expected) in [
         (None, "127.0.0.1:1234", StatusCode::UNAUTHORIZED),
         (
             Some("other@example.invalid"),
             "127.0.0.1:1234",
-            StatusCode::UNAUTHORIZED,
+            StatusCode::OK,
         ),
+        (Some(""), "127.0.0.1:1234", StatusCode::UNAUTHORIZED),
+        (Some("   "), "127.0.0.1:1234", StatusCode::UNAUTHORIZED),
         (
             Some("owner@example.invalid"),
             "192.0.2.1:1234",

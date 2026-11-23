@@ -7,14 +7,14 @@ const MAX_TRANSCRIPT_BYTES: usize = 262144;
 
 use crate::{
     config::{Config, valid_number},
-    gateway::{Ari, AriEvent, Channel},
+    gateway::{Ari, AriEvent, CallRoot, Channel, IngressId},
     media::{Notice, Purpose, Report},
     model::{Call, Command, Event, Phase, Recording, Transcript},
     provider,
-    store::Store,
+    store::{Admission, Store},
 };
 use futures_util::StreamExt;
-use phone_core::{Action, CallId, Line, Route, initial_route};
+use phone_core::{Action, CallId, Line, Route};
 use reqwest::Method;
 use std::{
     sync::Arc,
@@ -74,6 +74,7 @@ struct Interface {
     ready: watch::Receiver<bool>,
     initialized: watch::Receiver<bool>,
     stop: CancellationToken,
+    actor_stopped: CancellationToken,
 }
 impl Drop for Interface {
     fn drop(&mut self) {
@@ -108,6 +109,7 @@ impl Control {
         let (initialized, initialization) = watch::channel(false);
         let events = store.events.clone();
         let stop = CancellationToken::new();
+        let actor_stopped = CancellationToken::new();
         let (reports, reported) = mpsc::channel(CONTROL_QUEUE_CAPACITY);
         let control = Self {
             store: store.clone(),
@@ -117,6 +119,7 @@ impl Control {
                 ready: readiness,
                 initialized: initialization,
                 stop: stop.clone(),
+                actor_stopped: actor_stopped.clone(),
             }),
         };
         let actor = Actor {
@@ -133,7 +136,11 @@ impl Control {
             reports,
             maintenance,
         };
-        tokio::spawn(actor.run(receiver, reported, stop.clone()));
+        let actor_stop = stop.clone();
+        tokio::spawn(async move {
+            let _stopped = actor_stopped.drop_guard();
+            actor.run(receiver, reported, actor_stop).await;
+        });
         tokio::spawn(drive_events(ari, sender, stop));
         control
     }
@@ -218,6 +225,7 @@ impl Control {
             tracing::debug!(operation = "controller", code = "shutdown_receiver_closed");
         }
         self.inner.stop.cancel();
+        self.inner.actor_stopped.cancelled().await;
     }
 }
 
@@ -225,6 +233,7 @@ struct Active {
     call: Call,
     owner: CallId,
     root: String,
+    ingress: Option<IngressId>,
     bridge: String,
     peers: Vec<String>,
     winner: Option<String>,
@@ -283,7 +292,7 @@ impl Actor {
                             self.ready.send_replace(false);
                             self.initialized.send_replace(false);
                             if connected {
-                                if self.reconcile().await.is_ok() && !self.maintenance { self.ready.send_replace(true); self.store.pause_background(false); }
+                                if self.reconcile().await.is_ok() && !self.maintenance { self.store.pause_background(false); self.ready.send_replace(true); }
                             } else { let _ = self.end("gateway_disconnected").await; }
                         }
                         Some(Request::Shutdown(reply)) => { let _ = self.end("service_shutdown").await; let _ = reply.send(()); break; }
@@ -357,15 +366,22 @@ impl Actor {
         Ok(())
     }
 
-    async fn admit(&mut self, call: Call, root: String) -> Result<(), Failure> {
+    async fn admit(&mut self, call: Call, source: CallRoot) -> Result<(), Failure> {
         if !*self.ready.borrow() {
             return Err(Failure::Unavailable);
         }
         self.counter = self.counter.checked_add(1).ok_or(Failure::Unavailable)?;
         let owner = CallId::new(self.counter).map_err(|_| Failure::Unavailable)?;
         let line = self.line.acquire(owner).map_err(|_| Failure::Busy)?;
-        self.store.track_resource(&root).await?;
-        self.publish(&call, "incoming").await?;
+        let Admission::Created(event) = self.store.admit(&call, &source, now()).await? else {
+            return Err(Failure::InvalidTransition);
+        };
+        let ingress = match &source {
+            CallRoot::Gateway(ingress) => Some(ingress.clone()),
+            CallRoot::Generated => None,
+        };
+        let root = source.channel_id(call.id);
+        tracing::info!(operation="call_state",call_id=%call.id,root_channel_id=%root,phase=?call.phase,event="incoming",event_id=event.id);
         self.store.own_line(Some(call.id));
         self.line = line;
         self.active = Some(Active {
@@ -373,6 +389,7 @@ impl Actor {
             call,
             owner,
             root: root.clone(),
+            ingress,
             peers: vec![],
             winner: None,
             entered: tokio::time::Instant::now(),
@@ -407,43 +424,71 @@ impl Actor {
         Ok(())
     }
 
-    async fn offer(&mut self, channel: Channel, direction: String) -> Result<Call, Failure> {
-        if !*self.ready.borrow() {
-            if (self
-                .ari
-                .command(
-                    Method::DELETE,
-                    &["channels", &channel.id],
-                    &[("reason", "congestion")],
-                )
-                .await)
-                .is_err()
-            {
-                tracing::warn!(
-                    operation = "controller",
-                    code = "busy_channel_cleanup_failed"
-                );
-            }
-            return Err(Failure::Unavailable);
+    async fn reject_unowned_channel(&mut self, id: &str) -> Result<(), Failure> {
+        crate::gateway::validate_channel_id(id).map_err(|_| Failure::InvalidInput)?;
+        if self.active.as_ref().is_some_and(|active| {
+            active.root == id
+                || match &active.winner {
+                    Some(winner) => winner == id,
+                    None => active.peers.iter().any(|peer| peer == id),
+                }
+        }) {
+            return Ok(());
         }
+        let tracked = self.store.track_resource(id).await;
+        let deleted = self
+            .ari
+            .command(Method::DELETE, &["channels", id], &[])
+            .await;
+        let result = match (tracked, deleted) {
+            (Ok(()), Ok(())) => self.store.forget_resource(id).await.map_err(Failure::from),
+            (Err(error), Err(_)) => Err(Failure::Internal(
+                error.context("rejected channel cleanup also failed"),
+            )),
+            (Err(error), Ok(())) => Err(Failure::Internal(error)),
+            (Ok(()), Err(_)) => Err(Failure::Unavailable),
+        };
+        if result.is_err() {
+            self.ready.send_replace(false);
+            self.initialized.send_replace(false);
+            if self.active.is_none() {
+                self.store.pause_background(true);
+            }
+        }
+        result
+    }
+
+    async fn offer(&mut self, channel: Channel, direction: String) -> Result<Call, Failure> {
+        let ingress = match IngressId::new(&channel) {
+            Ok(ingress) => ingress,
+            Err(_) => {
+                self.reject_unowned_channel(&channel.id).await?;
+                return Err(Failure::InvalidInput);
+            }
+        };
         if let Some(active) = &self.active
             && active.root == channel.id
-            && active.call.phase != Phase::Ended
         {
-            return Ok(active.call.clone());
+            if active.ingress.as_ref() == Some(&ingress) && active.call.phase != Phase::Ended {
+                return Ok(active.call.clone());
+            }
+            return Err(Failure::InvalidTransition);
+        }
+        if !*self.ready.borrow() {
+            self.reject_unowned_channel(&channel.id).await?;
+            return Err(Failure::Unavailable);
+        }
+        if self.store.ingress_admitted(&ingress).await? {
+            tracing::debug!(
+                operation = "call_admission",
+                code = "replayed_ingress",
+                ingress_id = ingress.as_str()
+            );
+            self.reject_unowned_channel(&channel.id).await?;
+            return Err(Failure::InvalidTransition);
         }
         if self.line.owner().is_some() {
-            if (self
-                .ari
-                .command(Method::DELETE, &["channels", &channel.id], &[])
-                .await)
-                .is_err()
-            {
-                tracing::warn!(
-                    operation = "controller",
-                    code = "unowned_channel_cleanup_failed"
-                );
-            }
+            self.reject_unowned_channel(&channel.id).await?;
             return Err(Failure::Busy);
         }
         let caller = if direction == "inbound" && !valid_number(&channel.caller.number) {
@@ -453,7 +498,7 @@ impl Actor {
         };
         let call = Call::offered(caller, direction.clone(), now());
         let id = call.id;
-        if let Err(error) = self.admit(call, channel.id.clone()).await {
+        if let Err(error) = self.admit(call, CallRoot::Gateway(ingress)).await {
             if self.active.is_some() {
                 if (self.end("admission_failed").await).is_err() {
                     tracing::warn!(operation = "controller", code = "admission_cleanup_failed");
@@ -488,7 +533,10 @@ impl Actor {
                 .get(&active.call.caller)
                 .copied()
                 .unwrap_or_default();
-            match initial_route(rule.into()) {
+            match phone_core::plugins::route_with_optional_reception(
+                rule.into(),
+                self.reception_available(),
+            ) {
                 Route::Ring => self.ring(false).await,
                 Route::End => self.end("number_blocked").await.map(|_| ()),
                 Route::Screen => self.screen().await,
@@ -520,7 +568,7 @@ impl Actor {
         let active = self.active.as_ref().ok_or(Failure::NotFound)?;
         let root = active.root.clone();
         let bridge = active.bridge.clone();
-        let record = active.call.recording == Recording::None;
+        let record = active.call.recording == Recording::None && self.reception_available();
         let root_link = active.root_link;
         if root_link == RootLink::Ringing {
             self.ari
@@ -661,7 +709,7 @@ impl Actor {
         }
         let call = Call::offered(number.clone(), "outbound".into(), now());
         let root = format!("hp-{}-root", call.id);
-        self.admit(call, root.clone()).await?;
+        self.admit(call, CallRoot::Generated).await?;
         self.transition(Action::Ring, "dialing").await?;
         let args = format!("originator,{number}");
         if self
@@ -886,6 +934,11 @@ impl Actor {
             .map_err(|_| Failure::InvalidTransition)?;
         self.active = None;
         self.store.own_line(None);
+        if self.connected && !*self.initialized.borrow() {
+            self.reconcile().await?;
+            self.store.pause_background(self.maintenance);
+            self.ready.send_replace(!self.maintenance);
+        }
         Ok(())
     }
 
@@ -895,18 +948,14 @@ impl Actor {
                 let kind = args.first().map(String::as_str).unwrap_or("");
                 if kind == "endpoint" {
                     let Some(active) = &self.active else {
-                        self.ari
-                            .command(Method::DELETE, &["channels", &channel.id], &[])
-                            .await?;
+                        self.reject_unowned_channel(&channel.id).await?;
                         return Ok(());
                     };
                     if args.get(1) != Some(&active.call.id.to_string())
                         || !active.peers.contains(&channel.id)
                         || !matches!(active.call.phase, Phase::Ringing | Phase::Screening)
                     {
-                        self.ari
-                            .command(Method::DELETE, &["channels", &channel.id], &[])
-                            .await?;
+                        self.reject_unowned_channel(&channel.id).await?;
                         return Ok(());
                     }
                     let bridge = active.bridge.clone();
@@ -962,7 +1011,10 @@ impl Actor {
             AriEvent::StasisEnd { channel } | AriEvent::ChannelDestroyed { channel } => {
                 if self.active.as_ref().is_some_and(|active| {
                     active.call.phase != Phase::Ended
-                        && (active.root == channel.id
+                        && ((active.root == channel.id
+                            && active.ingress.as_ref().is_none_or(|expected| {
+                                IngressId::new(&channel).is_ok_and(|actual| &actual == expected)
+                            }))
                             || active.winner.as_ref() == Some(&channel.id))
                 }) {
                     self.end("remote_hangup").await?;
@@ -974,10 +1026,10 @@ impl Actor {
     }
 
     async fn tick(&mut self) -> Result<(), Failure> {
-        if self.connected && !*self.initialized.borrow() {
+        if self.connected && !*self.initialized.borrow() && self.active.is_none() {
             self.reconcile().await?;
-            self.ready.send_replace(!self.maintenance);
             self.store.pause_background(self.maintenance);
+            self.ready.send_replace(!self.maintenance);
         }
         let Some(active) = &self.active else {
             return Ok(());
@@ -997,6 +1049,9 @@ impl Actor {
         match timeout {
             Timeout::None => Ok(()),
             Timeout::Ring => self.ring(false).await,
+            Timeout::Message if !self.reception_available() => {
+                self.end("no_answer").await.map(|_| ())
+            }
             Timeout::Message => self.voicemail().await,
             Timeout::End => {
                 let reason = if active.call.phase == Phase::Offered {
@@ -1034,6 +1089,12 @@ impl Actor {
         .await?;
         self.active.as_mut().ok_or(Failure::NotFound)?.media = Some(handle);
         Ok(())
+    }
+
+    fn reception_available(&self) -> bool {
+        cfg!(feature = "plugin-ai")
+            && (self.config.ai.provider == "mock"
+                || (self.config.ai.provider == "openai" && self.key.is_some()))
     }
 
     async fn stop_media(&mut self) -> Result<(), Failure> {

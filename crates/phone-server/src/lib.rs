@@ -11,5 +11,7 @@ pub mod postcall;
 pub mod provider;
 pub mod push;
 pub mod secrets;
+pub mod shutdown;
 pub mod snapshot;
 pub mod store;
+mod tailnet;

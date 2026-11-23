@@ -106,6 +106,14 @@ fn unit_quote(path: &Path) -> anyhow::Result<String> {
     ))
 }
 pub fn systemd_unit(binary: &Path, directory: &Path, user: &str) -> anyhow::Result<String> {
+    systemd_unit_for_engine(binary, directory, user, crate::container::Engine::Docker)
+}
+pub fn systemd_unit_for_engine(
+    binary: &Path,
+    directory: &Path,
+    user: &str,
+    engine: crate::container::Engine,
+) -> anyhow::Result<String> {
     ensure!(
         !user.is_empty()
             && user
@@ -115,6 +123,11 @@ pub fn systemd_unit(binary: &Path, directory: &Path, user: &str) -> anyhow::Resu
     );
     let binary = unit_quote(binary)?;
     let directory = unit_quote(directory)?;
+    if engine == crate::container::Engine::Podman {
+        return Ok(format!(
+            "[Unit]\nDescription=Home Telephone\nAfter=network-online.target\n\n[Service]\nType=oneshot\nRemainAfterExit=yes\nEnvironment=HOMEPHONE_CONTAINER_ENGINE=podman\nExecStart={binary} boot --directory {directory}\nExecStop={binary} stop --directory {directory}\nTimeoutStartSec=180\nTimeoutStopSec=90\nUMask=0077\n\n[Install]\nWantedBy=default.target\n"
+        ));
+    }
     Ok(format!(
         "[Unit]\nDescription=Home Telephone\nRequires=docker.service\nWants=network-online.target\nAfter=network-online.target docker.service\n\n[Service]\nType=oneshot\nRemainAfterExit=yes\nUser={user}\nExecStart={binary} boot --directory {directory}\nExecStop={binary} stop --directory {directory}\nTimeoutStartSec=180\nTimeoutStopSec=90\nUMask=0077\n\n[Install]\nWantedBy=multi-user.target\n"
     ))
@@ -130,7 +143,7 @@ fn output(command: &mut Command) -> anyhow::Result<Vec<u8>> {
 }
 fn inspect(reference: &str) -> anyhow::Result<serde_json::Value> {
     let [image] = serde_json::from_slice::<[_; 1]>(&output(
-        Command::new("docker").args(["image", "inspect", reference]),
+        crate::container::command()?.args(["image", "inspect", reference]),
     )?)?;
     Ok(image)
 }
@@ -205,7 +218,7 @@ pub fn superseded_references(
 }
 fn engine_lines(arguments: &[&str]) -> anyhow::Result<Vec<String>> {
     Ok(
-        String::from_utf8(output(Command::new("docker").args(arguments))?)?
+        String::from_utf8(output(crate::container::command()?.args(arguments))?)?
             .lines()
             .map(str::to_owned)
             .collect(),
@@ -219,7 +232,7 @@ fn container_images() -> anyhow::Result<Vec<String>> {
 }
 fn remove_images(references: &[String]) -> anyhow::Result<()> {
     for reference in references {
-        output(Command::new("docker").args(["image", "rm", reference]))?;
+        output(crate::container::command()?.args(["image", "rm", reference]))?;
     }
     Ok(())
 }
@@ -370,7 +383,10 @@ impl Installation {
         Ok(())
     }
     fn container(&self, name: &str) -> anyhow::Result<Option<serde_json::Value>> {
-        let result = Command::new("docker")
+        if crate::container::absent(name)? {
+            return Ok(None);
+        }
+        let result = crate::container::command()?
             .args(["container", "inspect", name])
             .output()?;
         if !result.status.success() {
@@ -395,8 +411,8 @@ impl Installation {
         let (app, gateway) = self.names();
         for name in [&app, &gateway] {
             if self.container(name)?.is_some() {
-                output(Command::new("docker").args(["stop", "--time", "20", name]))?;
-                output(Command::new("docker").args(["rm", name]))?;
+                output(crate::container::command()?.args(["stop", "--time", "20", name]))?;
+                output(crate::container::command()?.args(["rm", name]))?;
             }
         }
         Ok(())
@@ -423,7 +439,7 @@ impl Installation {
         let (app, gateway) = self.names();
         if let Some(container) = self.container(&gateway)? {
             if container["State"]["Running"] != true {
-                output(Command::new("docker").args(["start", &gateway]))?;
+                output(crate::container::command()?.args(["start", &gateway]))?;
             }
         } else {
             crate::operations::start_gateway(
@@ -435,7 +451,7 @@ impl Installation {
         }
         if let Some(container) = self.container(&app)? {
             if container["State"]["Running"] != true {
-                output(Command::new("docker").args(["start", &app]))?;
+                output(crate::container::command()?.args(["start", &app]))?;
             }
         } else {
             let uid = String::from_utf8(output(Command::new("id").arg("-u"))?)?
@@ -444,7 +460,7 @@ impl Installation {
             let gid = String::from_utf8(output(Command::new("id").arg("-g"))?)?
                 .trim()
                 .to_owned();
-            let mut command = Command::new("docker");
+            let mut command = crate::container::command()?;
             command.args([
                 "run",
                 "--detach",
@@ -469,13 +485,10 @@ impl Installation {
                 "768m",
                 "--cpus",
                 "2",
-                "--log-opt",
-                "max-size=10m",
-                "--log-opt",
-                "max-file=3",
                 "--tmpfs",
                 "/tmp:rw,noexec,nosuid,size=32m",
             ]);
+            command.args(crate::container::selected()?.run_options());
             for (child, readonly) in [("config", true), ("data", false), ("run", false)] {
                 let path = self.directory.join(child);
                 let path = path.to_str().context("installation path must be UTF-8")?;
@@ -870,7 +883,7 @@ pub fn load_package(directory: &Path) -> anyhow::Result<Release> {
     let release = crate::package::validate(directory)?;
     for archive in ["app.tar", "gateway.tar"] {
         output(
-            Command::new("docker")
+            crate::container::command()?
                 .args(["load", "--input"])
                 .arg(directory.join(archive)),
         )?;
@@ -896,7 +909,6 @@ pub fn lab(directory: &Path) -> anyhow::Result<()> {
             directory,
             std::net::Ipv4Addr::LOCALHOST.into(),
             DEFAULT_PUBLIC_ORIGIN.into(),
-            None,
             true,
         )?;
     }

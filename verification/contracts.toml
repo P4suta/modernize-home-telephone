@@ -1,4 +1,5 @@
 harnesses = [
+  "proofs::unavailable_reception_preserves_ordinary_calls",
   "proofs::input_length_guards_cover_the_entire_integer_domain",
   "proofs::streamed_byte_limits_refuse_overflow_and_preserve_the_exact_bound",
   "proofs::deadlines_preserve_states_and_exact_integer_boundaries",

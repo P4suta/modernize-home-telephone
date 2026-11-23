@@ -1,4 +1,5 @@
 const MAX_CHANNEL_ID_BYTES: usize = 256;
+const MAX_CREATION_TIME_BYTES: usize = 64;
 const MAX_LIVE_CHANNELS: usize = 128;
 const ARI_COMMAND_TIMEOUT_SECONDS: u64 = 3;
 const MAX_ARI_RESPONSE_BYTES: usize = 1048576;
@@ -30,8 +31,72 @@ pub struct Channel {
     pub id: String,
     pub state: String,
     #[serde(default)]
+    pub creationtime: Option<String>,
+    #[serde(default)]
     pub caller: Caller,
 }
+
+pub enum CallRoot {
+    Gateway(IngressId),
+    Generated,
+}
+impl CallRoot {
+    pub(crate) fn channel_id(&self, call: uuid::Uuid) -> String {
+        match self {
+            Self::Gateway(ingress) => ingress.as_str().to_owned(),
+            Self::Generated => format!("hp-{call}-root"),
+        }
+    }
+    pub(crate) fn fingerprint(&self) -> Option<[u8; 32]> {
+        match self {
+            Self::Gateway(ingress) => Some(ingress.fingerprint()),
+            Self::Generated => None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct IngressId {
+    channel: String,
+    created_at: i128,
+}
+impl IngressId {
+    pub fn new(channel: &Channel) -> anyhow::Result<Self> {
+        validate_channel_id(&channel.id)?;
+        let created = channel
+            .creationtime
+            .as_deref()
+            .context("missing ingress creation time")?;
+        ensure!(
+            phone_core::bytes::nonempty_within(created.len(), MAX_CREATION_TIME_BYTES)
+                && created.is_ascii(),
+            "invalid ingress creation time"
+        );
+        let format = time::format_description::parse_borrowed::<3>(
+            "[year]-[month]-[day]T[hour]:[minute]:[second].[subsecond][offset_hour sign:mandatory][offset_minute]",
+        )?;
+        let created_at =
+            time::OffsetDateTime::parse(created, &time::format_description::well_known::Rfc3339)
+                .or_else(|_| time::OffsetDateTime::parse(created, &format))?
+                .unix_timestamp_nanos();
+        Ok(Self {
+            channel: channel.id.clone(),
+            created_at,
+        })
+    }
+    pub fn as_str(&self) -> &str {
+        &self.channel
+    }
+    pub(crate) fn fingerprint(&self) -> [u8; 32] {
+        use sha2::Digest as _;
+        sha2::Sha256::new()
+            .chain_update(self.channel.as_bytes())
+            .chain_update(self.created_at.to_be_bytes())
+            .finalize()
+            .into()
+    }
+}
+
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct Caller {
     #[serde(default)]
@@ -61,17 +126,22 @@ pub struct Variable {
     pub value: String,
 }
 
+pub(crate) fn validate_channel_id(id: &str) -> anyhow::Result<()> {
+    ensure!(
+        phone_core::bytes::nonempty_within(id.len(), MAX_CHANNEL_ID_BYTES)
+            && !id.chars().any(char::is_control),
+        "invalid Stasis channel identity"
+    );
+    Ok(())
+}
+
 impl Ari {
     pub fn observe(&self, event: &AriEvent) -> anyhow::Result<()> {
         if let AriEvent::StasisStart { channel, .. }
         | AriEvent::StasisEnd { channel }
         | AriEvent::ChannelDestroyed { channel } = event
         {
-            ensure!(
-                phone_core::bytes::nonempty_within(channel.id.len(), MAX_CHANNEL_ID_BYTES)
-                    && !channel.id.chars().any(char::is_control),
-                "invalid Stasis channel identity"
-            );
+            validate_channel_id(&channel.id)?;
         }
         let mut overflow = false;
         self.stasis.send_modify(|channels| match event {

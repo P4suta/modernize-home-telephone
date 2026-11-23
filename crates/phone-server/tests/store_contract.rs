@@ -85,3 +85,232 @@ async fn delivery_retries_preserve_event_identity_and_obey_deadlines() {
     store.delivered(event.id).await.unwrap();
     assert!(store.due(u32::MAX.into()).await.unwrap().is_empty());
 }
+
+fn ingress(id: &str, created: &str) -> phone_server::gateway::IngressId {
+    phone_server::gateway::IngressId::new(&phone_server::gateway::Channel {
+        id: id.into(),
+        state: "Ring".into(),
+        creationtime: Some(created.into()),
+        caller: Default::default(),
+    })
+    .unwrap()
+}
+
+#[tokio::test]
+async fn ingress_consumption_survives_deletion_retention_and_restart() {
+    use phone_server::{gateway::CallRoot, store::Admission};
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("phone.sqlite");
+    let store = Store::open(&path).await.unwrap();
+    let identity = ingress("reused-channel", "2026-11-15T05:32:13.000+0900");
+    let mut first = Call::offered("1".into(), "inbound".into(), 100);
+    assert!(matches!(
+        store
+            .admit(&first, &CallRoot::Gateway(identity.clone()), 100)
+            .await
+            .unwrap(),
+        Admission::Created(_)
+    ));
+    first.phase = Phase::Ended;
+    first.ended_at = Some(101);
+    store.save(&first, "ended", 101).await.unwrap();
+    store.clear_resources().await.unwrap();
+    store.delete_finished(first.id, 102).await.unwrap();
+    store.prune_history(103).await.unwrap();
+    drop(store);
+    let store = Store::open(&path).await.unwrap();
+    let canonical = ingress("reused-channel", "2026-11-14T20:32:13Z");
+    assert!(store.ingress_admitted(&canonical).await.unwrap());
+    let fresh = Call::offered("1".into(), "inbound".into(), 200);
+    assert!(matches!(
+        store
+            .admit(&fresh, &CallRoot::Gateway(canonical), 200)
+            .await
+            .unwrap(),
+        Admission::Replayed
+    ));
+    assert!(store.calls().await.unwrap().is_empty());
+    assert!(store.resources().await.unwrap().is_empty());
+    assert!(store.events_after(0).await.unwrap().is_empty());
+    let generation = ingress("reused-channel", "2026-11-14T20:32:13.001Z");
+    assert!(matches!(
+        store
+            .admit(&fresh, &CallRoot::Gateway(generation), 200)
+            .await
+            .unwrap(),
+        Admission::Created(_)
+    ));
+    assert_eq!(store.calls().await.unwrap().len(), 1);
+    let stored: (String, i64) = store
+        .with(|connection| {
+            Ok(connection.query_row(
+                "SELECT typeof(fingerprint),length(fingerprint) FROM call_ingress LIMIT 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )?)
+        })
+        .await
+        .unwrap();
+    assert_eq!(stored, ("blob".into(), 32));
+    let backup = directory.path().join("admission-backup.sqlite");
+    store.backup(backup.clone()).await.unwrap();
+    let restored = Store::open(&backup).await.unwrap();
+    assert!(
+        restored
+            .ingress_admitted(&ingress("reused-channel", "2026-11-14T20:32:13Z"))
+            .await
+            .unwrap()
+    );
+}
+
+#[tokio::test]
+async fn ingress_event_and_resource_admission_roll_back_together() {
+    use phone_server::{gateway::CallRoot, store::Admission};
+    let directory = tempfile::tempdir().unwrap();
+    let store = Store::open(&directory.path().join("phone.sqlite"))
+        .await
+        .unwrap();
+    let identity = ingress("transactional-ingress", "2026-11-14T20:32:13Z");
+    let call = Call::offered("1".into(), "inbound".into(), 100);
+    for table in ["events", "resources"] {
+        store.with(move |connection| {
+            connection.execute_batch(&format!("CREATE TRIGGER reject_admission BEFORE INSERT ON {table} BEGIN SELECT RAISE(ABORT,'synthetic admission fault'); END;"))?;
+            Ok(())
+        }).await.unwrap();
+        assert!(
+            store
+                .admit(&call, &CallRoot::Gateway(identity.clone()), 100)
+                .await
+                .is_err()
+        );
+        assert!(!store.ingress_admitted(&identity).await.unwrap());
+        assert!(store.calls().await.unwrap().is_empty());
+        assert!(store.events_after(0).await.unwrap().is_empty());
+        assert!(store.due(100).await.unwrap().is_empty());
+        assert!(store.resources().await.unwrap().is_empty());
+        store
+            .with(|connection| {
+                connection.execute_batch("DROP TRIGGER reject_admission")?;
+                Ok(())
+            })
+            .await
+            .unwrap();
+    }
+    assert!(matches!(
+        store
+            .admit(&call, &CallRoot::Gateway(identity), 100)
+            .await
+            .unwrap(),
+        Admission::Created(_)
+    ));
+    assert_eq!(store.resources().await.unwrap(), ["transactional-ingress"]);
+    assert_eq!(store.events_after(0).await.unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn ingress_schema_migration_preserves_previous_calls_and_refuses_future_versions() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("phone.sqlite");
+    let store = Store::open(&path).await.unwrap();
+    let mut call = Call::offered("1".into(), "inbound".into(), 100);
+    call.phase = Phase::Ended;
+    call.ended_at = Some(101);
+    store.save(&call, "ended", 101).await.unwrap();
+    store
+        .with(|connection| {
+            connection.execute_batch("DROP TABLE call_ingress; PRAGMA user_version=1;")?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+    drop(store);
+    let store = Store::open(&path).await.unwrap();
+    assert_eq!(store.get(call.id).await.unwrap(), Some(call));
+    let version: u32 = store
+        .with(|connection| {
+            Ok(connection.pragma_query_value(None, "user_version", |row| row.get(0))?)
+        })
+        .await
+        .unwrap();
+    assert_eq!(version, 2);
+    assert!(
+        !store
+            .ingress_admitted(&ingress("fresh-after-migration", "2026-11-14T20:32:13Z"))
+            .await
+            .unwrap()
+    );
+    store
+        .with(|connection| {
+            connection.pragma_update(None, "user_version", 3)?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+    drop(store);
+    assert!(Store::open(&path).await.is_err());
+}
+
+#[tokio::test]
+async fn concurrent_ingress_admission_commits_one_initial_event() {
+    use phone_server::{gateway::CallRoot, store::Admission};
+    let directory = tempfile::tempdir().unwrap();
+    let store = Store::open(&directory.path().join("phone.sqlite"))
+        .await
+        .unwrap();
+    let root = CallRoot::Gateway(ingress("concurrent-ingress", "2026-11-14T20:32:13Z"));
+    let first = Call::offered("1".into(), "inbound".into(), 100);
+    let second = Call::offered("1".into(), "inbound".into(), 100);
+    let (first, second) = tokio::join!(
+        store.admit(&first, &root, 100),
+        store.admit(&second, &root, 100)
+    );
+    let results = [first.unwrap(), second.unwrap()];
+    assert_eq!(
+        results
+            .iter()
+            .filter(|r| matches!(r, Admission::Created(_)))
+            .count(),
+        1
+    );
+    assert_eq!(
+        results
+            .iter()
+            .filter(|r| matches!(r, Admission::Replayed))
+            .count(),
+        1
+    );
+    assert_eq!(store.calls().await.unwrap().len(), 1);
+    assert_eq!(store.events_after(0).await.unwrap().len(), 1);
+    assert_eq!(store.due(100).await.unwrap().len(), 1);
+    assert_eq!(store.resources().await.unwrap(), ["concurrent-ingress"]);
+}
+
+#[tokio::test]
+async fn a_failed_ingress_migration_preserves_the_previous_schema() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("phone.sqlite");
+    let store = Store::open(&path).await.unwrap();
+    let mut call = Call::offered("1".into(), "inbound".into(), 100);
+    call.phase = Phase::Ended;
+    call.ended_at = Some(101);
+    store.save(&call, "ended", 101).await.unwrap();
+    store.with(|connection| {
+        connection.execute_batch("DROP TABLE call_ingress; PRAGMA user_version=1; UPDATE calls SET payload='malformed';")?;
+        Ok(())
+    }).await.unwrap();
+    drop(store);
+    assert!(Store::open(&path).await.is_err());
+    let database = rusqlite::Connection::open(&path).unwrap();
+    let version: u32 = database
+        .pragma_query_value(None, "user_version", |row| row.get(0))
+        .unwrap();
+    assert_eq!(version, 1);
+    let tables: i64 = database
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE name='call_ingress'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(tables, 0);
+}

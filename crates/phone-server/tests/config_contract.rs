@@ -12,6 +12,14 @@ fn browser_calls_use_registered_sip_for_new_and_existing_configurations() {
 }
 
 #[test]
+fn production_accepts_explicit_local_calls_with_ai_off() {
+    let config: Config = toml::from_str(
+        "mode = 'production'\npublic_origin = 'https://phone.example.ts.net'\n[ai]\nprovider = 'disabled'\n",
+    ).unwrap();
+    config.validate().unwrap();
+}
+
+#[test]
 fn lab_is_local_and_requires_no_cloud_credentials() {
     let config = Config::default();
     assert!(config.validate().is_ok());
@@ -29,7 +37,6 @@ fn production_rejects_mock_ai_and_untrusted_http_access() {
     };
     assert!(config.validate().is_err());
     config.ai.provider = "openai".into();
-    config.allowed_users = vec!["owner@example.invalid".into()];
     config.public_origin = "https://phone.example.ts.net".into();
     assert!(config.validate().is_ok());
     config.listen = "0.0.0.0:8787".parse().unwrap();

@@ -89,6 +89,8 @@ enum Operation {
         output: PathBuf,
     },
     Unit {
+        #[arg(long, value_enum, default_value = "docker")]
+        engine: xtask::container::Engine,
         #[arg(long)]
         directory: PathBuf,
         #[arg(long)]
@@ -117,8 +119,6 @@ enum Operation {
         address: std::net::IpAddr,
         #[arg(long, default_value = "http://localhost:8787")]
         origin: String,
-        #[arg(long)]
-        owner: Option<String>,
         #[arg(long)]
         production: bool,
     },
@@ -180,14 +180,20 @@ fn main() -> anyhow::Result<()> {
         Operation::Install { package, directory } => xtask::manager::install(&package, &directory),
         Operation::Package { output } => xtask::package::build(&output),
         Operation::Unit {
+            engine,
             directory,
             binary,
             user,
             output,
         } => xtask::operations::private_file(
             &output,
-            xtask::manager::systemd_unit(&binary, &xtask::manager::absolute(&directory)?, &user)?
-                .as_bytes(),
+            xtask::manager::systemd_unit_for_engine(
+                &binary,
+                &xtask::manager::absolute(&directory)?,
+                &user,
+                engine,
+            )?
+            .as_bytes(),
         ),
         Operation::Provision {
             directory,
@@ -216,9 +222,8 @@ fn main() -> anyhow::Result<()> {
             directory,
             address,
             origin,
-            owner,
             production,
-        } => xtask::operations::initialize(&directory, address, origin, owner, !production),
+        } => xtask::operations::initialize(&directory, address, origin, !production),
         Operation::GatewayStart {
             directory,
             image,

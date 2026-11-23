@@ -74,6 +74,7 @@ pub fn evidence(name: &str) -> anyhow::Result<()> {
     let value = std::fs::read(Path::new(".cache/assurance").join(format!("{name}.json")))?;
     check_evidence(Path::new("."), &value)
 }
+
 pub fn check_evidence(root: &Path, bytes: &[u8]) -> anyhow::Result<()> {
     let stamp: Stamp = serde_json::from_slice(bytes)?;
     ensure!(
@@ -365,6 +366,21 @@ pub fn fast() -> anyhow::Result<()> {
         ],
     )?;
     trace.run("cargo", &["test", "--locked", "--workspace"])?;
+    crate::plugins::check(Path::new("."))?;
+    for features in [None, Some("plugin-ai")] {
+        let mut args = vec![
+            "clippy",
+            "--locked",
+            "-p",
+            "phone-server",
+            "--no-default-features",
+        ];
+        if let Some(features) = features {
+            args.extend(["--features", features]);
+        }
+        args.extend(["--", "-D", "warnings"]);
+        trace.run("cargo", &args)?;
+    }
     trace.run(
         "pnpm",
         &[
