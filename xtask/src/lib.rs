@@ -14,6 +14,7 @@ pub mod asterisk;
 pub mod bundle;
 pub mod check;
 pub mod fault_catalog;
+pub mod footprint;
 pub mod manager;
 pub mod operations;
 pub mod package;

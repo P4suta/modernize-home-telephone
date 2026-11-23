@@ -1,5 +1,8 @@
 const VENDOR_SOURCE_COUNT: usize = 14;
 const SHA256_HEX_DIGITS: usize = 64;
+const PROBE_USER: &str = "65534:65534";
+const PROBE_MEMORY: &str = "64m";
+const PROBE_PROCESSES: &str = "16";
 
 use anyhow::{Context, ensure};
 use serde::{Deserialize, Serialize};
@@ -7,6 +10,7 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
     process::Command,
+    time::{Duration, Instant},
 };
 
 #[derive(Serialize, Deserialize)]
@@ -31,19 +35,32 @@ impl Trace {
             files: vec![],
         })
     }
-    fn run(&mut self, program: &str, args: &[&str]) -> anyhow::Result<()> {
+    fn record(&mut self, program: &str, args: &[&str]) -> anyhow::Result<(bool, Vec<u8>, Vec<u8>)> {
         let result = Command::new(program)
             .args(args)
             .output()
             .with_context(|| format!("start {program}"))?;
-        let mut bytes = result.stdout;
+        let mut bytes = result.stdout.clone();
         bytes.extend_from_slice(&result.stderr);
         let path = self.directory.join(format!("{:02}.log", self.files.len()));
         crate::operations::private_file(&path, &bytes)?;
         self.files.push(path);
+        Ok((result.status.success(), result.stdout, bytes))
+    }
+    fn run(&mut self, program: &str, args: &[&str]) -> anyhow::Result<()> {
+        let (success, _, bytes) = self.record(program, args)?;
         print!("{}", String::from_utf8_lossy(&bytes));
-        ensure!(result.status.success(), "{program} failed or is incomplete");
+        ensure!(success, "{program} failed or is incomplete");
         Ok(())
+    }
+    fn capture(&mut self, program: &str, args: &[&str]) -> anyhow::Result<Vec<u8>> {
+        let (success, stdout, bytes) = self.record(program, args)?;
+        ensure!(
+            success,
+            "{program} failed or is incomplete: {}",
+            String::from_utf8_lossy(&bytes)
+        );
+        Ok(stdout)
     }
     fn finish(self, name: &str) -> anyhow::Result<()> {
         ensure!(
@@ -248,6 +265,211 @@ pub fn browser(directory: &Path) -> anyhow::Result<()> {
     )?;
     trace.files.push(report);
     trace.finish("browser")
+}
+pub fn footprint(directory: &Path, phase: crate::footprint::Phase) -> anyhow::Result<()> {
+    use crate::footprint::{Budgets, Preparation, evaluate, observe};
+    crate::manager::require_lab(directory)?;
+    let installation = crate::manager::Installation::open(directory)?;
+    ensure!(
+        installation.release.source == crate::package::source_identity(Path::new("."))?,
+        "rebuild the lab for the current sources before footprint verification"
+    );
+    crate::manager::verify_images(&installation.release)?;
+    match phase.preparation() {
+        Preparation::Restart => {
+            crate::manager::stop(directory)?;
+            crate::manager::boot(directory)?;
+        }
+        Preparation::AfterBrowserCalls => evidence("browser")?,
+    }
+    installation.health()?;
+    let budgets = Budgets::parse(&std::fs::read_to_string("verification/footprint.toml")?)?;
+    let mut trace = Trace::new()?;
+    let probe = String::from_utf8(trace.capture(
+        "docker",
+        &[
+            "build",
+            "--quiet",
+            "--platform",
+            "linux/arm64",
+            "-f",
+            "deploy/app/Dockerfile",
+            "--target",
+            "build",
+            ".",
+        ],
+    )?)?
+    .trim()
+    .to_owned();
+    ensure!(
+        probe
+            .strip_prefix("sha256:")
+            .is_some_and(|digest| digest.len() == SHA256_HEX_DIGITS),
+        "the footprint probe requires an immutable image ID"
+    );
+    let prefix = format!("homephone-{}-", installation.id.simple());
+    let containers = String::from_utf8(trace.capture(
+        "docker",
+        &[
+            "ps",
+            "--filter",
+            &format!("label=homephone.instance={}", installation.id),
+            "--format",
+            "{{.Names}}",
+        ],
+    )?)?
+    .lines()
+    .map(|name| {
+        let service = name
+            .strip_prefix(&prefix)
+            .context("unexpected service container name")?;
+        Ok((service.to_owned(), name.to_owned()))
+    })
+    .collect::<anyhow::Result<BTreeMap<_, _>>>()?;
+    if phase.preparation() == Preparation::AfterBrowserCalls {
+        let evidence_age = std::fs::metadata(".cache/assurance/browser.json")?
+            .modified()?
+            .elapsed()?
+            .as_secs();
+        for (service, container) in &containers {
+            let age = process_age(&mut trace, &probe, container)?;
+            ensure!(
+                crate::footprint::follows_evidence(age, evidence_age),
+                "{service} restarted after the browser calls; rerun `just browser` before the settled footprint"
+            );
+        }
+    }
+    std::thread::sleep(Duration::from_secs(budgets.settle_seconds));
+    let mut earlier = BTreeMap::new();
+    for (service, container) in &containers {
+        let sample = status(&mut trace, &probe, container)?;
+        earlier.insert(service.clone(), (sample, Instant::now()));
+    }
+    std::thread::sleep(Duration::from_secs(budgets.window_seconds));
+    let mut services = BTreeMap::new();
+    for (service, container) in &containers {
+        let (before, completed) = earlier
+            .get(service)
+            .context("missing earlier footprint sample")?;
+        let window = u64::try_from(completed.elapsed().as_millis())?;
+        let after = status(&mut trace, &probe, container)?;
+        services.insert(service.clone(), observe(before, &after, window)?);
+    }
+    let mut images = BTreeMap::new();
+    for (service, image) in [
+        ("app", &installation.release.app),
+        ("gateway", &installation.release.gateway),
+    ] {
+        let size = String::from_utf8(trace.capture(
+            "docker",
+            &[
+                "image",
+                "inspect",
+                "--format",
+                "{{.Size}}",
+                &image.reference,
+            ],
+        )?)?;
+        images.insert(
+            service.to_owned(),
+            size.trim().parse::<u64>().context("invalid image size")?,
+        );
+    }
+    let violations = evaluate(&budgets, phase, &services, &images);
+    let report = trace.directory.join("footprint.json");
+    let summary = serde_json::to_vec_pretty(&serde_json::json!({
+        "phase": phase.name(),
+        "settle_seconds": budgets.settle_seconds,
+        "window_seconds": budgets.window_seconds,
+        "services": services,
+        "images": images,
+        "violations": violations,
+    }))?;
+    crate::operations::private_file(&report, &summary)?;
+    trace.files.push(report);
+    println!("{}", String::from_utf8_lossy(&summary));
+    ensure!(
+        violations.is_empty(),
+        "idle footprint exceeds its budget: {}",
+        violations
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join("; ")
+    );
+    trace.finish(&format!("footprint-{}", phase.name()))
+}
+fn run_probe(
+    trace: &mut Trace,
+    image: &str,
+    container: &str,
+    command: &[&str],
+) -> anyhow::Result<String> {
+    let pid = format!("container:{container}");
+    let mut arguments = vec![
+        "run",
+        "--rm",
+        "--platform",
+        "linux/arm64",
+        "--pid",
+        &pid,
+        "--network",
+        "none",
+        "--read-only",
+        "--cap-drop",
+        "ALL",
+        "--security-opt",
+        "no-new-privileges",
+        "--user",
+        PROBE_USER,
+        "--memory",
+        PROBE_MEMORY,
+        "--pids-limit",
+        PROBE_PROCESSES,
+        "--entrypoint",
+    ];
+    let (program, rest) = command.split_first().context("empty probe command")?;
+    arguments.extend([*program, image]);
+    arguments.extend(rest);
+    Ok(String::from_utf8(trace.capture("docker", &arguments)?)?)
+}
+fn status(
+    trace: &mut Trace,
+    image: &str,
+    container: &str,
+) -> anyhow::Result<crate::footprint::Sample> {
+    let output = run_probe(
+        trace,
+        image,
+        container,
+        &[
+            "find",
+            "/proc/1/task",
+            "-mindepth",
+            "2",
+            "-maxdepth",
+            "2",
+            "-name",
+            "status",
+            "-exec",
+            "cat",
+            "{}",
+            "+",
+        ],
+    )?;
+    Ok(crate::footprint::parse_sample(&output)?)
+}
+fn process_age(trace: &mut Trace, image: &str, container: &str) -> anyhow::Result<u64> {
+    let output = run_probe(
+        trace,
+        image,
+        container,
+        &["cat", "/proc/uptime", "/proc/1/stat"],
+    )?;
+    let (uptime, stat) = output
+        .split_once('\n')
+        .context("incomplete process age probe")?;
+    Ok(crate::footprint::process_age_seconds(uptime, stat)?)
 }
 pub fn gateway_authentication(directory: &Path) -> anyhow::Result<()> {
     crate::manager::require_lab(directory)?;

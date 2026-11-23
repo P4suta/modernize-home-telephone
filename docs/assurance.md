@@ -3,7 +3,7 @@
 ## Establish the verdict
 
 Use `mise x -- just check` for the deterministic development gate and `mise x -- just release-check` for the complete local verification sequence.
-The release sequence builds the ARM64 lab, exercises browser and SIPp calls, rehearses deployment recovery, and runs the bounded proof, interpreter, fuzz, and mutation campaigns.
+The release sequence builds the ARM64 lab, bounds its idle footprint before and after browser and SIPp calls, rehearses deployment recovery, and runs the bounded proof, interpreter, fuzz, and mutation campaigns.
 `just evidence` checks the source and report identities of retained results.
 Changing an implementation, harness, verification recipe, or relevant build input invalidates its receipt.
 A retained receipt applies only to its recorded sources.
@@ -253,6 +253,32 @@ Verification containers have explicit CPU, memory, swap, process, and time limit
 Each run isolates compiler and proof outputs to prevent reuse of stale generated models.
 Hardware-free results establish software behavior under the stated service and filesystem assumptions.
 The [hardware acceptance procedure](hardware-acceptance.md) remains the boundary for BL3000HM interoperability, HT813 fallback, actual Pi startup, storage power loss, paid AI behavior, and external push delivery.
+
+## Bound the idle footprint
+
+`just footprint started` runs after `just lab` and restarts the lab services, because `just lab` keeps running containers when the images are unchanged.
+`just footprint settled` runs after `just browser` and requires the browser evidence for the current sources.
+It refuses a service whose main process started after that evidence, so a restart can't replace the post-call state with a fresh process.
+The process age comes from `/proc/uptime` and the start time in `/proc/1/stat`, read in the Linux user tick of 100 per second.
+Each phase waits `settle_seconds`, samples every service container twice, `window_seconds` apart, and compares the result with [the footprint budgets](../verification/footprint.toml).
+Each service records the resident and anonymous memory of its main process, its thread count, and the context switches per minute across its threads.
+Each release image records the size that `docker image inspect` reports.
+The budgets bound anonymous memory, threads, switches, and image sizes.
+Resident memory stays in the report without a budget, because its file-backed pages varied from 12.6 MB to 19.5 MB across two fresh starts of the same app image.
+A probe container joins the service's PID namespace and reads `/proc` with the tools of the app build stage, so service images need no shell.
+The probe runs as an unprivileged user without network access, capabilities, or a writable root filesystem.
+The gate refuses an exceeded budget, a missing or unbudgeted service or image, a malformed process sample, an empty window, and a restarted service.
+Rejecting fixtures exceed each budget by one unit, remove each required service, image, and status field, and start a process after the browser evidence.
+
+The switch rate counts the growth of every surviving thread and the full count of every new thread.
+A thread that exits during the window loses its final switches, so the rate understates short-lived threads.
+A reused thread identity counts from zero.
+The window starts when the first sample returns and ends when the second sample starts, so probe startup can shift a reading by about one second.
+The first budgets come from three runs of the Rusterisk lab on OrbStack ARM64 on 2026-11-24.
+They add 25 percent to the highest service value of each phase and 5 percent to each image size, rounded up to 256 KiB, one thread, 50 switches, or 1 MB.
+After the browser and SIPp calls, the app's anonymous memory grew from about 3.4 MB to 6.9 MB and its threads from 6 to 14, so the settled budgets record that growth instead of bounding it.
+A change that lowers the footprint tightens the matching budget in the same pull request.
+The lab doesn't establish the footprint on the Raspberry Pi, where Podman, the kernel, and storage differ.
 
 ## Follow ownership across failures
 
