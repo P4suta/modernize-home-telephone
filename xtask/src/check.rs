@@ -377,7 +377,12 @@ pub fn fast() -> anyhow::Result<()> {
         ],
     )?;
     crate::plugins::check(Path::new("."))?;
-    for features in [None, Some("plugin-ai")] {
+    for features in [
+        None,
+        Some("plugin-ai"),
+        Some("plugin-ntfy"),
+        Some("plugin-ai,plugin-ntfy"),
+    ] {
         let mut args = vec![
             "clippy",
             "--locked",

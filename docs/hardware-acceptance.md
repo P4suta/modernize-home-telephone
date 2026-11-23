@@ -35,6 +35,8 @@ Cancel an incoming call through the SIP service from the calling side before ans
 Require every shared ringer to stop, `FXO` to return to idle, and Rusterisk to have no active call channels.
 Confirm one call record per physical attempt.
 Place another call from the same number and require a distinct record.
+When using ntfy, require one notification containing the expected caller identity for each attempt.
+Exclude connection-test notifications from the call count.
 
 Answer a separate call and observe the caller number, intelligible audio in both directions, intended handset ringing, and browser takeover.
 A connected state doesn't establish that a person answered or that audio worked.

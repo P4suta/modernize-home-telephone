@@ -3,6 +3,7 @@ members = [
   "crates/phone-core",
   "crates/phone-server",
   "crates/phone-plugin-ai",
+  "crates/phone-plugin-ntfy",
   "xtask",
 ]
 resolver = "3"

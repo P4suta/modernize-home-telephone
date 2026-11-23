@@ -51,6 +51,7 @@ async fn failed_webhooks_retry_with_the_same_event_id_and_an_authenticated_body(
         openai_key: None,
         webhook_secret: Some("test-signing-secret".into()),
         vapid_pem: None,
+        ntfy_token: None,
     };
     let notifier = Notifier::new(config, store.clone(), secrets).unwrap();
     notifier.pump(10).await.unwrap();

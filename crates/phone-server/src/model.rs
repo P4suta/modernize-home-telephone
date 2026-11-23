@@ -148,6 +148,23 @@ pub struct Delivery {
     pub attempts: u32,
 }
 
+#[derive(Clone, Copy)]
+pub(crate) enum NotificationReceipt {
+    #[cfg(feature = "plugin-ntfy")]
+    Ntfy(Uuid),
+    WebhookAndPush(i64),
+}
+
+impl NotificationReceipt {
+    pub(crate) fn key(self) -> (&'static str, String) {
+        match self {
+            #[cfg(feature = "plugin-ntfy")]
+            Self::Ntfy(call) => ("ntfy", call.to_string()),
+            Self::WebhookAndPush(event) => ("webhook_and_push", event.to_string()),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, ToSchema)]
 #[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Command {

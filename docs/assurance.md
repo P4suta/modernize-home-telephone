@@ -134,6 +134,11 @@ Retention tests include more than the history page limit and more than one expir
 They require quota accounting across the complete recording inventory while protecting an active or quarantined owner.
 Deletion tests let a worker finish after history deletion and require conditional writes to prevent resurrection.
 Notification tests require stable event identities during retries and verify webhook authentication, push encryption, and push signatures.
+The ntfy contracts verify Japanese caller notifications, private authentication, bounded acknowledgements, independent channel retries, persistent checkpoints, expiry, and checkpoint removal.
+The production eligibility proof quantifies every event, direction, phase, and 64-bit timestamp, including clock regression and the exact 120-second publication bound.
+Native string parsing and HTTP fixtures connect those typed inputs to persisted call events.
+The proof establishes publication eligibility rather than network delivery or phone receipt.
+See the [notification configuration](notifications.md) for payload and installation boundaries.
 Actual delivery through a browser vendor's push service remains separate from those cryptographic checks.
 
 ## Test the measurement and collection code
@@ -344,7 +349,7 @@ Neither an informative error string nor a successful rollback state alone establ
 The optional-reception harness quantifies every call rule and both availability values without input assumptions.
 It checks the production routing function: unavailable reception preserves ordinary ringing, and explicit blocking remains effective.
 The proof doesn't establish that the host reports actual plugin availability correctly.
-Native HTTP observers check automatic-answer refusal, media isolation, and preserved recordings.
+Native HTTP observers check automatic-answer refusal, media isolation, preserved recordings, and unavailable ntfy credentials.
 The dependency gate rejects plugins that depend on the host or another plugin and checks each host feature combination.
 Compiled plugins share process memory, so the routing proof establishes no process-crash isolation.
 Real handset behavior and notification receipt require installation observations.

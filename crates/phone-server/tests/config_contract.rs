@@ -20,6 +20,62 @@ fn production_accepts_explicit_local_calls_with_ai_off() {
 }
 
 #[test]
+fn ntfy_is_optional_and_accepts_the_private_server_configuration() {
+    let config: Config = toml::from_str(
+        "[notifications.ntfy]\nserver = 'https://notify.example.ts.net:10443'\ntopic = 'home-status'\n",
+    )
+    .unwrap();
+    assert!(config.validate().is_ok());
+    assert!(Config::default().validate().is_ok());
+}
+
+#[test]
+fn ntfy_configuration_refuses_ambiguous_origins_topics_and_secret_names() {
+    let baseline: Config = toml::from_str(
+        "[notifications.ntfy]\nserver = 'https://notify.example.ts.net:10443'\ntopic = 'home-status'\n",
+    )
+    .unwrap();
+    for server in [
+        "http://notify.example.ts.net",
+        "http://localhost:8081",
+        "https://notify.example.ts.net/topic",
+        "https://user:password@notify.example.ts.net",
+        "https://notify.example.ts.net/?auth=secret",
+        "https://notify.example.ts.net/#topic",
+        "file:///tmp/ntfy",
+        "not-a-url",
+    ] {
+        let mut config = baseline.clone();
+        config.notifications.ntfy.as_mut().unwrap().server = server.into();
+        assert!(config.validate().is_err(), "{server}");
+    }
+    for topic in ["", "home/status", "home status", "着信", &"a".repeat(65)] {
+        let mut config = baseline.clone();
+        config.notifications.ntfy.as_mut().unwrap().topic = topic.into();
+        assert!(config.validate().is_err());
+    }
+    for topic in ["a", "Home-status_1", &"a".repeat(64)] {
+        let mut config = baseline.clone();
+        config.notifications.ntfy.as_mut().unwrap().topic = topic.into();
+        assert!(config.validate().is_ok());
+    }
+    for name in ["", "lowercase", "TOKEN-NAME", "TOKEN\n"] {
+        let mut config = baseline.clone();
+        config.notifications.ntfy.as_mut().unwrap().token_env = name.into();
+        assert!(config.validate().is_err());
+    }
+    for server in ["http://127.0.0.1:8081", "http://[::1]:8081"] {
+        let mut config = baseline.clone();
+        config.notifications.ntfy.as_mut().unwrap().server = server.into();
+        assert!(config.validate().is_ok());
+        config.mode = Mode::Production;
+        config.ai.provider = "openai".into();
+        config.public_origin = "https://phone.example.ts.net".into();
+        assert!(config.validate().is_err());
+    }
+}
+
+#[test]
 fn lab_is_local_and_requires_no_cloud_credentials() {
     let config = Config::default();
     assert!(config.validate().is_ok());

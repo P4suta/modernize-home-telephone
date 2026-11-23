@@ -3,6 +3,7 @@
 #![deny(clippy::panic, clippy::unwrap_used, clippy::expect_used)]
 pub mod artifact;
 pub mod bytes;
+pub mod notification;
 pub mod plugins;
 pub mod timers;
 pub mod update;

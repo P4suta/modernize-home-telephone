@@ -83,10 +83,24 @@ pub struct Timers {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Notifications {
+    pub ntfy: Option<Ntfy>,
     pub webhook_url: Option<String>,
     pub webhook_secret_env: String,
     pub vapid_private_key_env: String,
     pub vapid_subject: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Ntfy {
+    pub server: String,
+    pub topic: String,
+    #[serde(default = "ntfy_token_env")]
+    pub token_env: String,
+}
+
+fn ntfy_token_env() -> String {
+    "HOMEPHONE_NTFY_TOKEN".into()
 }
 
 impl Default for Config {
@@ -174,6 +188,7 @@ impl Default for Timers {
 impl Default for Notifications {
     fn default() -> Self {
         Self {
+            ntfy: None,
             webhook_url: None,
             webhook_secret_env: "HOMEPHONE_WEBHOOK_SECRET".into(),
             vapid_private_key_env: "HOMEPHONE_VAPID_PRIVATE_KEY".into(),
@@ -217,6 +232,10 @@ impl Config {
             self.ai.provider == "disabled" || cfg!(feature = "plugin-ai"),
             "AI plugin is not installed"
         );
+        ensure!(
+            self.notifications.ntfy.is_none() || cfg!(feature = "plugin-ntfy"),
+            "ntfy plugin is not installed"
+        );
         let ari = url::Url::parse(&self.ari.url)?;
         ensure!(
             matches!(ari.scheme(), "http" | "https")
@@ -251,7 +270,10 @@ impl Config {
             &self.sip.password_env,
             &self.notifications.webhook_secret_env,
             &self.notifications.vapid_private_key_env,
-        ] {
+        ]
+        .into_iter()
+        .chain(self.notifications.ntfy.iter().map(|ntfy| &ntfy.token_env))
+        {
             ensure!(
                 !name.is_empty()
                     && name
@@ -282,6 +304,34 @@ impl Config {
                     && url.username().is_empty()
                     && url.password().is_none(),
                 "invalid webhook URL"
+            );
+        }
+        if let Some(ntfy) = &self.notifications.ntfy {
+            let server = url::Url::parse(&ntfy.server)?;
+            let local = match server.host() {
+                Some(url::Host::Ipv4(address)) => address.is_loopback(),
+                Some(url::Host::Ipv6(address)) => address.is_loopback(),
+                _ => false,
+            };
+            ensure!(
+                (server.scheme() == "https"
+                    || (self.mode == Mode::Lab && server.scheme() == "http" && local))
+                    && server.host_str().is_some()
+                    && server.username().is_empty()
+                    && server.password().is_none()
+                    && server.path() == "/"
+                    && server.query().is_none()
+                    && server.fragment().is_none(),
+                "ntfy requires an HTTPS server origin; lab HTTP requires a loopback address"
+            );
+            ensure!(
+                !ntfy.topic.is_empty()
+                    && ntfy.topic.len() <= 64
+                    && ntfy
+                        .topic
+                        .bytes()
+                        .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-')),
+                "ntfy topic must contain 1 to 64 ASCII letters, digits, underscores, or hyphens"
             );
         }
         Ok(())
