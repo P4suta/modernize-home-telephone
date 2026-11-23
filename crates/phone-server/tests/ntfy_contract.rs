@@ -1,3 +1,5 @@
+#![cfg(feature = "plugin-ntfy")]
+
 use axum::{
     Json, Router,
     extract::State,

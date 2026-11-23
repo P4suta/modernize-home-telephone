@@ -19,6 +19,7 @@ fn production_accepts_explicit_local_calls_with_ai_off() {
     config.validate().unwrap();
 }
 
+#[cfg(feature = "plugin-ntfy")]
 #[test]
 fn ntfy_is_optional_and_accepts_the_private_server_configuration() {
     let config: Config = toml::from_str(
@@ -29,6 +30,7 @@ fn ntfy_is_optional_and_accepts_the_private_server_configuration() {
     assert!(Config::default().validate().is_ok());
 }
 
+#[cfg(feature = "plugin-ntfy")]
 #[test]
 fn ntfy_configuration_refuses_ambiguous_origins_topics_and_secret_names() {
     let baseline: Config = toml::from_str(
