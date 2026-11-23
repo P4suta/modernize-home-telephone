@@ -27,9 +27,26 @@ pub fn digest(path: &Path) -> anyhow::Result<String> {
     std::io::copy(&mut file, &mut digest)?;
     Ok(format!("{:x}", digest.finalize()))
 }
-fn path(root: &Path, name: &str) -> anyhow::Result<std::path::PathBuf> {
+fn path(root: &Path, name: &str, kind: Kind) -> anyhow::Result<std::path::PathBuf> {
+    let source_name = if kind == Kind::Package
+        && name.starts_with("source/")
+        && name.len() <= phone_core::artifact::MAX_RELATIVE_PATH_BYTES
+    {
+        name.bytes()
+            .map(|byte| {
+                if matches!(byte, b'+' | b'@') {
+                    b'_'
+                } else {
+                    byte
+                }
+            })
+            .collect::<Vec<_>>()
+    } else {
+        vec![]
+    };
     anyhow::ensure!(
-        phone_core::artifact::RelativePath::parse(name.as_bytes()).is_some(),
+        phone_core::artifact::RelativePath::parse(name.as_bytes()).is_some()
+            || phone_core::artifact::RelativePath::parse(&source_name).is_some(),
         "invalid bundle path"
     );
     let mut path = root.to_owned();
@@ -45,6 +62,7 @@ fn path(root: &Path, name: &str) -> anyhow::Result<std::path::PathBuf> {
 fn collect(
     root: &Path,
     directory: &Path,
+    kind: Kind,
     files: &mut BTreeMap<String, String>,
 ) -> anyhow::Result<()> {
     anyhow::ensure!(
@@ -54,12 +72,12 @@ fn collect(
     for entry in std::fs::read_dir(directory)? {
         let entry = entry?;
         let file = entry.path();
-        let kind = entry.file_type()?;
-        anyhow::ensure!(!kind.is_symlink(), "bundles cannot contain symlinks");
-        if kind.is_dir() {
-            collect(root, &file, files)?;
+        let file_kind = entry.file_type()?;
+        anyhow::ensure!(!file_kind.is_symlink(), "bundles cannot contain symlinks");
+        if file_kind.is_dir() {
+            collect(root, &file, kind, files)?;
         } else {
-            anyhow::ensure!(kind.is_file(), "bundles require regular files");
+            anyhow::ensure!(file_kind.is_file(), "bundles require regular files");
             let relative = file
                 .strip_prefix(root)?
                 .to_str()
@@ -68,7 +86,7 @@ fn collect(
             if relative == "manifest.json" {
                 continue;
             }
-            path(root, &relative)?;
+            path(root, &relative, kind)?;
             files.insert(relative, digest(&file)?);
             anyhow::ensure!(
                 files.len() <= MAX_BUNDLE_FILES,
@@ -84,7 +102,7 @@ pub fn seal(root: &Path, kind: Kind) -> anyhow::Result<()> {
         "bundle root cannot be a symlink"
     );
     let mut files = BTreeMap::new();
-    collect(root, root, &mut files)?;
+    collect(root, root, kind, &mut files)?;
     anyhow::ensure!(!files.is_empty(), "bundle inventory cannot be empty");
     let manifest = Manifest {
         schema: 1,
@@ -101,7 +119,7 @@ pub fn verify(root: &Path, kind: Kind) -> anyhow::Result<Manifest> {
         !std::fs::symlink_metadata(root)?.file_type().is_symlink(),
         "bundle root cannot be a symlink"
     );
-    let manifest_path = path(root, "manifest.json")?;
+    let manifest_path = path(root, "manifest.json", kind)?;
     anyhow::ensure!(
         std::fs::metadata(&manifest_path)?.len() <= MAX_MANIFEST_BYTES,
         "bundle manifest exceeds its bound"
@@ -112,9 +130,9 @@ pub fn verify(root: &Path, kind: Kind) -> anyhow::Result<Manifest> {
         "unsupported bundle contract"
     );
     let mut actual = BTreeMap::new();
-    collect(root, root, &mut actual)?;
+    collect(root, root, kind, &mut actual)?;
     for name in manifest.files.keys() {
-        path(root, name)?;
+        path(root, name, kind)?;
     }
     anyhow::ensure!(
         actual == manifest.files,
@@ -136,7 +154,7 @@ pub fn restore(root: &Path, destination: &Path, kind: Kind) -> anyhow::Result<()
     crate::operations::private_directory(&staging)?;
     let operation = (|| -> anyhow::Result<()> {
         for name in manifest.files.keys() {
-            let source = path(root, name)?;
+            let source = path(root, name, kind)?;
             let target = staging.join(name);
             if let Some(parent) = target.parent() {
                 crate::operations::private_directory(parent)?;

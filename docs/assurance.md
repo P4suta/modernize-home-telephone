@@ -285,6 +285,9 @@ Reconsider the boundary if archives need remote acquisition, untrusted manifests
 
 The real deployment rehearsal uses ARM64 app and Rusterisk images, a wrong executable as a failed candidate, an uncommitted recovery journal, and a fresh restored installation.
 The rehearsal returns the original installation to service.
+The rehearsal sends the `SIGTERM` termination signal to the idle console container and requires exit status zero within two seconds.
+It restarts the console and checks installation readiness before continuing.
+A missing fixture or failed shutdown prevents a successful receipt.
 Native update-port tests inject paired failures, so a failed recovery can't erase the error that triggered it.
 Filesystem tests reject symlinks, parent traversal, deep empty directory trees, occupied destinations, and incomplete publication.
 Package validation requires the executable, both image archives, licenses, the release's gateway source archive, and the maintained source identity before Docker import.

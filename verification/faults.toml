@@ -260,9 +260,9 @@ enforcement = "Each required asset is removed and resealed independently, and an
 [[cases]]
 source = "xtask/tests/deployment_evidence.rs"
 test = "deployment_evidence_requires_current_sources_complete_operations_and_unchanged_recoverable_files"
-invariant = "Deployment evidence must retain complete operations and recoverable files for the current sources."
+invariant = "Deployment evidence requires complete recovery, successful console shutdown and restart, and recoverable files for the current sources."
 previous_gap = "The rehearsal report recorded successful flags without a gate that revalidated its source identity, backup manifests, and restored recording."
-enforcement = "Incomplete operations, stale sources, changed restored audio, corrupted backups, and resealed changed manifests are refused."
+enforcement = "Incomplete operations, missing console lifecycle verification, stale sources, changed restored audio, corrupted backups, and resealed changed manifests are refused."
 
 [[cases]]
 source = "xtask/tests/sip_evidence.rs"
@@ -724,6 +724,12 @@ test = "missing_ntfy_credentials_do_not_prevent_loading_the_call_service"
 invariant = "Unavailable ntfy credentials do not prevent ordinary call-service startup."
 previous_gap = "An optional publisher credential was required by the main service secret loader."
 enforcement = "The call-service loader must preserve required telephone credentials without ntfy while still refusing missing production credentials."
+[[cases]]
+source = "xtask/tests/bundle.rs"
+test = "packages_preserve_framework_source_names_without_relaxing_backup_paths"
+invariant = "Package source names preserve framework punctuation without admitting traversal or changing backup validation."
+previous_gap = "The first real package refused SvelteKit route and patch filenames after successful image builds."
+enforcement = "A package must restore exact plus and at-sign filenames, backup sealing must refuse them, and hostile manifests must fail at path validation before any destination exists."
 [[cases]]
 source = "crates/phone-server/tests/http_contract.rs"
 test = "identity_headers_require_loopback_and_delegate_user_authorization_to_the_tailnet"
