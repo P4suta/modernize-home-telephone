@@ -1,6 +1,6 @@
 {
 	"$schema": "./mutation/node_modules/@stryker-mutator/core/schema/stryker-schema.json",
-	"mutate": ["src/timeline.ts"],
+	"mutate": ["src/timeline.ts", "src/recordingLimits.ts"],
 	"testRunner": "vitest",
 	"plugins": [
 		"./mutation/node_modules/@stryker-mutator/vitest-runner/dist/src/index.js",

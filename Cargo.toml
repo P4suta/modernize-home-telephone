@@ -4,6 +4,7 @@ members = [
   "crates/phone-server",
   "crates/phone-plugin-ai",
   "crates/phone-plugin-ntfy",
+  "crates/phone-plugin-nas",
   "xtask",
 ]
 resolver = "3"

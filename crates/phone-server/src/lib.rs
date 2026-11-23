@@ -10,6 +10,7 @@ pub mod notifications;
 pub mod postcall;
 pub mod provider;
 pub mod push;
+pub mod recordings;
 pub mod secrets;
 pub mod shutdown;
 pub mod snapshot;

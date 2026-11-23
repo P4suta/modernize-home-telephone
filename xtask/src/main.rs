@@ -33,6 +33,8 @@ enum Operation {
     Lab {
         #[arg(long, default_value = ".local/telephone")]
         directory: PathBuf,
+        #[arg(long)]
+        nas_only: bool,
     },
     Rehearse {
         #[arg(long, default_value = ".local/telephone")]
@@ -160,7 +162,17 @@ fn main() -> anyhow::Result<()> {
             }
         }
         Operation::Evidence => xtask::assurance::receipts(),
-        Operation::Lab { directory } => xtask::manager::lab(&directory),
+        Operation::Lab {
+            directory,
+            nas_only,
+        } => {
+            xtask::check::nas()?;
+            if nas_only {
+                Ok(())
+            } else {
+                xtask::manager::lab(&directory)
+            }
+        }
         Operation::Rehearse { directory } => xtask::manager::rehearse(&directory),
         Operation::Boot { directory } => xtask::manager::boot(&directory),
         Operation::Stop { directory } => xtask::manager::stop(&directory),

@@ -75,6 +75,131 @@ pub fn evidence(name: &str) -> anyhow::Result<()> {
     check_evidence(Path::new("."), &value)
 }
 
+pub fn check_nas_report(report: &str, expected: &[String]) -> anyhow::Result<()> {
+    let inventory: BTreeSet<_> = expected.iter().cloned().collect();
+    ensure!(
+        !inventory.is_empty() && inventory.len() == expected.len(),
+        "NAS case inventory is empty or duplicated"
+    );
+    let mut actual = BTreeSet::new();
+    let mut complete = None;
+    for line in report.lines() {
+        if let Some(name) = line.strip_prefix("NAS PASS ") {
+            ensure!(
+                complete.is_none() && inventory.contains(name) && actual.insert(name.to_owned()),
+                "unknown, duplicated, or late NAS case"
+            );
+        } else if let Some(count) = line.strip_prefix("NAS COMPLETE ") {
+            ensure!(complete.is_none(), "NAS completion was repeated");
+            complete = Some(count.parse::<usize>()?);
+        } else {
+            ensure!(
+                !line.starts_with("NAS "),
+                "NAS case was skipped, retried, or failed"
+            );
+        }
+    }
+    ensure!(
+        actual == inventory && complete == Some(inventory.len()),
+        "NAS run is incomplete"
+    );
+    Ok(())
+}
+
+pub fn nas() -> anyhow::Result<()> {
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Inventory {
+        cases: Vec<String>,
+    }
+    let inventory: Inventory = toml::from_str(&std::fs::read_to_string("verification/nas.toml")?)?;
+    let mut trace = Trace::new()?;
+    trace.run(
+        "docker",
+        &[
+            "build",
+            "--platform",
+            "linux/arm64",
+            "-f",
+            "verification/Dockerfile.nas",
+            "-t",
+            "homephone-verification-nas:local",
+            ".",
+        ],
+    )?;
+    let image = Command::new("docker")
+        .args([
+            "image",
+            "inspect",
+            "--format",
+            "{{.Id}}",
+            "homephone-verification-nas:local",
+        ])
+        .output()?;
+    ensure!(
+        image.status.success(),
+        "NAS verification image is unavailable"
+    );
+    let image = String::from_utf8(image.stdout)?.trim().to_owned();
+    ensure!(
+        image.strip_prefix("sha256:").is_some_and(
+            |value| value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+        ),
+        "invalid NAS verification image identity"
+    );
+    let result = Command::new("docker")
+        .args([
+            "run",
+            "--rm",
+            "--pull",
+            "never",
+            "--network",
+            "none",
+            "--read-only",
+            "--cpus",
+            "2",
+            "--memory",
+            "2g",
+            "--memory-swap",
+            "2g",
+            "--pids-limit",
+            "256",
+            "--ulimit",
+            "core=0",
+            "--cap-drop",
+            "ALL",
+            "--cap-add",
+            "SETUID",
+            "--cap-add",
+            "SETGID",
+            "--cap-add",
+            "CHOWN",
+            "--cap-add",
+            "DAC_OVERRIDE",
+            "--cap-add",
+            "FOWNER",
+            "--tmpfs",
+            "/tmp:rw,noexec,nosuid,nodev,size=64m",
+            "--tmpfs",
+            "/run:rw,noexec,nosuid,nodev,size=16m",
+            "--tmpfs",
+            "/nas-share:rw,noexec,nosuid,nodev,size=16m",
+            &image,
+        ])
+        .output()?;
+    let mut bytes = result.stdout;
+    bytes.extend_from_slice(&result.stderr);
+    let path = trace.directory.join("nas.log");
+    crate::operations::private_file(&path, &bytes)?;
+    trace.files.push(path);
+    print!("{}", String::from_utf8_lossy(&bytes));
+    ensure!(
+        result.status.success(),
+        "NAS verification failed or exceeded its limits"
+    );
+    check_nas_report(std::str::from_utf8(&bytes)?, &inventory.cases)?;
+    trace.finish("nas")
+}
 pub fn check_evidence(root: &Path, bytes: &[u8]) -> anyhow::Result<()> {
     let stamp: Stamp = serde_json::from_slice(bytes)?;
     ensure!(
@@ -381,7 +506,10 @@ pub fn fast() -> anyhow::Result<()> {
         None,
         Some("plugin-ai"),
         Some("plugin-ntfy"),
+        Some("plugin-nas"),
         Some("plugin-ai,plugin-ntfy"),
+        Some("plugin-ai,plugin-nas"),
+        Some("plugin-ntfy,plugin-nas"),
     ] {
         let mut args = vec![
             "clippy",

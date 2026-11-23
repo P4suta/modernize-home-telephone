@@ -6,6 +6,13 @@ previous_gap = "Release image retention listed, tagged, and removed images throu
 enforcement = "Scan the manager and operation adapters for direct Docker or Podman invocations and refuse any call that bypasses the engine selection."
 
 [[cases]]
+source = "xtask/tests/release_retention_faults.rs"
+test = "committed_replacements_select_only_superseded_release_images_that_no_container_uses"
+invariant = "A committed update or rollback leaves the engine with the running and replaced releases, every image a container uses, and no older release image."
+previous_gap = "Updates loaded every candidate and never removed one, so each superseded release kept its images and Podman's ID-mapped copies."
+enforcement = "Selection covers qualified Podman names, container-held images, unrelated repositories, and foreign registries; the deployment rehearsal removes a synthetic superseded tag through the real engine and reverifies the running release."
+
+[[cases]]
 source = "xtask/tests/cached_packages.rs"
 test = "prefetched_packages_do_not_require_repository_downloads"
 invariant = "APT's acquisition plan must request no repository download for a prefetched package."
@@ -579,13 +586,6 @@ previous_gap = "A shared Cargo target directory reused the Rusterisk call path w
 enforcement = "The build recipes keep workspace targets in source-specific Docker layers and cache registry downloads independently."
 
 [[cases]]
-source = "xtask/tests/release_retention_faults.rs"
-test = "committed_replacements_select_only_superseded_release_images_that_no_container_uses"
-invariant = "A committed update or rollback leaves the engine with the running and replaced releases, every image a container uses, and no older release image."
-previous_gap = "Updates loaded every candidate and never removed one, so each superseded release kept its images and Podman's ID-mapped copies."
-enforcement = "Selection covers qualified Podman names, container-held images, unrelated repositories, and foreign registries; the deployment rehearsal removes a synthetic superseded tag through the real engine and reverifies the running release."
-
-[[cases]]
 source = "crates/phone-server/tests/controller_contract.rs"
 test = "a_terminal_ingress_cannot_be_admitted_again_or_block_the_next_call"
 invariant = "One gateway ingress channel can create at most one incoming call."
@@ -775,8 +775,127 @@ previous_gap = "A foreign endpoint also carried a foreign call identity, masking
 enforcement = "Reject a tracked peer with a foreign call identity without deletion, and delete an untracked peer with the correct call identity without connecting it."
 
 [[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "explicit_recording_captures_ordinary_calls_without_ai_or_provider_media"
+invariant = "Explicit recording operates independently of AI reception after endpoint answer."
+previous_gap = "The recording guard required AI reception, so ordinary calls with AI off never started capture."
+enforcement = "An answered endpoint must start exactly one recording without provider media or announcement playback."
+
+[[cases]]
+source = "crates/phone-server/tests/manual_retention.rs"
+test = "manual_retention_keeps_old_audio_and_history_until_explicit_deletion"
+invariant = "Manual retention never expires an ended recording or its history because time passed."
+previous_gap = "The adapter interpreted zero days as an immediate expiration deadline."
+enforcement = "Keep old audio and history after four hundred days with zero-day retention."
+
+[[cases]]
+source = "crates/phone-server/tests/nas_archive_state.rs"
+test = "archive_deletion_survives_restart_and_refuses_late_publication"
+invariant = "Deletion preserves a durable NAS intent and prevents late publication from recreating history."
+previous_gap = "History deletion had no independent remote-object lifecycle."
+enforcement = "Delete a pending archive, reopen SQLite, refuse publication, and finish the retained deletion intent."
+
+[[cases]]
+source = "crates/phone-server/tests/nas_archive_state.rs"
+test = "archive_receipts_require_exact_pending_bytes_and_preserve_call_faults"
+invariant = "Archive ownership requires the expected pending byte count and preserves unrelated call failures."
+previous_gap = "Local capture had no durable remote ownership receipt."
+enforcement = "Refuse missing and mismatched intents, preserve a gateway failure through retry and commit, and refuse repeated publication."
+
+[[cases]]
+source = "crates/phone-server/tests/nas_archive_state.rs"
+test = "a_successful_archive_clears_its_own_retry_error"
+invariant = "Successful archive publication clears its own obsolete retry failure."
+previous_gap = "A remote retry failure had no completion transition."
+enforcement = "Persist an archive retry error and require its removal after verified publication."
+
+[[cases]]
+source = "xtask/tests/nas_report.rs"
+test = "nas_reports_refuse_missing_repeated_skipped_and_retried_cases"
+invariant = "Only an exact complete native NAS campaign satisfies the release gate."
+previous_gap = "The release gate had no native SMB campaign inventory."
+enforcement = "Reject empty, missing, repeated, skipped, retried, unknown, and duplicated-completion reports."
+
+[[cases]]
 source = "crates/phone-server/tests/controller_shutdown.rs"
 test = "shutdown_releases_the_actor_database_owner_before_returning"
 invariant = "Completed shutdown releases the actor's database ownership before another instance opens it."
 previous_gap = "Shutdown acknowledged cancellation before the actor dropped its store handle."
 enforcement = "Repeat immediate close and reopen on a multithreaded runtime without waiting for a favorable schedule."
+
+[[cases]]
+source = "crates/phone-server/tests/manual_retention.rs"
+test = "nas_archives_ignore_legacy_expiry_and_local_spool_quota"
+invariant = "Manual NAS retention preserves archived history beyond the local spool quota and legacy expiry."
+previous_gap = "Local quota accounting could treat remote audio as disposable local storage."
+enforcement = "Keep six archived recordings beyond the quota and four hundred days with both manual and legacy settings."
+
+[[cases]]
+source = "crates/phone-server/tests/recording_settings.rs"
+test = "nas_settings_migrate_effective_retention_without_applying_legacy_expiry"
+invariant = "The NAS settings response exposes manual retention despite a persisted legacy value."
+previous_gap = "The settings form loaded thirty days and submitted a value refused by the NAS policy."
+enforcement = "Load persisted legacy settings through the authenticated HTTP endpoint and require zero-day manual retention."
+
+[[cases]]
+source = "xtask/tests/manager.rs"
+test = "restore_relocates_the_recording_spool_and_preserves_the_nas_identity"
+invariant = "A restored installation uses its own bounded spool while preserving access to its NAS archive."
+previous_gap = "Restore changed the data directory and installation identity without relocating recording paths."
+enforcement = "Restore a sealed backup and compare the relocated spool, stable archive identity, and replaced installation identity."
+
+[[cases]]
+source = "crates/phone-server/tests/secrets_contract.rs"
+test = "optional_nas_and_notification_credentials_fail_independently"
+invariant = "Unavailable credentials for one optional plugin leave other plugins and ordinary calls available."
+previous_gap = "Loading optional credentials together could disable otherwise usable integrations."
+enforcement = "Exercise both independent credential availability states and malformed NAS inputs while preserving notification credentials."
+
+[[cases]]
+source = "crates/phone-server/tests/secrets_contract.rs"
+test = "literal_secret_files_preserve_password_whitespace"
+invariant = "Literal private credential files preserve significant password whitespace."
+previous_gap = "Trimming whole lines silently changed passwords with trailing spaces."
+enforcement = "Parse indented comments and CRLF records while preserving leading and trailing password spaces."
+
+[[cases]]
+source = "crates/phone-server/tests/secrets_contract.rs"
+test = "nas_credential_export_preserves_call_secrets_and_refuses_colliding_names"
+invariant = "NAS credential staging preserves telephone credentials and refuses overwrites or shared secret names."
+previous_gap = "Credential staging and SMB execution duplicated a grammar that rejected account names containing spaces."
+enforcement = "Stage a spaced username exactly, and verify literal values, private permissions, overwrite refusal, missing-input refusal, and secret-name isolation."
+
+[[cases]]
+source = "crates/phone-plugin-nas/src/lib.rs"
+test = "tests::command_keeps_passwords_off_arguments_and_bounds_the_child"
+invariant = "A spaced SMB account name remains one argument while passwords remain outside process arguments."
+previous_gap = "The command fixture used an account name without spaces, leaving an overly restrictive constructor unobserved."
+enforcement = "Construct a spaced account, inspect its complete user argument, and require bounded child execution without a password argument."
+
+[[cases]]
+source = "crates/phone-plugin-nas/src/lib.rs"
+test = "tests::usernames_preserve_spaces_and_domain_separators_within_the_byte_limit"
+invariant = "Credential staging and SMB execution share one bounded account-name grammar that preserves spaces."
+previous_gap = "Separate validators rejected legitimate spaced names without a shared boundary contract."
+enforcement = "Accept account spaces, domain separators, and the exact byte limit while rejecting blank names, command syntax, controls, and oversized values."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "a_full_recording_spool_preserves_calls_and_recovers_after_space_is_freed"
+invariant = "A full recording spool suspends capture while preserving ordinary calls and permits recording after capacity recovers."
+previous_gap = "Capture tests checked the reservation policy without observing connected calls across an actual spool quota failure."
+enforcement = "Fill the configured spool quota, require a connected unrecorded call, free space, and require the next connected call to start capture without AI media."
+
+[[cases]]
+source = "crates/phone-server/tests/config_contract.rs"
+test = "nas_directory_segments_match_the_archive_adapters_input_limits"
+invariant = "Configuration validation refuses directory segments that the NAS adapter cannot address."
+previous_gap = "The configuration checker bounded the entire directory while the adapter also bounded each segment."
+enforcement = "Accept a segment at 128 bytes and refuse the first unsupported byte before runtime."
+
+[[cases]]
+source = "crates/phone-server/tests/nas_archive_contract.rs"
+test = "isolated_smb_archive_preserves_verified_audio_and_recovers_durable_work"
+invariant = "Native SMB effects preserve verified audio and durable ownership through storage and process faults."
+previous_gap = "Database and HTTP mocks left authentication, remote disk exhaustion, child cancellation, and runtime-user permissions unobserved."
+enforcement = "Execute the bounded native SMB binary with synthetic data; the independent case collector requires the complete expected inventory."

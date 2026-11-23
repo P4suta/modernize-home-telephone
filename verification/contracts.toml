@@ -15,5 +15,6 @@ harnesses = [
   "proofs::terminal_calls_refuse_every_action",
   "proofs::active_recordings_are_never_purged",
   "proofs::closed_recording_policy_preserves_exact_boundaries",
+  "proofs::recording_capacity_reserves_all_copies_without_integer_overflow",
   "proofs::playback_marks_cannot_overrun_or_move_backwards",
 ]

@@ -29,7 +29,7 @@ FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f0
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY deploy/apt-trust.conf /etc/apt/apt.conf.d/90homephone-trust
 COPY deploy/debian.sources /etc/apt/sources.list.d/debian.sources
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates=20250419+deb13u1 libssl3t64=3.5.7-1~deb13u3 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates=20250419+deb13u1 libssl3t64=3.5.7-1~deb13u3 smbclient=2:4.22.11+dfsg-0+deb13u1 util-linux=2.41.5-0+deb13u1 && rm -rf /var/lib/apt/lists/*
 WORKDIR /opt/homephone
 COPY --from=build /phone-server /usr/local/bin/phone-server
 COPY --from=web /build/web/dist/ web/dist/

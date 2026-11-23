@@ -9,6 +9,7 @@
 	h1,
 	h2,
 	h3,
+	h4,
 	p {
 		margin: 0;
 	}
@@ -25,8 +26,8 @@
 		color: #000;
 		background: #fff;
 		font-family: ui-sans-serif, system-ui, sans-serif;
-		font-size: 16px;
-		line-height: 1.7;
+		font-size: 100%;
+		line-height: 1.75;
 		font-synthesis: none;
 	}
 	html {
@@ -34,6 +35,8 @@
 	}
 	body {
 		padding: 0 4vw;
+		font-size: 1.125rem;
+		overflow-wrap: anywhere;
 	}
 	h1 {
 		font-size: clamp(2.6rem, 7vw, 5.8rem);
@@ -66,7 +69,7 @@
 		border: 1px solid #000;
 		border-radius: 0;
 		padding: 0.65rem 1rem;
-		min-height: 46px;
+		min-height: 48px;
 		cursor: pointer;
 		font-weight: 600;
 	}
@@ -127,13 +130,14 @@
 	}
 	nav {
 		display: flex;
+		flex-wrap: wrap;
 		gap: 2.5rem;
 		font-weight: 650;
 	}
 	main {
 		padding-bottom: 4rem;
 	}
-	section {
+	section:not([popover]) {
 		border-bottom: 2px solid #000;
 		padding-block: 3rem;
 		display: grid;
@@ -199,6 +203,48 @@
 	}
 }
 @layer components {
+	.recording-settings {
+		min-width: 0;
+		padding: 1.5rem;
+		border: 1px solid #000;
+		line-height: 1.75;
+	}
+	.recording-settings > * + * {
+		margin-top: 1.5rem;
+	}
+	.recording-settings p {
+		max-width: 40em;
+	}
+	.recording-settings legend {
+		font-weight: 650;
+	}
+	.recording-settings label,
+	.recording-field-heading {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.recording-field-heading {
+		justify-content: space-between;
+	}
+	.recording-help-button {
+		flex: 0 0 48px;
+		min-width: 48px;
+		padding: 0.5rem;
+	}
+	.recording-help {
+		width: min(40rem, calc(100vw - 2rem));
+		max-height: calc(100dvh - 2rem);
+		overflow: auto;
+		margin: auto;
+		padding: 1.5rem;
+		border: 1px solid #000;
+		color: #000;
+		background: #fff;
+	}
+	.recording-help > * + * {
+		margin-top: 1.5rem;
+	}
 	.eyebrow,
 	.connection,
 	footer,

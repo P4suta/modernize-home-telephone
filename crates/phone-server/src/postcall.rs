@@ -37,6 +37,8 @@ pub struct Processor {
     #[cfg(feature = "plugin-ai")]
     client: reqwest::Client,
     api: url::Url,
+    #[cfg(feature = "plugin-nas")]
+    archive: Option<phone_plugin_nas::Destination>,
 }
 #[derive(Debug, PartialEq, Eq)]
 pub enum JobOutcome {
@@ -110,7 +112,25 @@ impl Processor {
                 .redirect(reqwest::redirect::Policy::none())
                 .build()?,
             api: url::Url::parse(INFERENCE_ENDPOINT)?,
+            #[cfg(feature = "plugin-nas")]
+            archive: None,
         })
+    }
+    pub fn with_archive_credentials(
+        mut self,
+        credentials: Option<crate::secrets::NasCredentials>,
+    ) -> Self {
+        #[cfg(feature = "plugin-nas")]
+        {
+            self.archive =
+                crate::recordings::archive_destination(&self.config, credentials.as_ref());
+        }
+        #[cfg(not(feature = "plugin-nas"))]
+        {
+            let _ = &mut self;
+            let _ = credentials;
+        }
+        self
     }
     pub fn new_for_loopback(
         config: Config,
@@ -129,12 +149,148 @@ impl Processor {
     }
     pub async fn run(self, stop: CancellationToken) {
         let inference = self.clone();
+        let archive = self.clone();
         tokio::join!(
             self.capture_loop(stop.clone()),
-            inference.inference_loop(stop)
+            inference.inference_loop(stop.clone()),
+            archive.archive_loop(stop),
         );
     }
 
+    async fn archive_loop(&self, stop: CancellationToken) {
+        if self
+            .config
+            .recording
+            .as_ref()
+            .and_then(|recording| recording.nas.as_ref())
+            .is_none()
+        {
+            stop.cancelled().await;
+            return;
+        }
+        #[cfg(feature = "plugin-nas")]
+        loop {
+            let work = async {
+                if self.store.background_paused() {
+                    return Ok(());
+                }
+                self.release_archived().await?;
+                for task in self.store.archive_tasks(now()).await? {
+                    if self.store.background_paused() {
+                        break;
+                    }
+                    if self.archive_one(&task).await.is_err() {
+                        self.store
+                            .retry_archive(task.id, task.attempts, now())
+                            .await?;
+                        tracing::warn!(operation = "recording_archive", code = "deferred");
+                    }
+                }
+                Ok::<_, anyhow::Error>(())
+            };
+            tokio::select! {_=stop.cancelled()=>return,result=work=>{if result.is_err(){tracing::warn!(operation="recording_archive",code="queue_failed");}}}
+            tokio::select! {_=stop.cancelled()=>return,_=tokio::time::sleep(std::time::Duration::from_secs(5))=>{}}
+        }
+        #[cfg(not(feature = "plugin-nas"))]
+        stop.cancelled().await;
+    }
+
+    #[cfg(feature = "plugin-nas")]
+    pub async fn archive_one(&self, task: &crate::store::ArchiveTask) -> anyhow::Result<()> {
+        let _archive_guard = self.store.archive_gate.lock().await;
+        let destination = self
+            .archive
+            .as_ref()
+            .context("NAS credentials are unavailable")?;
+        match task.work {
+            crate::store::ArchiveWork::Delete => {
+                destination.delete(task.id).await?;
+                self.store.archive_deleted(task.id).await?;
+            }
+            crate::store::ArchiveWork::Publish { bytes } => {
+                if self.store.archived_recording(task.id).await?.is_some() {
+                    return Ok(());
+                }
+                let recording = self
+                    .config
+                    .recording
+                    .as_ref()
+                    .context("recording configuration is unavailable")?;
+                let path = self
+                    .config
+                    .data_dir
+                    .join("recordings")
+                    .join(format!("{}.wav", task.id));
+                let identity = phone_plugin_nas::identify(&path, recording.maximum_bytes()).await?;
+                ensure!(
+                    identity.bytes == bytes,
+                    "recording size changed before archiving"
+                );
+                let readback =
+                    crate::recordings::TemporaryAudio::create(&self.config.data_dir, None).await?;
+                destination.ensure_directory().await?;
+                destination
+                    .publish(task.id, &path, readback.path(), &identity)
+                    .await?;
+                let _guard = self.store.recording_gate.read().await;
+                if self.store.background_paused() {
+                    return Ok(());
+                }
+                if self
+                    .store
+                    .commit_archive(
+                        task.id,
+                        crate::store::ArchivedRecording {
+                            bytes,
+                            digest: identity.digest(),
+                        },
+                        now(),
+                    )
+                    .await?
+                {
+                    remove_if_exists(&path).await?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    #[cfg(feature = "plugin-nas")]
+    pub async fn release_archived(&self) -> anyhow::Result<()> {
+        let _guard = self.store.recording_gate.read().await;
+        if self.store.background_paused() {
+            return Ok(());
+        }
+        let mut entries = match tokio::fs::read_dir(self.config.data_dir.join("recordings")).await {
+            Ok(entries) => entries,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(error) => return Err(error.into()),
+        };
+        while let Some(entry) = entries.next_entry().await? {
+            let path = entry.path();
+            if path.extension().is_none_or(|extension| extension != "wav") {
+                continue;
+            }
+            ensure!(
+                entry.file_type().await?.is_file(),
+                "recording cache cannot contain links"
+            );
+            let id = Uuid::parse_str(
+                path.file_stem()
+                    .and_then(|stem| stem.to_str())
+                    .context("invalid recording cache name")?,
+            )?;
+            if let Some(archived) = self.store.archived_recording(id).await? {
+                let identity = phone_plugin_nas::identify(&path, archived.bytes).await?;
+                ensure!(
+                    identity.bytes == archived.bytes && identity.digest() == archived.digest,
+                    "local archive copy changed before cleanup"
+                );
+                remove_if_exists(&path).await?;
+            }
+        }
+        Ok(())
+    }
     async fn capture_loop(&self, stop: CancellationToken) {
         loop {
             let work = async {
@@ -241,6 +397,11 @@ impl Processor {
             return Ok(JobOutcome::Complete);
         }
         if matches!(call.recording, Recording::Pending) {
+            let maximum = self
+                .config
+                .recording
+                .as_ref()
+                .map_or(MAX_RECORDING_BYTES, |recording| recording.maximum_bytes());
             let directory = self.config.data_dir.join("recordings");
             tokio::fs::create_dir_all(&directory).await?;
             let final_path = directory.join(format!("{id}.wav"));
@@ -259,7 +420,7 @@ impl Processor {
                 ensure!(
                     response
                         .content_length()
-                        .is_none_or(|length| length <= MAX_RECORDING_BYTES),
+                        .is_none_or(|length| length <= maximum),
                     "recording exceeds download limit"
                 );
                 let _partial = PartialRecording(partial.clone());
@@ -277,10 +438,7 @@ impl Processor {
                     size = size
                         .checked_add(u64::try_from(chunk.len())?)
                         .context("recording size overflow")?;
-                    ensure!(
-                        size <= MAX_RECORDING_BYTES,
-                        "recording exceeds download limit"
-                    );
+                    ensure!(size <= maximum, "recording exceeds download limit");
                     file.write_all(&chunk).await?;
                 }
                 file.sync_all().await?;

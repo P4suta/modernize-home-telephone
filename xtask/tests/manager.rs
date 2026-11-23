@@ -3,6 +3,34 @@ mod support;
 use xtask::manager::{Image, Release, compatible, systemd_unit, verify_identity};
 
 #[test]
+fn restore_relocates_the_recording_spool_and_preserves_the_nas_identity() {
+    let root = tempfile::tempdir().unwrap();
+    let backup = root.path().join("backup");
+    std::fs::create_dir_all(backup.join("config")).unwrap();
+    let archive = uuid::Uuid::new_v4();
+    let original = uuid::Uuid::new_v4();
+    std::fs::write(backup.join("config/homephone.toml"), format!("instance_id='{original}'\ndata_dir='/srv/telephone/data'\n[recording]\ngateway_spool_dir='/srv/telephone/spool'\n[recording.nas]\narchive_id='{archive}'\n")).unwrap();
+    xtask::bundle::seal(&backup, xtask::bundle::Kind::Backup).unwrap();
+    let restored = root.path().canonicalize().unwrap().join("restored");
+    xtask::manager::restore(&backup, &restored).unwrap();
+    let config: toml::Value =
+        toml::from_str(&std::fs::read_to_string(restored.join("config/homephone.toml")).unwrap())
+            .unwrap();
+    assert_eq!(
+        config["recording"]["gateway_spool_dir"].as_str().unwrap(),
+        restored.join("spool").to_str().unwrap()
+    );
+    assert_eq!(
+        config["recording"]["nas"]["archive_id"].as_str().unwrap(),
+        archive.to_string()
+    );
+    assert_ne!(
+        config["instance_id"].as_str().unwrap(),
+        original.to_string()
+    );
+}
+
+#[test]
 fn a_pending_recovery_journal_refuses_backup_before_reading_installation_configuration() {
     let root = tempfile::tempdir().unwrap();
     let directory = root.path().canonicalize().unwrap().join("installation");

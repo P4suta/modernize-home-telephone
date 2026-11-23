@@ -42,6 +42,8 @@ struct App {
     control: Control,
     ari: Ari,
     secrets: Secrets,
+    #[cfg(feature = "plugin-nas")]
+    archive: Option<phone_plugin_nas::Destination>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -81,6 +83,14 @@ impl ApiError {
             status: StatusCode::NOT_FOUND,
             code: "not_found",
             message: "The requested resource does not exist.",
+        }
+    }
+    #[cfg(feature = "plugin-nas")]
+    fn archive_unavailable() -> Self {
+        Self {
+            status: StatusCode::SERVICE_UNAVAILABLE,
+            code: "recording_archive_unavailable",
+            message: "The recording archive is temporarily unavailable.",
         }
     }
 }
@@ -141,6 +151,22 @@ pub struct Status {
     gateway_ready: bool,
     ai_configured: bool,
     vapid_public_key: Option<String>,
+    recording: RecordingStorage,
+}
+
+#[derive(Serialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum RecordingDestination {
+    Local,
+    Nas,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct RecordingStorage {
+    enabled: bool,
+    destination: RecordingDestination,
+    max_seconds: u32,
+    minimum_bytes: u64,
 }
 #[derive(Serialize, ToSchema)]
 pub struct SipSession {
@@ -236,11 +262,15 @@ async fn candidate_ready(
 }
 
 pub fn router(config: Config, control: Control, ari: Ari, secrets: Secrets) -> Router {
+    #[cfg(feature = "plugin-nas")]
+    let archive = crate::recordings::archive_destination(&config, secrets.nas_credentials.as_ref());
     let app = Arc::new(App {
         config,
         control,
         ari,
         secrets,
+        #[cfg(feature = "plugin-nas")]
+        archive,
     });
     let api = Router::new()
         .route("/status", get(status))
@@ -328,6 +358,7 @@ async fn status(State(app): State<Arc<App>>) -> Json<Status> {
 fn service_status(app: &App) -> Status {
     let ai = app.config.ai.provider == "mock"
         || (app.config.ai.provider == "openai" && app.secrets.openai_key.is_some());
+    let recording = app.config.recording.as_ref();
     Status {
         instance_id: app.config.instance_id,
         mode: match app.config.mode {
@@ -338,6 +369,21 @@ fn service_status(app: &App) -> Status {
         gateway_ready: app.control.ready(),
         ai_configured: ai,
         vapid_public_key: crate::notifications::public_key(app.secrets.vapid_pem.as_deref()),
+        recording: RecordingStorage {
+            enabled: recording.map_or(ai, |recording| recording.enabled),
+            destination: if recording
+                .and_then(|recording| recording.nas.as_ref())
+                .is_some()
+            {
+                RecordingDestination::Nas
+            } else {
+                RecordingDestination::Local
+            },
+            max_seconds: recording.map_or(7200, |recording| recording.max_seconds),
+            minimum_bytes: recording.map_or(MIN_RECORDING_BYTES, |recording| {
+                recording.maximum_bytes() * 4
+            }),
+        },
     }
 }
 #[utoipa::path(get, path="/api/calls", responses((status=200, body=[Call])))]
@@ -409,7 +455,22 @@ async fn command(
 }
 #[utoipa::path(get, path="/api/settings", responses((status=200, body=Settings)))]
 async fn settings(State(app): State<Arc<App>>) -> Result<Json<Settings>, ApiError> {
-    Ok(Json(app.control.store.settings().await?))
+    let mut settings = app.control.store.settings().await?;
+    settings
+        .retention_days
+        .get_or_insert(app.config.storage.retention_days);
+    if app
+        .config
+        .recording
+        .as_ref()
+        .is_some_and(|recording| recording.nas.is_some())
+    {
+        settings.retention_days = Some(0);
+    }
+    settings
+        .recording_limit_bytes
+        .get_or_insert(app.config.storage.recording_limit_bytes);
+    Ok(Json(settings))
 }
 #[utoipa::path(put, path="/api/settings", request_body=Settings, responses((status=200, body=Settings)))]
 async fn save_settings(
@@ -419,7 +480,7 @@ async fn save_settings(
     if settings.rules.len() > MAX_NUMBER_RULES
         || settings
             .retention_days
-            .is_some_and(|days| !(1..=MAX_RETENTION_DAYS).contains(&days))
+            .is_some_and(|days| days > MAX_RETENTION_DAYS)
         || settings
             .recording_limit_bytes
             .is_some_and(|bytes| bytes < MIN_RECORDING_BYTES)
@@ -435,6 +496,14 @@ async fn save_settings(
             .rules
             .keys()
             .any(|number| !valid_number(number) && number != "anonymous")
+    {
+        return Err(ApiError::invalid());
+    }
+    if let Some(recording) = &app.config.recording
+        && (settings
+            .recording_limit_bytes
+            .is_some_and(|limit| limit < recording.maximum_bytes() * 4)
+            || (recording.nas.is_some() && settings.retention_days.is_some_and(|days| days != 0)))
     {
         return Err(ApiError::invalid());
     }
@@ -500,7 +569,7 @@ async fn events(
         .keep_alive(KeepAlive::new().interval(Duration::from_secs(EVENT_KEEPALIVE_SECONDS)))
 }
 
-#[utoipa::path(get, path="/api/calls/{id}/recording", params(("id"=Uuid, Path)), responses((status=200, content_type="audio/wav"), (status=206, content_type="audio/wav"), (status=404, body=ErrorBody)))]
+#[utoipa::path(get, path="/api/calls/{id}/recording", params(("id"=Uuid, Path)), responses((status=200, content_type="audio/wav"), (status=206, content_type="audio/wav"), (status=404, body=ErrorBody), (status=503, body=ErrorBody)))]
 async fn recording(
     State(app): State<Arc<App>>,
     Path(id): Path<Uuid>,
@@ -521,6 +590,41 @@ async fn recording(
         .data_dir
         .join("recordings")
         .join(format!("{id}.wav"));
+    let (path, temporary): (
+        std::path::PathBuf,
+        Option<Arc<crate::recordings::PlaybackAudio>>,
+    ) = if tokio::fs::try_exists(&path)
+        .await
+        .map_err(anyhow::Error::from)?
+    {
+        (path, None)
+    } else {
+        #[cfg(feature = "plugin-nas")]
+        {
+            let archived = app
+                .control
+                .store
+                .archived_recording(id)
+                .await?
+                .ok_or_else(ApiError::missing)?;
+            let destination = app
+                .archive
+                .as_ref()
+                .ok_or_else(ApiError::archive_unavailable)?;
+            let audio = crate::recordings::playback(
+                &app.config.data_dir,
+                &app.control.store,
+                destination,
+                id,
+                &archived,
+            )
+            .await
+            .map_err(|_| ApiError::archive_unavailable())?;
+            (audio.path().to_owned(), Some(audio))
+        }
+        #[cfg(not(feature = "plugin-nas"))]
+        return Err(ApiError::missing());
+    };
     let mut response = match ServeFile::new(path).oneshot(request).await {
         Ok(response) => response,
         Err(never) => match never {},
@@ -529,7 +633,21 @@ async fn recording(
         "cache-control",
         axum::http::HeaderValue::from_static("no-store"),
     );
-    Ok(response.into_response())
+    if response.status().is_success() {
+        response.headers_mut().insert(
+            "content-type",
+            axum::http::HeaderValue::from_static("audio/wav"),
+        );
+    }
+    let mut response = response.into_response();
+    let body = std::mem::take(response.body_mut());
+    let stream = async_stream::stream! {
+        let _temporary=temporary;
+        let mut body=body.into_data_stream();
+        while let Some(chunk)=body.next().await {yield chunk;}
+    };
+    *response.body_mut() = axum::body::Body::from_stream(stream);
+    Ok(response)
 }
 
 async fn sip(

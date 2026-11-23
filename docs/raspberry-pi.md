@@ -107,7 +107,8 @@ Keep administrative recovery available independently of the telephone service.
 
 ## Preserve and recover data
 
-Backups contain credentials, call metadata, recordings, and gateway spool files.
+Backups contain credentials, call metadata, locally stored recordings, and gateway spool files.
+NAS audio requires a separate NAS backup alongside the preserved archive configuration and receipts.
 Store backups as private artifacts.
 The manager refuses backup during an active call and refuses to overwrite an existing destination.
 It quiesces new calls, creates a consistent SQLite snapshot, verifies the file inventory, and resumes after publication.
@@ -146,6 +147,7 @@ Before rolling back to an older backup, load its release images with `docker loa
 Keep the package directories of the running and previous releases, and delete older package directories after a successful update.
 
 The default recording policy keeps finished recordings for 30 days with a 4 GiB quota.
+Explicit [NAS recording](recordings.md) uses manual retention and a bounded local spool instead of the default expiry policy.
 Capture and quota enforcement continue independently of slow transcription or summary requests.
 Active and quarantined calls remain protected until gateway cleanup releases ownership.
 The policy can temporarily exceed the quota while a protected recording remains active.

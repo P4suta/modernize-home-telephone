@@ -11,9 +11,12 @@ The `plugin-ai` Cargo feature selects `phone-plugin-ai`.
 Select `openai` for `ai.provider` and provide its credentials to enable reception.
 The `plugin-ntfy` feature selects `phone-plugin-ntfy`.
 Add `notifications.ntfy` and its publisher token to enable incoming-call publication.
+The `plugin-nas` feature selects `phone-plugin-nas`.
+Explicit `recording` configuration enables handset recording independently of AI reception.
+Add `recording.nas` and its credentials to transfer verified audio to the NAS.
 
-Both implementations are available in the standard image.
-Production initialization keeps AI off.
+All three implementations are available in the standard image.
+Production initialization keeps AI off and omits explicit call recording configuration.
 Explicit block rules still apply, and unanswered calls end without voicemail.
 
 ```toml
@@ -31,9 +34,12 @@ mise x -- cargo build --locked -p phone-server --no-default-features --features 
 
 Use `disabled` for `ai.provider` when the AI implementation is absent.
 Omit `notifications.ntfy` when the ntfy implementation is absent.
+Omit `recording.nas` when the NAS implementation is absent.
 The configuration checker rejects malformed settings.
 During call-service startup, unavailable ntfy credentials leave its publisher off and produce a diagnostic without preventing ordinary calls.
 Notification requests run outside call admission and keep their bounded timeout, retry, and durable acknowledgement rules.
+Unavailable NAS credentials defer archive work without disabling ntfy or ordinary calls.
+The [recording guide](recordings.md) describes bounded capture, manual retention, playback, and deletion recovery.
 The [notification guide](notifications.md) describes the payload and delivery limits.
 
 The plugin APIs are statically linked Rust interfaces with shared process memory.

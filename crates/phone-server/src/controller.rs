@@ -588,8 +588,25 @@ impl Actor {
         let active = self.active.as_ref().ok_or(Failure::NotFound)?;
         let root = active.root.clone();
         let bridge = active.bridge.clone();
-        let record = active.call.recording == Recording::None && self.reception_available();
+        let record = active.call.recording == Recording::None
+            && self
+                .config
+                .recording
+                .as_ref()
+                .map_or_else(|| self.reception_available(), |recording| recording.enabled);
         let root_link = active.root_link;
+        let capacity = !record
+            || crate::recordings::capacity(&self.config, &self.store)
+                .await
+                .unwrap_or(false);
+        if record
+            && !capacity
+            && let Some(active) = &mut self.active
+        {
+            active.call.recording = Recording::Failed {
+                reason: "local_capacity".into(),
+            };
+        }
         if root_link == RootLink::Ringing {
             self.ari
                 .command(Method::POST, &["channels", &root, "answer"], &[])
@@ -606,7 +623,13 @@ impl Actor {
                 .await?;
             self.active.as_mut().ok_or(Failure::NotFound)?.root_link = RootLink::Bridged;
         }
-        if record {
+        if record && capacity {
+            let duration = self
+                .config
+                .recording
+                .as_ref()
+                .map_or(7200, |recording| recording.max_seconds)
+                .to_string();
             let name = format!(
                 "hp-{}",
                 self.active.as_ref().ok_or(Failure::NotFound)?.call.id
@@ -621,6 +644,8 @@ impl Actor {
                         ("format", "wav"),
                         ("ifExists", "overwrite"),
                         ("beep", "false"),
+                        ("maxDurationSeconds", &duration),
+                        ("terminateOn", "none"),
                     ],
                 )
                 .await

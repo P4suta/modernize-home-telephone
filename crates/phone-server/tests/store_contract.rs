@@ -232,7 +232,7 @@ async fn ingress_schema_migration_preserves_previous_calls_and_refuses_future_ve
         })
         .await
         .unwrap();
-    assert_eq!(version, 2);
+    assert_eq!(version, 3);
     assert!(
         !store
             .ingress_admitted(&ingress("fresh-after-migration", "2026-11-14T20:32:13Z"))
@@ -241,7 +241,7 @@ async fn ingress_schema_migration_preserves_previous_calls_and_refuses_future_ve
     );
     store
         .with(|connection| {
-            connection.pragma_update(None, "user_version", 3)?;
+            connection.pragma_update(None, "user_version", 4)?;
             Ok(())
         })
         .await

@@ -35,6 +35,7 @@ pub struct Config {
     pub ai: Ai,
     pub sip: Sip,
     pub storage: Storage,
+    pub recording: Option<CallRecording>,
     pub timers: Timers,
     pub notifications: Notifications,
 }
@@ -72,6 +73,43 @@ pub struct Sip {
 pub struct Storage {
     pub retention_days: u32,
     pub recording_limit_bytes: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CallRecording {
+    pub enabled: bool,
+    #[serde(default = "maximum_recording_seconds")]
+    pub max_seconds: u32,
+    pub gateway_spool_dir: PathBuf,
+    pub nas: Option<Nas>,
+}
+
+fn maximum_recording_seconds() -> u32 {
+    7200
+}
+
+impl CallRecording {
+    pub fn maximum_bytes(&self) -> u64 {
+        u64::from(self.max_seconds) * 16000 + 4096
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Nas {
+    pub archive_id: uuid::Uuid,
+    pub server: String,
+    pub share: String,
+    pub directory: String,
+    #[serde(default = "smb_port")]
+    pub port: u16,
+    pub username_env: String,
+    pub password_env: String,
+}
+
+fn smb_port() -> u16 {
+    445
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
@@ -117,6 +155,7 @@ impl Default for Config {
             ai: Ai::default(),
             sip: Sip::default(),
             storage: Storage::default(),
+            recording: None,
             timers: Timers::default(),
             notifications: Notifications::default(),
         }
@@ -246,13 +285,100 @@ impl Config {
             "invalid ARI URL"
         );
         ensure!(
-            (1..=MAX_RETENTION_DAYS).contains(&self.storage.retention_days),
-            "retention must be between 1 and 365 days"
+            self.storage.retention_days <= MAX_RETENTION_DAYS,
+            "retention must be between 0 and 365 days; 0 means manual deletion"
         );
         ensure!(
             self.storage.recording_limit_bytes >= MIN_RECORDING_BYTES,
             "recording limit is too small"
         );
+        if let Some(recording) = &self.recording {
+            ensure!(
+                (1..=7200).contains(&recording.max_seconds),
+                "recording duration must be between 1 and 7200 seconds"
+            );
+            ensure!(
+                recording.gateway_spool_dir.is_absolute(),
+                "recording spool path must be absolute"
+            );
+            ensure!(
+                self.storage.recording_limit_bytes >= recording.maximum_bytes() * 4,
+                "recording spool must reserve four maximum recordings"
+            );
+            if let Some(nas) = &recording.nas {
+                ensure!(
+                    self.storage.retention_days == 0,
+                    "NAS recording retention requires manual deletion"
+                );
+                ensure!(nas.port != 0, "invalid SMB port");
+                ensure!(!nas.archive_id.is_nil(), "NAS archive identity is required");
+                ensure!(
+                    nas.server.len() <= 253
+                        && !nas.server.is_empty()
+                        && nas
+                            .server
+                            .bytes()
+                            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-')),
+                    "invalid SMB server"
+                );
+                ensure!(
+                    nas.share.len() <= 64
+                        && !nas.share.is_empty()
+                        && nas
+                            .share
+                            .bytes()
+                            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-')),
+                    "invalid SMB share"
+                );
+                ensure!(
+                    nas.directory.len() <= 200
+                        && !nas.directory.is_empty()
+                        && nas.directory.split('/').all(|part| !part.is_empty()
+                            && part.len() <= 128
+                            && part != "."
+                            && part != ".."
+                            && part
+                                .bytes()
+                                .all(|b| b.is_ascii_alphanumeric()
+                                    || matches!(b, b'_' | b'-' | b'.'))),
+                    "invalid NAS directory"
+                );
+                for name in [&nas.username_env, &nas.password_env] {
+                    ensure!(
+                        !name.is_empty()
+                            && name.len() <= 128
+                            && name
+                                .bytes()
+                                .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit() || b == b'_'),
+                        "invalid NAS secret name"
+                    );
+                }
+                let reserved = [
+                    &self.api_token_env,
+                    &self.ari.password_env,
+                    &self.sip.password_env,
+                    &self.ai.key_env,
+                    &self.notifications.webhook_secret_env,
+                    &self.notifications.vapid_private_key_env,
+                ];
+                ensure!(
+                    nas.username_env != nas.password_env
+                        && [&nas.username_env, &nas.password_env]
+                            .into_iter()
+                            .all(|name| !reserved.contains(&name)
+                                && self
+                                    .notifications
+                                    .ntfy
+                                    .as_ref()
+                                    .is_none_or(|ntfy| &ntfy.token_env != name)),
+                    "NAS credentials require independent secret names"
+                );
+                ensure!(
+                    cfg!(feature = "plugin-nas"),
+                    "NAS recording plugin is not compiled"
+                );
+            }
+        }
         for duration in [
             self.timers.screening_seconds,
             self.timers.ringing_seconds,

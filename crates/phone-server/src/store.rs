@@ -20,6 +20,9 @@ use std::{
     time::Duration,
 };
 
+mod recordings;
+pub use recordings::{ArchiveTask, ArchiveWork, ArchivedRecording};
+
 pub enum Admission {
     Created(Box<Event>),
     Replayed,
@@ -31,6 +34,9 @@ pub struct Store {
     connection: Arc<Mutex<Connection>>,
     lease: Arc<std::fs::File>,
     pub recording_gate: Arc<tokio::sync::RwLock<()>>,
+    pub archive_gate: Arc<tokio::sync::Mutex<()>>,
+    pub playback_gate: Arc<tokio::sync::Semaphore>,
+    pub playback_cache: Arc<tokio::sync::Mutex<std::sync::Weak<crate::recordings::PlaybackAudio>>>,
     background_paused: Arc<AtomicBool>,
     owner: Arc<Mutex<Option<uuid::Uuid>>>,
 }
@@ -59,7 +65,7 @@ impl Store {
             connection.pragma_update(None, "journal_mode", "WAL")?;
             connection.pragma_update(None, "synchronous", "FULL")?;
             let version: u32 = connection.pragma_query_value(None, "user_version", |row| row.get(0))?;
-            ensure!(version <= 2, "database schema is newer than this application");
+            ensure!(version <= 3, "database schema is newer than this application");
             connection.execute_batch("
                 BEGIN IMMEDIATE;
                 CREATE TABLE IF NOT EXISTS calls (
@@ -86,10 +92,15 @@ impl Store {
                 CREATE TABLE IF NOT EXISTS capture_jobs (call_id TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0, next_at INTEGER NOT NULL);
                 INSERT OR IGNORE INTO capture_jobs(call_id,next_at) SELECT id,0 FROM calls WHERE ended_at IS NOT NULL AND json_extract(payload,'$.recording.status')='pending';
                 CREATE TABLE IF NOT EXISTS recording_cleanup (name TEXT PRIMARY KEY, next_at INTEGER NOT NULL);
-                PRAGMA user_version=2;
+                CREATE TABLE IF NOT EXISTS recording_archives (
+                    call_id TEXT PRIMARY KEY, bytes INTEGER NOT NULL CHECK(bytes>=0), digest TEXT,
+                    state TEXT NOT NULL CHECK(state IN ('pending','available','deleting')),
+                    attempts INTEGER NOT NULL DEFAULT 0, next_at INTEGER NOT NULL
+                );
+                PRAGMA user_version=3;
                 COMMIT;
             ")?;
-            Ok(Self { events: tokio::sync::broadcast::channel(EVENT_QUEUE_CAPACITY).0, connection: Arc::new(Mutex::new(connection)), lease: Arc::new(lease), recording_gate: Arc::new(tokio::sync::RwLock::new(())), background_paused: Arc::new(AtomicBool::new(false)), owner:Arc::new(Mutex::new(None)) })
+            Ok(Self { events: tokio::sync::broadcast::channel(EVENT_QUEUE_CAPACITY).0, connection: Arc::new(Mutex::new(connection)), lease: Arc::new(lease), recording_gate: Arc::new(tokio::sync::RwLock::new(())), archive_gate:Arc::new(tokio::sync::Mutex::new(())), playback_gate:Arc::new(tokio::sync::Semaphore::new(1)), playback_cache:Arc::new(tokio::sync::Mutex::new(std::sync::Weak::new())), background_paused: Arc::new(AtomicBool::new(false)), owner:Arc::new(Mutex::new(None)) })
         }).await?
     }
 
@@ -251,6 +262,10 @@ impl Store {
             transaction.execute(
                 "DELETE FROM capture_jobs WHERE call_id=?1",
                 [id.to_string()],
+            )?;
+            transaction.execute(
+                "UPDATE recording_archives SET state='deleting',next_at=?2 WHERE call_id=?1",
+                params![id.to_string(), i64::try_from(now)?],
             )?;
             call.caller.clear();
             call.transcript.clear();

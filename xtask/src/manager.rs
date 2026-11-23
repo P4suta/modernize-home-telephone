@@ -275,6 +275,11 @@ struct Configuration {
     data_dir: PathBuf,
     #[serde(default = "token_env")]
     api_token_env: String,
+    recording: Option<RecordingConfiguration>,
+}
+#[derive(Deserialize)]
+struct RecordingConfiguration {
+    gateway_spool_dir: PathBuf,
 }
 fn listen() -> SocketAddr {
     SocketAddr::from((std::net::Ipv4Addr::LOCALHOST, DEFAULT_HTTP_PORT))
@@ -300,6 +305,13 @@ impl Installation {
         ensure!(
             config.data_dir == directory.join("data"),
             "installation data must reside in its data directory"
+        );
+        ensure!(
+            config
+                .recording
+                .as_ref()
+                .is_none_or(|recording| recording.gateway_spool_dir == directory.join("spool")),
+            "installation recording spool must reside in its spool directory"
         );
         ensure!(
             config.listen.ip().is_loopback(),
@@ -497,7 +509,12 @@ impl Installation {
                 "/tmp:rw,noexec,nosuid,size=32m",
             ]);
             command.args(crate::container::selected()?.run_options());
-            for (child, readonly) in [("config", true), ("data", false), ("run", false)] {
+            for (child, readonly) in [
+                ("config", true),
+                ("data", false),
+                ("run", false),
+                ("spool", true),
+            ] {
                 let path = self.directory.join(child);
                 let path = path.to_str().context("installation path must be UTF-8")?;
                 ensure!(
@@ -1035,6 +1052,15 @@ pub fn restore(backup: &Path, directory: &Path) -> anyhow::Result<()> {
             .into(),
     );
     configuration["instance_id"] = toml::Value::String(uuid::Uuid::new_v4().to_string());
+    if let Some(recording) = configuration.get_mut("recording") {
+        recording["gateway_spool_dir"] = toml::Value::String(
+            directory
+                .join("spool")
+                .to_str()
+                .context("restore spool path must be UTF-8")?
+                .into(),
+        );
+    }
     let temporary = directory.join("config/.homephone.toml.partial");
     private_file(
         &temporary,

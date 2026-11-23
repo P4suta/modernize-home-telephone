@@ -13,6 +13,30 @@ pub struct Secrets {
     pub webhook_secret: Option<String>,
     pub vapid_pem: Option<String>,
     pub ntfy_token: Option<NtfyToken>,
+    pub nas_credentials: Option<NasCredentials>,
+}
+
+#[derive(Clone)]
+pub struct NasCredentials {
+    pub username: String,
+    pub password: String,
+}
+
+impl NasCredentials {
+    fn parse(username: String, password: String) -> anyhow::Result<Self> {
+        #[cfg(feature = "plugin-nas")]
+        let supported_username = phone_plugin_nas::accepts_username(&username);
+        #[cfg(not(feature = "plugin-nas"))]
+        let supported_username = false;
+        anyhow::ensure!(supported_username, "invalid NAS username");
+        anyhow::ensure!(
+            !password.is_empty()
+                && password.len() <= 4096
+                && !password.bytes().any(|b| matches!(b, b'\0' | b'\n' | b'\r')),
+            "invalid NAS password"
+        );
+        Ok(Self { username, password })
+    }
 }
 
 #[derive(Clone)]
@@ -35,6 +59,45 @@ impl NtfyToken {
 }
 
 impl Secrets {
+    pub fn export_nas_credentials(
+        config: &Config,
+        input: &std::path::Path,
+        output: &std::path::Path,
+        lookup: impl Fn(&str) -> Option<String>,
+    ) -> anyhow::Result<()> {
+        use std::io::Write as _;
+        config.validate()?;
+        let nas = config
+            .recording
+            .as_ref()
+            .and_then(|recording| recording.nas.as_ref())
+            .ok_or_else(|| anyhow::anyhow!("NAS recording storage is unconfigured"))?;
+        let credentials = NasCredentials::parse(
+            lookup(&nas.username_env)
+                .ok_or_else(|| anyhow::anyhow!("NAS username is unavailable"))?,
+            lookup(&nas.password_env)
+                .ok_or_else(|| anyhow::anyhow!("NAS password is unavailable"))?,
+        )?;
+        let mut values = parse_file(&std::fs::read_to_string(input)?)?;
+        values.insert(nas.username_env.clone(), credentials.username);
+        values.insert(nas.password_env.clone(), credentials.password);
+        let contents: String = values
+            .into_iter()
+            .map(|(key, value)| format!("{key}={value}\n"))
+            .collect();
+        parse_file(&contents)?;
+        let mut options = std::fs::OpenOptions::new();
+        options.create_new(true).write(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let mut file = options.open(output)?;
+        file.write_all(contents.as_bytes())?;
+        file.sync_all()?;
+        Ok(())
+    }
     pub fn from_lookup_for_calls(
         config: &Config,
         lookup: impl Fn(&str) -> Option<String>,
@@ -42,6 +105,9 @@ impl Secrets {
     ) -> anyhow::Result<Self> {
         let mut required = config.clone();
         required.notifications.ntfy = None;
+        if let Some(recording) = &mut required.recording {
+            recording.nas = None;
+        }
         let mut core = Self::from_lookup(&required, &lookup, directory)?;
         if config.notifications.ntfy.is_some() {
             let mut plugin = required.clone();
@@ -55,6 +121,22 @@ impl Secrets {
                         code = "credentials_unavailable"
                     );
                 }
+            }
+        }
+        if config
+            .recording
+            .as_ref()
+            .and_then(|recording| recording.nas.as_ref())
+            .is_some()
+        {
+            required.recording = config.recording.clone();
+            match Self::from_lookup(&required, &lookup, directory) {
+                Ok(complete) => core.nas_credentials = complete.nas_credentials,
+                Err(_) => tracing::warn!(
+                    operation = "plugin_startup",
+                    plugin = "nas",
+                    code = "credentials_unavailable"
+                ),
             }
         }
         Ok(core)
@@ -143,6 +225,19 @@ impl Secrets {
             webhook_secret: lookup(&config.notifications.webhook_secret_env),
             vapid_pem,
             ntfy_token,
+            nas_credentials: config
+                .recording
+                .as_ref()
+                .and_then(|recording| recording.nas.as_ref())
+                .map(|nas| {
+                    NasCredentials::parse(
+                        lookup(&nas.username_env)
+                            .ok_or_else(|| anyhow::anyhow!("NAS username is unavailable"))?,
+                        lookup(&nas.password_env)
+                            .ok_or_else(|| anyhow::anyhow!("NAS password is unavailable"))?,
+                    )
+                })
+                .transpose()?,
         };
         anyhow::ensure!(
             config.notifications.webhook_url.is_none() || secrets.webhook_secret.is_some(),
@@ -156,8 +251,8 @@ pub fn parse_file(body: &str) -> anyhow::Result<std::collections::BTreeMap<Strin
     let mut values = std::collections::BTreeMap::new();
     for line in body
         .lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .map(str::trim_start)
+        .filter(|line| !line.trim().is_empty() && !line.starts_with('#'))
     {
         let (name, value) = line
             .split_once('=')

@@ -3,6 +3,40 @@ use phone_core::{
     classified_route, initial_route, recording_policy,
 };
 
+#[test]
+fn recording_capacity_reserves_every_copy_and_refuses_overflow() {
+    assert!(phone_core::recording_capacity(4, 1, 10, 54, 50));
+    assert!(!phone_core::recording_capacity(5, 1, 10, 54, 50));
+    assert!(!phone_core::recording_capacity(4, 1, 10, 54, 49));
+    assert!(!phone_core::recording_capacity(0, 0, 0, 0, 0));
+    assert!(!phone_core::recording_capacity(
+        0,
+        u64::MAX,
+        1,
+        u64::MAX,
+        u64::MAX
+    ));
+    assert!(!phone_core::recording_capacity(
+        0,
+        0,
+        u64::MAX,
+        u64::MAX,
+        u64::MAX
+    ));
+    assert!(!phone_core::recording_capacity(
+        u64::MAX,
+        0,
+        1,
+        u64::MAX,
+        u64::MAX
+    ));
+    assert!(phone_core::recording_capacity(0, 0, 1, 4, 4));
+    assert_eq!(
+        phone_core::recording_policy(Recording::Closed { ended_at: 0 }, u64::MAX, 0, 1, 1),
+        Purge::Keep
+    );
+}
+
 fn id(value: u64) -> CallId {
     CallId::new(value).unwrap()
 }

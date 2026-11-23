@@ -195,9 +195,10 @@ pub fn recording_policy(
     match recording {
         Recording::Active => Purge::Keep,
         Recording::Closed { ended_at } => {
-            if now
-                .checked_sub(ended_at)
-                .is_some_and(|age| age >= retention)
+            if retention != 0
+                && now
+                    .checked_sub(ended_at)
+                    .is_some_and(|age| age >= retention)
             {
                 Purge::Expired
             } else if used > limit {
@@ -207,6 +208,20 @@ pub fn recording_policy(
             }
         }
     }
+}
+
+pub fn recording_capacity(used: u64, pending: u64, maximum: u64, limit: u64, free: u64) -> bool {
+    let Some(reserved) = pending
+        .checked_add(4)
+        .and_then(|count| count.checked_mul(maximum))
+    else {
+        return false;
+    };
+    maximum != 0
+        && reserved <= free
+        && used
+            .checked_add(reserved)
+            .is_some_and(|total| total <= limit)
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
