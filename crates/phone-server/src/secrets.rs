@@ -1,6 +1,8 @@
 const MIN_API_TOKEN_BYTES: usize = 32;
 const MAX_SECRET_NAME_BYTES: usize = 128;
 const MAX_NTFY_TOKEN_BYTES: usize = 4096;
+/// The pinned Samba client reads at most 127 password bytes from `PASSWD_FD`.
+const MAX_NAS_PASSWORD_BYTES: usize = 127;
 
 use crate::config::{Config, Mode};
 
@@ -31,7 +33,7 @@ impl NasCredentials {
         anyhow::ensure!(supported_username, "invalid NAS username");
         anyhow::ensure!(
             !password.is_empty()
-                && password.len() <= 4096
+                && password.len() <= MAX_NAS_PASSWORD_BYTES
                 && !password.bytes().any(|b| matches!(b, b'\0' | b'\n' | b'\r')),
             "invalid NAS password"
         );

@@ -7,6 +7,10 @@ use tokio::{
 use uuid::Uuid;
 
 const OUTPUT_LIMIT: u64 = 16384;
+/// The pinned Samba client reads at most 127 password bytes from `PASSWD_FD`.
+pub const MAX_PASSWORD_BYTES: usize = 127;
+/// The largest archive the configuration can produce: 7200 seconds of 16-bit mono audio at 8000 Hz plus the header bound.
+pub const MAX_ARCHIVED_BYTES: u64 = 7200 * 16000 + 4096;
 const TRANSFER_SECONDS: u64 = 60;
 
 #[derive(Debug, thiserror::Error)]
@@ -140,7 +144,7 @@ impl Destination {
                 .all(|part| identifier(part, 128, b"_.-") && part != "." && part != "..")
             || !accepts_username(&username)
             || password.is_empty()
-            || password.len() > 4096
+            || password.len() > MAX_PASSWORD_BYTES
             || password.bytes().any(|b| matches!(b, b'\0' | b'\n' | b'\r'))
             || port == 0
             || maximum == 0
@@ -159,9 +163,28 @@ impl Destination {
     }
 
     fn command(&self, action: &str) -> Command {
+        self.command_within(action, self.maximum)
+    }
+
+    fn retrieval(
+        &self,
+        id: Uuid,
+        destination: &Path,
+        expected: &Identity,
+    ) -> Result<Command, Failure> {
+        if expected.bytes > MAX_ARCHIVED_BYTES {
+            return Err(Failure::Integrity);
+        }
+        Ok(self.command_within(
+            &format!("get {id}.wav \"{}\"", local_name(destination)?),
+            expected.bytes,
+        ))
+    }
+
+    fn command_within(&self, action: &str, file_limit: u64) -> Command {
         let mut command = Command::new("/usr/bin/prlimit");
         command.args([
-            format!("--fsize={0}:{0}", self.maximum),
+            format!("--fsize={0}:{0}", file_limit),
             "--core=0:0".into(),
             "--".into(),
             "/usr/bin/smbclient".into(),
@@ -199,10 +222,11 @@ impl Destination {
     }
 
     async fn execute(&self, action: &str) -> Result<(), Failure> {
-        let mut child = self
-            .command(action)
-            .spawn()
-            .map_err(|_| Failure::Unavailable)?;
+        self.run(self.command(action)).await
+    }
+
+    async fn run(&self, mut command: Command) -> Result<(), Failure> {
+        let mut child = command.spawn().map_err(|_| Failure::Unavailable)?;
         let operation = async {
             let mut stdin = child.stdin.take().ok_or(Failure::Unavailable)?;
             stdin
@@ -280,9 +304,8 @@ impl Destination {
         destination: &Path,
         expected: &Identity,
     ) -> Result<(), Failure> {
-        self.execute(&format!("get {id}.wav \"{}\"", local_name(destination)?))
-            .await?;
-        if identify(destination, self.maximum).await? != *expected {
+        self.run(self.retrieval(id, destination, expected)?).await?;
+        if identify(destination, expected.bytes).await? != *expected {
             return Err(Failure::Integrity);
         }
         Ok(())
@@ -447,6 +470,47 @@ mod tests {
         assert!(local_name(Path::new("/tmp/calls with spaces/audio.wav")).is_ok());
         assert!(local_name(Path::new(&format!("/{}", "a".repeat(4095)))).is_ok());
         assert!(local_name(Path::new(&format!("/{}", "a".repeat(4096)))).is_err());
+        let destination = |password: String| {
+            Destination::new(
+                "nas.invalid".into(),
+                "home".into(),
+                "calls".into(),
+                445,
+                "recorder".into(),
+                password,
+                1024,
+            )
+        };
+        assert!(destination("p".repeat(MAX_PASSWORD_BYTES)).is_ok());
+        assert!(destination("p".repeat(MAX_PASSWORD_BYTES + 1)).is_err());
+    }
+    #[test]
+    fn retrieval_is_bounded_by_the_archived_size_instead_of_the_capture_limit() {
+        let destination = Destination::new(
+            "nas.invalid".into(),
+            "home".into(),
+            "calls".into(),
+            445,
+            "recorder".into(),
+            "test".into(),
+            1024,
+        )
+        .unwrap();
+        let archived = Identity::parse(964_096, &"0".repeat(64)).unwrap();
+        let command = destination.retrieval(Uuid::nil(), Path::new("/tmp/readback.wav"), &archived);
+        let arguments = command
+            .unwrap()
+            .as_std()
+            .get_args()
+            .map(|arg| arg.to_str().unwrap().to_owned())
+            .collect::<Vec<_>>();
+        assert!(arguments.contains(&"--fsize=964096:964096".to_owned()));
+        let oversized = Identity::parse(MAX_ARCHIVED_BYTES + 1, &"0".repeat(64)).unwrap();
+        assert!(
+            destination
+                .retrieval(Uuid::nil(), Path::new("/tmp/readback.wav"), &oversized)
+                .is_err()
+        );
     }
 
     #[tokio::test]

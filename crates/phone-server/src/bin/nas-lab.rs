@@ -656,7 +656,9 @@ async fn main() -> anyhow::Result<()> {
         "playback kept its temporary file"
     );
     passed("authenticated_range_playback");
-    for corrupt in [b"corrupt".to_vec(), vec![0; 100000]] {
+    let mut flipped = audio.clone();
+    flipped[50] ^= 0xff;
+    for corrupt in [b"corrupt".to_vec(), vec![0; 100000], flipped] {
         tokio::fs::write(&remote, corrupt).await?;
         ensure!(
             system.request(call.id, "GET", None).await?.0 == StatusCode::SERVICE_UNAVAILABLE,
@@ -690,6 +692,14 @@ async fn main() -> anyhow::Result<()> {
         second_local.exists(),
         "failed archive commit discarded its source"
     );
+    let second_remote = remote
+        .parent()
+        .context("NAS object lacks its directory")?
+        .join(format!("{}.wav", second.id));
+    ensure!(
+        tokio::fs::read(&second_remote).await? == tokio::fs::read(&second_local).await?,
+        "the failed commit left no verified NAS object"
+    );
     system
         .store
         .with(|database| {
@@ -697,7 +707,24 @@ async fn main() -> anyhow::Result<()> {
             Ok(())
         })
         .await?;
-    system.processor.archive_one(&second_task).await?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let directory = second_remote
+            .parent()
+            .context("NAS object lacks its directory")?;
+        std::fs::set_permissions(directory, std::fs::Permissions::from_mode(0o555))?;
+    }
+    let retried = system.processor.archive_one(&second_task).await;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let directory = second_remote
+            .parent()
+            .context("NAS object lacks its directory")?;
+        std::fs::set_permissions(directory, std::fs::Permissions::from_mode(0o755))?;
+    }
+    retried.context("the retry uploaded again instead of reusing the verified object")?;
     ensure!(
         !second_local.exists(),
         "existing verified NAS object could not complete after a commit failure"

@@ -5,3 +5,7 @@ export function recordingDuration(seconds: number): string {
 export function minimumRecordingGiB(bytes: number): number {
 	return Math.ceil((bytes / 1073741824) * 1000) / 1000;
 }
+
+export function recordingGiB(bytes: number): number {
+	return Math.round((bytes / 1073741824) * 1000) / 1000;
+}

@@ -13,6 +13,50 @@ async fn finished(store: &Store) -> Call {
     call
 }
 
+#[cfg(feature = "plugin-nas")]
+#[tokio::test]
+async fn one_changed_local_copy_does_not_keep_other_archived_copies() {
+    let directory = tempfile::tempdir().unwrap();
+    let store = Store::open(&directory.path().join("phone.sqlite"))
+        .await
+        .unwrap();
+    let recordings = directory.path().join("recordings");
+    tokio::fs::create_dir_all(&recordings).await.unwrap();
+    let mut released = vec![];
+    let mut changed = None;
+    for index in 0..6_u8 {
+        let call = finished(&store).await;
+        let path = recordings.join(format!("{}.wav", call.id));
+        tokio::fs::write(&path, [index; 64]).await.unwrap();
+        let digest = phone_plugin_nas::identify(&path, 64)
+            .await
+            .unwrap()
+            .digest();
+        store.archive_tasks(21).await.unwrap();
+        let receipt = ArchivedRecording {
+            bytes: 64,
+            digest: if index == 0 { "1".repeat(64) } else { digest },
+        };
+        assert!(store.commit_archive(call.id, receipt, 23).await.unwrap());
+        if index == 0 {
+            changed = Some(path);
+        } else {
+            released.push(path);
+        }
+    }
+    let config = phone_server::config::Config {
+        data_dir: directory.path().into(),
+        ..Default::default()
+    };
+    let ari = phone_server::gateway::Ari::new(config.ari.clone(), "synthetic".into()).unwrap();
+    let processor = phone_server::postcall::Processor::new(config, ari, store, None).unwrap();
+    assert!(processor.release_archived().await.is_err());
+    assert!(changed.unwrap().exists());
+    for path in released {
+        assert!(!path.exists(), "{}", path.display());
+    }
+}
+
 fn identity() -> ArchivedRecording {
     ArchivedRecording {
         bytes: 64,

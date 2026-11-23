@@ -105,6 +105,7 @@ pub async fn capacity(config: &Config, store: &Store) -> anyhow::Result<bool> {
         recording.gateway_spool_dir.clone(),
     ];
     let disk = config.data_dir.clone();
+    let spool = recording.gateway_spool_dir.clone();
     let (used, free) = tokio::task::spawn_blocking(move || {
         let mut entries = 0;
         let mut used = 0_u64;
@@ -113,19 +114,7 @@ pub async fn capacity(config: &Config, store: &Store) -> anyhow::Result<bool> {
                 .checked_add(directory_bytes(&directory, 0, &mut entries)?)
                 .context("recording size overflow")?;
         }
-        #[cfg(unix)]
-        let free = {
-            let stat = rustix::fs::statvfs(disk)?;
-            stat.f_bavail
-                .checked_mul(stat.f_frsize)
-                .context("recording free space overflow")?
-        };
-        #[cfg(not(unix))]
-        let free = {
-            let _ = disk;
-            anyhow::bail!("recording capacity requires filesystem statistics")
-        };
-        Ok::<_, anyhow::Error>((used, free))
+        Ok::<_, anyhow::Error>((used, recording_free_space(&disk, &spool)?))
     })
     .await??;
     Ok(phone_core::recording_capacity(
@@ -135,6 +124,29 @@ pub async fn capacity(config: &Config, store: &Store) -> anyhow::Result<bool> {
         limit,
         free,
     ))
+}
+
+/// Free space for new recordings: the smaller of the data and gateway spool filesystems.
+pub fn recording_free_space(data: &Path, spool: &Path) -> anyhow::Result<u64> {
+    #[cfg(unix)]
+    {
+        let free = |path: &Path| -> anyhow::Result<u64> {
+            let stat = rustix::fs::statvfs(path)?;
+            stat.f_bavail
+                .checked_mul(stat.f_frsize)
+                .context("recording free space overflow")
+        };
+        let data = free(data)?;
+        match spool.try_exists()? {
+            true => Ok(data.min(free(spool)?)),
+            false => Ok(data),
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = (data, spool);
+        anyhow::bail!("recording capacity requires filesystem statistics")
+    }
 }
 
 fn directory_bytes(path: &Path, depth: u8, entries: &mut usize) -> anyhow::Result<u64> {

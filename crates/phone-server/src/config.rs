@@ -310,6 +310,10 @@ impl Config {
                     self.storage.retention_days == 0,
                     "NAS recording retention requires manual deletion"
                 );
+                ensure!(
+                    self.data_dir.is_absolute(),
+                    "NAS recording requires an absolute data directory"
+                );
                 ensure!(nas.port != 0, "invalid SMB port");
                 ensure!(!nas.archive_id.is_nil(), "NAS archive identity is required");
                 ensure!(

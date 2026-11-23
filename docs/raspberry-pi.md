@@ -109,6 +109,7 @@ Keep administrative recovery available independently of the telephone service.
 
 Backups contain credentials, call metadata, locally stored recordings, and gateway spool files.
 NAS audio requires a separate NAS backup alongside the preserved archive configuration and receipts.
+Take the NAS backup right after the app backup without deleting calls in between, as the [recording guide](recordings.md) describes.
 Store backups as private artifacts.
 The manager refuses backup during an active call and refuses to overwrite an existing destination.
 It quiesces new calls, creates a consistent SQLite snapshot, verifies the file inventory, and resumes after publication.

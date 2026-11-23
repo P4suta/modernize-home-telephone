@@ -174,7 +174,12 @@ impl Processor {
                 if self.store.background_paused() {
                     return Ok(());
                 }
-                self.release_archived().await?;
+                if self.release_archived().await.is_err() {
+                    tracing::warn!(
+                        operation = "recording_archive",
+                        code = "cache_cleanup_failed"
+                    );
+                }
                 for task in self.store.archive_tasks(now()).await? {
                     if self.store.background_paused() {
                         break;
@@ -266,28 +271,40 @@ impl Processor {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
             Err(error) => return Err(error.into()),
         };
+        let mut failures = 0_usize;
         while let Some(entry) = entries.next_entry().await? {
             let path = entry.path();
             if path.extension().is_none_or(|extension| extension != "wav") {
                 continue;
             }
-            ensure!(
-                entry.file_type().await?.is_file(),
-                "recording cache cannot contain links"
-            );
-            let id = Uuid::parse_str(
-                path.file_stem()
-                    .and_then(|stem| stem.to_str())
-                    .context("invalid recording cache name")?,
-            )?;
-            if let Some(archived) = self.store.archived_recording(id).await? {
-                let identity = phone_plugin_nas::identify(&path, archived.bytes).await?;
-                ensure!(
-                    identity.bytes == archived.bytes && identity.digest() == archived.digest,
-                    "local archive copy changed before cleanup"
-                );
-                remove_if_exists(&path).await?;
+            if self.release_cached(&entry).await.is_err() {
+                failures += 1;
+                tracing::warn!(operation = "recording_cache", code = "cleanup_deferred");
             }
+        }
+        ensure!(failures == 0, "{failures} archived cache copies remain");
+        Ok(())
+    }
+
+    #[cfg(feature = "plugin-nas")]
+    async fn release_cached(&self, entry: &tokio::fs::DirEntry) -> anyhow::Result<()> {
+        let path = entry.path();
+        ensure!(
+            entry.file_type().await?.is_file(),
+            "recording cache cannot contain links"
+        );
+        let id = Uuid::parse_str(
+            path.file_stem()
+                .and_then(|stem| stem.to_str())
+                .context("invalid recording cache name")?,
+        )?;
+        if let Some(archived) = self.store.archived_recording(id).await? {
+            let identity = phone_plugin_nas::identify(&path, archived.bytes).await?;
+            ensure!(
+                identity.bytes == archived.bytes && identity.digest() == archived.digest,
+                "local archive copy changed before cleanup"
+            );
+            remove_if_exists(&path).await?;
         }
         Ok(())
     }

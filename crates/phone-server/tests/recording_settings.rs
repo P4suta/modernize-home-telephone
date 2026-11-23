@@ -5,6 +5,24 @@ use phone_server::{
 };
 use tower::ServiceExt;
 
+#[cfg(unix)]
+#[test]
+fn recording_space_uses_the_smaller_of_the_data_and_spool_filesystems() {
+    const SLACK: u64 = 1 << 30;
+    let free = |path: &std::path::Path| {
+        let stat = rustix::fs::statvfs(path).unwrap();
+        stat.f_bavail * stat.f_frsize
+    };
+    let data = tempfile::tempdir().unwrap();
+    let spool = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).unwrap();
+    let missing = data.path().join("absent-spool");
+    let alone = phone_server::recordings::recording_free_space(data.path(), &missing).unwrap();
+    assert!(alone.abs_diff(free(data.path())) < SLACK);
+    let both = phone_server::recordings::recording_free_space(data.path(), spool.path()).unwrap();
+    let expected = free(data.path()).min(free(spool.path()));
+    assert!(both.abs_diff(expected) < SLACK, "{both} vs {expected}");
+}
+
 #[tokio::test]
 async fn nas_settings_migrate_effective_retention_without_applying_legacy_expiry() {
     let directory = tempfile::tempdir().unwrap();

@@ -797,6 +797,13 @@ enforcement = "Delete a pending archive, reopen SQLite, refuse publication, and 
 
 [[cases]]
 source = "crates/phone-server/tests/nas_archive_state.rs"
+test = "one_changed_local_copy_does_not_keep_other_archived_copies"
+invariant = "A changed local copy of one archived recording neither blocks cleanup of the others nor loses its own audio."
+previous_gap = "The first failed digest check ended the cache scan and the archive pass before any queued upload or deletion."
+enforcement = "Archive six recordings, change one local copy, and require the other five removed and the changed one retained."
+
+[[cases]]
+source = "crates/phone-server/tests/nas_archive_state.rs"
 test = "archive_receipts_require_exact_pending_bytes_and_preserve_call_faults"
 invariant = "Archive ownership requires the expected pending byte count and preserves unrelated call failures."
 previous_gap = "Local capture had no durable remote ownership receipt."

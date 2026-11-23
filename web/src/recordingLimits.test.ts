@@ -1,5 +1,19 @@
 import { expect, test } from "vitest";
-import { minimumRecordingGiB, recordingDuration } from "./recordingLimits";
+import {
+	minimumRecordingGiB,
+	recordingDuration,
+	recordingGiB,
+} from "./recordingLimits";
+
+test("an entered limit displays again at the precision it was entered", (): void => {
+	for (const entered of [0.43, 0.5, 0.501, 1, 3.999]) {
+		expect(recordingGiB(Math.round(entered * 1073741824))).toBe(entered);
+	}
+	expect(
+		recordingGiB(Math.round(minimumRecordingGiB(460816384) * 1073741824)),
+	).toBeGreaterThanOrEqual(minimumRecordingGiB(460816384));
+	expect(recordingGiB(4294967296)).toBe(4);
+});
 
 test("recording durations preserve seconds and show whole minutes", (): void => {
 	expect(recordingDuration(1)).toBe("1秒");

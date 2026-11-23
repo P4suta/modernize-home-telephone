@@ -34,11 +34,15 @@ username_env = "HOMEPHONE_NAS_USERNAME"
 password_env = "HOMEPHONE_NAS_PASSWORD"
 ```
 
+NAS recording requires an absolute `data_dir`, because the SMB adapter accepts only absolute local paths.
+Installations write an absolute data directory, and the configuration checker refuses a relative one when `recording.nas` is present.
+
 Provide literal credential assignments in the installation's private `config/secrets.env` file.
 Keep its existing telephone and notification credentials.
 The adapter accepts nonblank usernames of 1 through 128 ASCII bytes containing letters, digits, spaces, underscores, dots, hyphens, or backslashes.
 Credential staging and SMB execution share the validator and preserve spaces as part of one argument.
 Passwords travel through the SMB client's standard input rather than process arguments.
+Passwords must contain 1 through 127 bytes, because the pinned Samba client reads at most 127 bytes from its password descriptor.
 The [Samba client documentation](https://www.samba.org/samba/docs/current/man-html/smbclient.1.html) defines password descriptors and encrypted client protection.
 
 The recording limit accepts 1 through 7200 seconds.
@@ -57,7 +61,7 @@ The local quota never removes NAS recordings or their history.
 The NAS's available capacity determines the archive capacity.
 
 Before starting a recording, the app reserves space for the gateway recording, capture, transfer verification, and playback, plus completed recordings awaiting capture.
-The calculation checks file system free space and the configured local quota with overflow refused.
+The calculation checks the smaller free space of the data and gateway spool file systems and the configured local quota with overflow refused.
 The example's 512 MiB quota accommodates four copies at the duration limit.
 When the reservation can't fit, a new call proceeds without recording.
 Existing queued audio remains available for later transfer.
@@ -75,6 +79,7 @@ History playback uses the authenticated recording endpoint and supports HTTP byt
 Overlapping range requests for the same recording share one verified temporary file.
 Only one distinct archived recording can occupy the playback slot at a time.
 NAS unavailability produces a playback error that permits a retry.
+Playback bounds the download by the byte count recorded at upload, so a later shorter recording limit keeps earlier recordings playable.
 The app removes temporary playback audio after the last response releases it.
 
 Deleting a completed call removes its history and queues a durable remote deletion.
@@ -83,6 +88,8 @@ Deleting from the NAS outside the app leaves history without playable audio.
 
 Installation backups preserve archive receipts and private configuration, but they don't copy NAS audio.
 Back up the NAS audio and preserve `archive_id` when restoring the app.
+A call deleted between the two backups leaves a receipt in the app backup without audio in a later NAS backup.
+Take the NAS backup immediately after the app backup without deleting calls in between, or keep NAS snapshot versions that retain every object an app backup references.
 Changing the server, share, directory, or archive identity requires migrating the existing objects before using the destination.
 Recordings start with newly answered calls after recording becomes active.
 The app records calls routed through its Session Initiation Protocol (SIP) path.
@@ -100,12 +107,15 @@ Run credential staging on a trusted administration machine with the private inst
 phone-server --config ./private/homephone.toml export-nas-credentials --output ./private/with-nas.env
 ```
 
-The runtime image includes the SMB client and the bounded process launcher.
-Run its storage check with the staged configuration and credentials before enabling the installation's recording configuration.
+The runtime image includes the SMB client and the bounded process launcher, and the host package provides neither `phone-server` nor `smbclient`.
+Run the storage check inside the installation's app container, which mounts the configuration and credentials at their host paths.
+Stage the configuration and credentials in the installation's `config` directory before running it, and keep the installation's recording configuration disabled until the check passes.
 
 ```sh
-phone-server --config /srv/telephone/config/homephone.toml check-recording-storage
+podman exec homephone-INSTANCE-app phone-server --config /srv/telephone/config/homephone.toml check-recording-storage
 ```
+
+Replace `INSTANCE` with the installation identity without hyphens, and use `docker exec` for a Docker installation.
 
 The storage check creates a short synthetic audio file, verifies remote readback, and removes its dedicated probe object.
 It reports a cleanup failure as an error.

@@ -1,6 +1,10 @@
 import type { ReactElement } from "react";
 import type { Settings, Status } from "./contracts";
-import { minimumRecordingGiB, recordingDuration } from "./recordingLimits";
+import {
+	minimumRecordingGiB,
+	recordingDuration,
+	recordingGiB,
+} from "./recordingLimits";
 
 function StorageIcon(): ReactElement {
 	return (
@@ -114,7 +118,7 @@ export function RecordingSettings({
 				step={0.001}
 				required
 				aria-describedby="quota-help"
-				value={(settings.recording_limit_bytes ?? 4294967296) / 1073741824}
+				value={recordingGiB(settings.recording_limit_bytes ?? 4294967296)}
 				onChange={(event): void =>
 					onChange({
 						...settings,

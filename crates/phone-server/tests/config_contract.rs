@@ -14,7 +14,10 @@ fn browser_calls_use_registered_sip_for_new_and_existing_configurations() {
 #[cfg(feature = "plugin-nas")]
 #[test]
 fn nas_directory_segments_match_the_archive_adapters_input_limits() {
-    let mut config = Config::default();
+    let mut config = Config {
+        data_dir: "/srv/telephone/data".into(),
+        ..Config::default()
+    };
     config.ai.provider = "disabled".into();
     config.storage.retention_days = 0;
     config.recording = Some(phone_server::config::CallRecording {
@@ -42,6 +45,21 @@ fn nas_directory_segments_match_the_archive_adapters_input_limits() {
         .directory
         .push('a');
     assert!(config.validate().is_err());
+    config
+        .recording
+        .as_mut()
+        .unwrap()
+        .nas
+        .as_mut()
+        .unwrap()
+        .directory
+        .pop();
+    config.validate().unwrap();
+    config.data_dir = ".local/data".into();
+    assert!(
+        config.validate().is_err(),
+        "the NAS adapter needs absolute local paths"
+    );
 }
 
 #[test]

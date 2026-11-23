@@ -33,6 +33,7 @@ fn optional_nas_and_notification_credentials_fail_independently() {
         ("recorder", ""),
         ("recorder", "bad\nvalue"),
         ("recorder", "bad\0value"),
+        ("recorder", &"p".repeat(128)),
     ] {
         let loaded = Secrets::from_lookup_for_calls(
             &config,
@@ -135,7 +136,7 @@ fn nas_credential_export_preserves_call_secrets_and_refuses_colliding_names() {
         "HOMEPHONE_SIP_PASSWORD=unchanged\nCUSTOM=literal$(value)=# \n",
     )
     .unwrap();
-    let config: Config = toml::from_str("[ai]\nprovider='disabled'\n[storage]\nretention_days=0\n[recording]\nenabled=true\ngateway_spool_dir='/tmp/spool'\n[recording.nas]\narchive_id='36b82de3-b456-44b3-bd31-d7c2fe71f460'\nserver='nas.invalid'\nshare='home'\ndirectory='telephone'\nusername_env='NAS_USERNAME'\npassword_env='NAS_PASSWORD'\n").unwrap();
+    let config: Config = toml::from_str("data_dir='/srv/telephone/data'\n[ai]\nprovider='disabled'\n[storage]\nretention_days=0\n[recording]\nenabled=true\ngateway_spool_dir='/tmp/spool'\n[recording.nas]\narchive_id='36b82de3-b456-44b3-bd31-d7c2fe71f460'\nserver='nas.invalid'\nshare='home'\ndirectory='telephone'\nusername_env='NAS_USERNAME'\npassword_env='NAS_PASSWORD'\n").unwrap();
     let lookup = |name: &str| match name {
         "NAS_USERNAME" => Some("recorder fixture".into()),
         "NAS_PASSWORD" => Some(" literal$()=#'\" ".into()),
