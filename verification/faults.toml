@@ -616,6 +616,27 @@ enforcement = "Fail orphan deletion during an active call, wait for its normal n
 
 [[cases]]
 source = "crates/phone-server/tests/controller_contract.rs"
+test = "a_replayed_ingress_leaves_a_new_channel_generation_with_the_same_id_alone"
+invariant = "Replay cleanup deletes a channel only while the gateway still lists the replayed generation."
+previous_gap = "Replay cleanup deleted by channel identifier, so a reused identifier could end a new incoming call."
+enforcement = "Replay a retired ingress while the gateway lists a successor with the same identifier and count channel deletions."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "resuming_admission_cannot_reconcile_away_a_live_call"
+invariant = "Resuming admission refuses to reconcile while a live call awaits recovery."
+previous_gap = "A resume request reconciled gateway resources and released the line without ending the call."
+enforcement = "Fail a rejected channel cleanup during a ringing call, then request resume and check the call phase and line owner."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "unavailable_read_aloud_tracks_no_media_channel"
+invariant = "Read-aloud without an available provider records no media channel."
+previous_gap = "Each refused read-aloud request left a tracked channel that hangup then tried to delete."
+enforcement = "Repeat read-aloud on a connected call with AI off and compare the tracked resources."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
 test = "ringing_deadlines_select_reception_and_outgoing_no_answer"
 invariant = "Available reception handles unanswered incoming calls while outgoing calls end without voicemail."
 previous_gap = "Deadline tests covered disabled reception without distinguishing the outgoing terminal reason."

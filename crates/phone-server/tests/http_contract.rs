@@ -54,7 +54,7 @@ fn request(path: &str, user: Option<&str>, peer: &str) -> Request<Body> {
 
 #[tokio::test]
 async fn status_distinguishes_provider_configuration_from_a_live_external_connection() {
-    for (production, expected) in [(false, true), (true, false)] {
+    for (production, expected) in [(false, cfg!(feature = "plugin-ai")), (true, false)] {
         let (app, _root) = app(production).await;
         let response = app
             .oneshot(request(

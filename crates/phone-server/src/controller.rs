@@ -297,7 +297,7 @@ impl Actor {
                         }
                         Some(Request::Shutdown(reply)) => { let _ = self.end("service_shutdown").await; let _ = reply.send(()); break; }
                         Some(Request::Maintenance { enabled, reply }) => {
-                            let result = if self.active.is_some() && self.maintenance != enabled { Err(Failure::Busy) } else if !enabled && (!self.connected || (!*self.initialized.borrow() && self.reconcile().await.is_err())) { Err(Failure::Unavailable) } else {
+                            let result = if self.active.is_some() && (self.maintenance != enabled || (!enabled && !*self.initialized.borrow())) { Err(Failure::Busy) } else if !enabled && (!self.connected || (!*self.initialized.borrow() && self.reconcile().await.is_err())) { Err(Failure::Unavailable) } else {
                                 self.maintenance = enabled;
                                 self.store.pause_background(enabled || !*self.initialized.borrow());
                                 self.ready.send_replace(!enabled && *self.initialized.borrow());
@@ -424,6 +424,26 @@ impl Actor {
         Ok(())
     }
 
+    async fn reject_replayed_channel(
+        &mut self,
+        ingress: &IngressId,
+        id: &str,
+    ) -> Result<(), Failure> {
+        let channels: Vec<Channel> = self
+            .ari
+            .read(&["channels"], &[])
+            .await
+            .map_err(|_| Failure::Unavailable)?;
+        let replayed_generation_is_live = channels.iter().any(|live| {
+            live.id == id && IngressId::new(live).is_ok_and(|generation| &generation == ingress)
+        });
+        if replayed_generation_is_live {
+            self.reject_unowned_channel(id).await
+        } else {
+            Ok(())
+        }
+    }
+
     async fn reject_unowned_channel(&mut self, id: &str) -> Result<(), Failure> {
         crate::gateway::validate_channel_id(id).map_err(|_| Failure::InvalidInput)?;
         if self.active.as_ref().is_some_and(|active| {
@@ -484,7 +504,7 @@ impl Actor {
                 code = "replayed_ingress",
                 ingress_id = ingress.as_str()
             );
-            self.reject_unowned_channel(&channel.id).await?;
+            self.reject_replayed_channel(&ingress, &channel.id).await?;
             return Err(Failure::InvalidTransition);
         }
         if self.line.owner().is_some() {
@@ -1067,6 +1087,9 @@ impl Actor {
     }
 
     async fn start_media(&mut self, purpose: Purpose) -> Result<(), Failure> {
+        if !self.reception_available() {
+            return Err(Failure::Unavailable);
+        }
         let active = self.active.as_ref().ok_or(Failure::NotFound)?;
         let generation = Uuid::new_v4();
         let channel = format!("{}-media-{generation}", active.bridge);

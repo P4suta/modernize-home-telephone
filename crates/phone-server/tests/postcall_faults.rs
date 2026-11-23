@@ -13,6 +13,7 @@ use phone_server::{
     store::Store,
 };
 use std::sync::Arc;
+#[cfg(feature = "plugin-ai")]
 use tokio::sync::Notify;
 
 fn wav() -> Vec<u8> {
@@ -104,6 +105,26 @@ async fn ai_off_never_sends_preserved_recordings_to_a_provider() {
     call.recording = Recording::Available {
         bytes: bytes.len() as u64,
     };
+    call.last_error = Some("post_call_processing_failed".into());
+    let mut failed = finished();
+    failed.recording = Recording::Failed {
+        reason: "capture_failed".into(),
+    };
+    failed.last_error = Some("recording_capture_failed".into());
+    store.save(&failed, "ended", now()).await.unwrap();
+    store.finish_job(failed.id).await.unwrap();
+    processor.process(failed.id).await.unwrap();
+    assert_eq!(
+        store
+            .get(failed.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .last_error
+            .as_deref(),
+        Some("recording_capture_failed")
+    );
+    store.delete_finished(failed.id, now()).await.unwrap();
     tokio::fs::create_dir_all(root.path().join("recordings"))
         .await
         .unwrap();
@@ -120,6 +141,7 @@ async fn ai_off_never_sends_preserved_recordings_to_a_provider() {
     result.unwrap();
     let saved = store.get(call.id).await.unwrap().unwrap();
     assert_eq!(saved.processing, "complete");
+    assert_eq!(saved.last_error, None);
     assert!(saved.transcript.is_empty());
     assert!(saved.summary.is_none());
     assert_eq!(
@@ -293,6 +315,7 @@ async fn interrupted_downloads_remove_partial_files_and_can_be_retried() {
     server.abort();
 }
 
+#[cfg(feature = "plugin-ai")]
 #[tokio::test]
 async fn stalled_cloud_inference_cannot_block_recording_capture_or_quota_enforcement() {
     let root = tempfile::tempdir().unwrap();

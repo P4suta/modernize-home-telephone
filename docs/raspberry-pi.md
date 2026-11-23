@@ -43,6 +43,7 @@ Keep the generated credentials when changing configuration.
 The HTTP listener binds to `127.0.0.1:8787`.
 Production browser access requires HTTPS and a Tailscale identity supplied by Serve.
 The tailnet policy authorizes access to the management port without an app user list.
+Configurations from earlier releases can keep `allowed_users`, which the server reads and ignores, so an update and its rollback both accept them.
 The administration token remains available on the loopback management path.
 [Tailscale Serve](https://tailscale.com/docs/reference/tailscale-cli/serve) can provide the private HTTPS endpoint and identity headers.
 

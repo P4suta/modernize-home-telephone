@@ -165,18 +165,26 @@ pub fn inspect_image(reference: &str) -> anyhow::Result<Image> {
         fingerprint: image_fingerprint(&inspect(reference)?)?,
     })
 }
-fn verified_id<'a>(expected: &Image, image: &'a serde_json::Value) -> anyhow::Result<&'a str> {
+fn verified_id(expected: &Image, image: &serde_json::Value) -> anyhow::Result<String> {
     ensure!(
         image_fingerprint(image)? == expected.fingerprint,
         "loaded image differs from the package"
     );
-    image["Id"]
+    let id = image["Id"]
         .as_str()
-        .filter(|id| id.strip_prefix("sha256:").is_some_and(digest))
-        .context("gateway requires an immutable image ID")
+        .context("gateway requires an immutable image ID")?;
+    let hex = id.strip_prefix("sha256:").unwrap_or(id);
+    ensure!(
+        hex.len() == SHA256_HEX_DIGITS
+            && hex
+                .bytes()
+                .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f')),
+        "gateway requires an immutable image ID"
+    );
+    Ok(format!("sha256:{hex}"))
 }
 pub fn verified_image_id(expected: &Image) -> anyhow::Result<String> {
-    Ok(verified_id(expected, &inspect(&expected.reference)?)?.to_owned())
+    verified_id(expected, &inspect(&expected.reference)?)
 }
 pub fn verify_images(release: &Release) -> anyhow::Result<()> {
     compatible(release, "arm64")?;
@@ -1048,6 +1056,16 @@ fn gateway_fixture_starts_only_the_inspected_release_image() {
     assert_eq!(verified_id(&expected, &image).unwrap(), id);
     image["Id"] = "gateway:installed".into();
     assert!(verified_id(&expected, &image).is_err());
+    image["Id"] = "a".repeat(SHA256_HEX_DIGITS).into();
+    assert_eq!(verified_id(&expected, &image).unwrap(), id);
+    for refused in [
+        "a".repeat(SHA256_HEX_DIGITS - 1),
+        "A".repeat(SHA256_HEX_DIGITS),
+        format!("sha512:{}", "a".repeat(SHA256_HEX_DIGITS)),
+    ] {
+        image["Id"] = refused.into();
+        assert!(verified_id(&expected, &image).is_err());
+    }
     image["Id"] = id.into();
     image["RootFS"]["Layers"][0] = "replacement".into();
     assert!(verified_id(&expected, &image).is_err());

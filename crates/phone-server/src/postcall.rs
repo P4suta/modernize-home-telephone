@@ -362,6 +362,9 @@ impl Processor {
             self.store
                 .update_finished(id, "complete", now(), |call| {
                     call.processing = "complete".into();
+                    if matches!(call.recording, Recording::Available { .. }) {
+                        clear_job_error(call);
+                    }
                 })
                 .await?;
         }

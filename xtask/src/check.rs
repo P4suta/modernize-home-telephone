@@ -366,6 +366,16 @@ pub fn fast() -> anyhow::Result<()> {
         ],
     )?;
     trace.run("cargo", &["test", "--locked", "--workspace"])?;
+    trace.run(
+        "cargo",
+        &[
+            "test",
+            "--locked",
+            "-p",
+            "phone-server",
+            "--no-default-features",
+        ],
+    )?;
     crate::plugins::check(Path::new("."))?;
     for features in [None, Some("plugin-ai")] {
         let mut args = vec![

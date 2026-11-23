@@ -28,6 +28,8 @@ pub struct Config {
     pub listen: SocketAddr,
     pub data_dir: PathBuf,
     pub public_origin: String,
+    #[serde(rename = "allowed_users", skip_serializing)]
+    pub legacy_allowed_users: Vec<String>,
     pub api_token_env: String,
     pub ari: Ari,
     pub ai: Ai,
@@ -95,6 +97,7 @@ impl Default for Config {
             listen: DEFAULT_LISTEN_ADDRESS.parse().expect("literal address"),
             data_dir: ".local/data".into(),
             public_origin: DEFAULT_PUBLIC_ORIGIN.into(),
+            legacy_allowed_users: vec![],
             api_token_env: "HOMEPHONE_API_TOKEN".into(),
             ari: Ari::default(),
             ai: Ai::default(),
@@ -118,7 +121,12 @@ impl Default for Ari {
 impl Default for Ai {
     fn default() -> Self {
         Self {
-            provider: "mock".into(),
+            provider: if cfg!(feature = "plugin-ai") {
+                "mock"
+            } else {
+                "disabled"
+            }
+            .into(),
             key_env: "OPENAI_API_KEY".into(),
             realtime_model: "gpt-realtime-2.1".into(),
             transcription_model: "gpt-transcribe".into(),

@@ -4,6 +4,8 @@ The host owns line admission, call transitions, gateway channels and bridges, pe
 Optional implementations live in independent Rust crates.
 Each plugin must remain independent of the server, administration tool, and other plugins.
 The fast gate checks the dependency graph and compiles every host feature combination with warnings refused.
+It also runs the server tests without optional features, and tests that need AI reception declare the `plugin-ai` feature.
+Without that feature, the default AI provider is `disabled`.
 
 The `plugin-ai` Cargo feature selects `phone-plugin-ai`.
 Select `openai` for `ai.provider` and provide its credentials to enable reception.

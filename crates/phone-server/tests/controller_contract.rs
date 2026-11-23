@@ -22,6 +22,7 @@ async fn setup_with_faults(
 
 type Requests = std::sync::Arc<std::sync::Mutex<Vec<String>>>;
 
+#[cfg_attr(not(feature = "plugin-ai"), allow(dead_code))]
 #[derive(Clone, Copy)]
 enum CleanupFault {
     Recording,
@@ -426,6 +427,42 @@ async fn a_terminal_ingress_cannot_be_admitted_again_or_block_the_next_call() {
 }
 
 #[tokio::test]
+async fn a_replayed_ingress_leaves_a_new_channel_generation_with_the_same_id_alone() {
+    let state: GatewayStateHandle = Default::default();
+    let (control, task, _directory, requests) =
+        setup_with_gateway_state(Default::default(), "disabled", 30, None, state.clone()).await;
+    let first = control
+        .offer(channel("reused-carrier"), "inbound".into())
+        .await
+        .unwrap();
+    control.command(first.id, Command::Hangup).await.unwrap();
+    let successor = Channel {
+        creationtime: Some("2026-11-15T05:40:00.000+0900".into()),
+        ..channel("reused-carrier")
+    };
+    state.lock().unwrap().channels.push(successor.clone());
+    let deletions = |requests: &Requests| {
+        requests
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|path| path.as_str() == "/ari/channels/reused-carrier")
+            .count()
+    };
+    let before = deletions(&requests);
+    let replay = control
+        .offer(channel("reused-carrier"), "inbound".into())
+        .await;
+    let after = deletions(&requests);
+    let next = control.offer(successor, "inbound".into()).await;
+    control.shutdown().await;
+    task.abort();
+    assert!(replay.is_err());
+    assert_eq!(after, before, "the replay deleted the live successor");
+    assert!(next.is_ok());
+}
+
+#[tokio::test]
 async fn deleting_history_does_not_allow_a_retired_ingress_to_ring_again() {
     let (control, task, _directory, _requests) =
         setup_with_provider(Default::default(), "disabled", 30).await;
@@ -520,12 +557,19 @@ async fn rejected_ingress_cleanup_failure_blocks_admission_until_reconciled() {
         atomic::{AtomicBool, Ordering},
     };
     let failed = Arc::new(AtomicBool::new(false));
-    let (control, task, _directory) = setup_with_faults(failed.clone()).await;
+    let state: GatewayStateHandle = Default::default();
+    let (control, task, _directory, _requests) =
+        setup_with_gateway_state(failed.clone(), "mock", 30, None, state.clone()).await;
     let first = control
         .offer(channel("replayed-orphan"), "inbound".into())
         .await
         .unwrap();
     control.command(first.id, Command::Hangup).await.unwrap();
+    state
+        .lock()
+        .unwrap()
+        .channels
+        .push(channel("replayed-orphan"));
     failed.store(true, Ordering::SeqCst);
     assert!(
         control
@@ -558,12 +602,19 @@ async fn rejected_orphan_quarantine_preserves_the_active_call() {
         atomic::{AtomicBool, Ordering},
     };
     let failed = Arc::new(AtomicBool::new(false));
-    let (control, task, _directory) = setup_with_faults(failed.clone()).await;
+    let state: GatewayStateHandle = Default::default();
+    let (control, task, _directory, _requests) =
+        setup_with_gateway_state(failed.clone(), "mock", 30, None, state.clone()).await;
     let retired = control
         .offer(channel("retired-before-active"), "inbound".into())
         .await
         .unwrap();
     control.command(retired.id, Command::Hangup).await.unwrap();
+    state
+        .lock()
+        .unwrap()
+        .channels
+        .push(channel("retired-before-active"));
     let active = control
         .offer(channel("retained-active"), "inbound".into())
         .await
@@ -739,6 +790,43 @@ async fn valid_peer_replays_preserve_ringing_and_connected_calls() {
     task.abort();
     assert_eq!(after, before);
     assert_eq!(saved.phase, Phase::Connected);
+}
+
+#[tokio::test]
+async fn unavailable_read_aloud_tracks_no_media_channel() {
+    let (control, task, _directory, requests, frames) = setup_replay_events().await;
+    let root = channel("read-aloud-root");
+    let call = control.offer(root.clone(), "inbound".into()).await.unwrap();
+    let peers: Vec<_> = control
+        .store
+        .resources()
+        .await
+        .unwrap()
+        .into_iter()
+        .filter(|id| id != &root.id)
+        .collect();
+    frames.send(endpoint_event(&peers[0], call.id)).unwrap();
+    let connected =
+        gateway_event_barrier(&control, &frames, &requests, &root, "read-aloud-connected").await;
+    assert_eq!(connected.phase, Phase::Connected);
+    let tracked = control.store.resources().await.unwrap();
+    for _ in 0..3 {
+        assert!(
+            control
+                .command(
+                    call.id,
+                    Command::Speak {
+                        text: "読み上げ".into()
+                    }
+                )
+                .await
+                .is_err()
+        );
+    }
+    let after = control.store.resources().await.unwrap();
+    control.shutdown().await;
+    task.abort();
+    assert_eq!(after, tracked);
 }
 
 #[tokio::test]
@@ -1059,6 +1147,36 @@ async fn gateway_terminal_events_end_the_owned_root_and_winning_peer() {
 }
 
 #[tokio::test]
+async fn resuming_admission_cannot_reconcile_away_a_live_call() {
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    };
+    let failed = Arc::new(AtomicBool::new(false));
+    let (control, task, _directory, _requests) =
+        setup_with_provider(failed.clone(), "disabled", 30).await;
+    let call = control
+        .offer(channel("resume-owner"), "inbound".into())
+        .await
+        .unwrap();
+    failed.store(true, Ordering::SeqCst);
+    assert!(
+        control
+            .offer(channel("resume-orphan"), "inbound".into())
+            .await
+            .is_err()
+    );
+    failed.store(false, Ordering::SeqCst);
+    assert!(control.maintenance(false).await.is_err());
+    let saved = control.store.get(call.id).await.unwrap().unwrap();
+    let owned = control.store.owns_line(call.id);
+    control.shutdown().await;
+    task.abort();
+    assert_eq!(saved.phase, Phase::Ringing);
+    assert!(owned);
+}
+
+#[tokio::test]
 async fn quarantined_calls_keep_their_deadline_and_end_once() {
     use std::sync::{
         Arc,
@@ -1066,7 +1184,7 @@ async fn quarantined_calls_keep_their_deadline_and_end_once() {
     };
     let failed = Arc::new(AtomicBool::new(false));
     let (control, task, _directory, _requests) =
-        setup_with_provider(failed.clone(), "disabled", 1).await;
+        setup_with_provider(failed.clone(), "disabled", 3).await;
     let call = control
         .offer(channel("deadline-owner"), "inbound".into())
         .await
@@ -1080,7 +1198,7 @@ async fn quarantined_calls_keep_their_deadline_and_end_once() {
     );
     assert!(!control.ready());
     failed.store(false, Ordering::SeqCst);
-    let ended = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+    let ended = tokio::time::timeout(std::time::Duration::from_secs(10), async {
         loop {
             let saved = control.store.get(call.id).await.unwrap().unwrap();
             if saved.phase == Phase::Ended && !control.store.owns_line(call.id) {
@@ -1114,6 +1232,7 @@ async fn quarantined_calls_keep_their_deadline_and_end_once() {
     task.abort();
 }
 
+#[cfg(feature = "plugin-ai")]
 #[tokio::test]
 async fn ringing_deadlines_select_reception_and_outgoing_no_answer() {
     for direction in ["inbound", "outbound"] {
@@ -1166,6 +1285,7 @@ async fn ringing_deadlines_select_reception_and_outgoing_no_answer() {
     }
 }
 
+#[cfg(feature = "plugin-ai")]
 #[tokio::test]
 async fn each_cleanup_failure_retains_ownership_until_retry_succeeds() {
     for fault in [

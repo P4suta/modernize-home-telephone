@@ -10,6 +10,21 @@ publish.workspace = true
 default = ["plugin-ai"]
 plugin-ai = ["phone-plugin-ai/runtime"]
 
+[[test]]
+name = "media_faults"
+path = "tests/media_faults.rs"
+required-features = ["plugin-ai"]
+
+[[test]]
+name = "media_contract"
+path = "tests/media_contract.rs"
+required-features = ["plugin-ai"]
+
+[[test]]
+name = "gateway_readiness_faults"
+path = "tests/gateway_readiness_faults.rs"
+required-features = ["plugin-ai"]
+
 [dependencies]
 tower = { version = "0.5", features = ["util"] }
 anyhow = "1"
