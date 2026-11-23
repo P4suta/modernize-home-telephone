@@ -23,6 +23,7 @@ struct Evidence {
     failed_candidate_recovered: bool,
     journal_recovered: bool,
     restored_installation_booted: bool,
+    console_restarted: bool,
     recording_sha256: String,
     artifacts: String,
     manifests: BTreeMap<String, String>,
@@ -30,12 +31,13 @@ struct Evidence {
 pub fn check_report(root: &Path, bytes: &[u8]) -> anyhow::Result<()> {
     let report: Evidence = serde_json::from_slice(bytes)?;
     ensure!(
-        report.schema == 1
+        report.schema == 2
             && report.source == crate::package::source_identity(root)?
             && report.successful_update
             && report.failed_candidate_recovered
             && report.journal_recovered
-            && report.restored_installation_booted,
+            && report.restored_installation_booted
+            && report.console_restarted,
         "missing or stale deployment evidence"
     );
     ensure!(
@@ -147,6 +149,7 @@ pub fn run(directory: &Path) -> anyhow::Result<()> {
         "rebuild the lab for the current sources before deployment verification"
     );
     installation.health()?;
+    installation.verify_console_restart()?;
     let sample = sample(&installation)?;
     let recording = PathBuf::from("data/recordings").join(format!("{sample}.wav"));
     let expected = bundle::digest(&directory.join(&recording))?;
@@ -229,7 +232,7 @@ pub fn run(directory: &Path) -> anyhow::Result<()> {
         "sources changed during deployment rehearsal"
     );
     let report = Evidence {
-        schema: 1,
+        schema: 2,
         source,
         instance_id: installation.id,
         sample_id: sample,
@@ -237,6 +240,7 @@ pub fn run(directory: &Path) -> anyhow::Result<()> {
         failed_candidate_recovered: true,
         journal_recovered: true,
         restored_installation_booted: true,
+        console_restarted: true,
         recording_sha256: expected,
         artifacts: relative.to_str().context("invalid deployment path")?.into(),
         manifests: OPERATIONS

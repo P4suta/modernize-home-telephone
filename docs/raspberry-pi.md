@@ -105,6 +105,11 @@ The public `stop` operation first quiesces admission and refuses an active call.
 For an operator restart, run `stop` and continue to `boot` only after a successful stop.
 Keep administrative recovery available independently of the telephone service.
 
+Add `config/ht813-console.toml` to supervise the optional [gateway console](ht813-console.md) from the app image.
+Use `/opt/homephone/console/dist` for its asset path inside the container.
+The console binds to its configured loopback listener and keeps its own device sessions.
+Configuration and static assets must pass startup checks before the installation becomes ready.
+
 ## Preserve and recover data
 
 Backups contain credentials, call metadata, locally stored recordings, and gateway spool files.

@@ -20,6 +20,7 @@ pub fn source_files(root: &Path) -> anyhow::Result<BTreeMap<String, String>> {
             .context("invalid source filename")?;
         if [
             "node_modules",
+            ".svelte-kit",
             "dist",
             "target",
             "test-results",
@@ -78,6 +79,7 @@ pub fn source_files(root: &Path) -> anyhow::Result<BTreeMap<String, String>> {
         "api",
         "xtask",
         "web",
+        "console",
         "deploy",
         "verification",
         "fuzz",

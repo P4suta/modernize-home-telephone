@@ -10,6 +10,11 @@ COPY --from=web /usr/local/bin/node /usr/local/bin/node
 COPY --from=web /build/web /project/web
 ENTRYPOINT ["node", "node_modules/@playwright/test/cli.js", "test", "--output=test-results/artifacts"]
 
+FROM web AS console
+WORKDIR /build/console
+COPY console/ ./
+RUN pnpm install --frozen-lockfile --ignore-scripts && pnpm build
+
 FROM rust:1.99.1-trixie@sha256:edc584c5d2f915bcc5b08049987e7a492ccb8ab188444daf0a870b3ef82a3b2e AS build
 WORKDIR /build
 ENV CARGO_BUILD_JOBS=2
@@ -17,7 +22,7 @@ COPY Cargo.toml Cargo.lock ./
 COPY crates/ ./crates/
 COPY xtask/ ./xtask/
 COPY console/src/lib/parameters.json console/src/lib/settings.json console/src/lib/firmware-parameters.json ./console/src/lib/
-RUN --mount=type=cache,id=homephone-cargo-registry,sharing=locked,target=/usr/local/cargo/registry cargo build --release --locked -p phone-server && cp target/release/phone-server /phone-server
+RUN --mount=type=cache,id=homephone-cargo-registry,sharing=locked,target=/usr/local/cargo/registry cargo build --release --locked -p phone-server && cp target/release/phone-server /phone-server && cp target/release/ht813-console /ht813-console
 
 FROM build AS admin
 RUN rustup target add aarch64-unknown-linux-musl
@@ -33,6 +38,8 @@ COPY deploy/debian.sources /etc/apt/sources.list.d/debian.sources
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates=20250419+deb13u1 libssl3t64=3.5.7-1~deb13u3 smbclient=2:4.22.11+dfsg-0+deb13u1 util-linux=2.41.5-0+deb13u1 && rm -rf /var/lib/apt/lists/*
 WORKDIR /opt/homephone
 COPY --from=build /phone-server /usr/local/bin/phone-server
+COPY --from=build /ht813-console /usr/local/bin/ht813-console
 COPY --from=web /build/web/dist/ web/dist/
+COPY --from=console /build/console/dist/ console/dist/
 USER 10001:10001
 ENTRYPOINT ["/usr/local/bin/phone-server"]

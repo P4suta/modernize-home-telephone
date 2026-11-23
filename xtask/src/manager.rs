@@ -23,6 +23,7 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
 };
+mod console;
 mod rehearsal;
 pub use rehearsal::{
     check_report as check_rehearsal_report, evidence as deployment_evidence, run as rehearse,
@@ -356,6 +357,7 @@ impl Installation {
             self.client.request(Operation::Ready)?.status == HTTP_NO_CONTENT,
             "gateway application is unavailable"
         );
+        self.console_health()?;
         Ok(())
     }
     fn wait_health(&self) -> anyhow::Result<()> {
@@ -429,7 +431,8 @@ impl Installation {
     }
     pub fn stop_containers(&self) -> anyhow::Result<()> {
         let (app, gateway) = self.names();
-        for name in [&app, &gateway] {
+        let console = self.console_name();
+        for name in [&console, &app, &gateway] {
             if self.container(name)?.is_some() {
                 output(crate::container::command()?.args(["stop", "--time", "20", name]))?;
                 output(crate::container::command()?.args(["rm", name]))?;
@@ -540,6 +543,7 @@ impl Installation {
                 .arg("serve");
             output(&mut command)?;
         }
+        self.start_console(release)?;
         self.wait_health()
     }
     pub fn resume(&self) -> anyhow::Result<()> {
@@ -928,6 +932,21 @@ pub fn install(package: &Path, directory: &Path) -> anyhow::Result<()> {
     atomic_json(&directory.join("config/images.json"), &release)
 }
 
+fn prepare_lab_console(directory: &Path, create: bool) -> anyhow::Result<()> {
+    require_lab(directory)?;
+    let console_fixture = directory.join("config/ht813-console.toml");
+    let console_configuration = "listen = \"127.0.0.1:8790\"\npublic_origin = \"http://127.0.0.1:8790\"\ndevice_origin = \"http://127.0.0.1:9\"\nassets = \"/opt/homephone/console/dist\"\n";
+    if console_fixture.try_exists()? {
+        ensure!(
+            std::fs::read_to_string(&console_fixture)? == console_configuration,
+            "lab console configuration must use the fixed isolated fixture"
+        );
+    } else if create {
+        private_file(&console_fixture, console_configuration.as_bytes())?;
+    }
+    Ok(())
+}
+
 pub fn lab(directory: &Path) -> anyhow::Result<()> {
     if !directory.exists() {
         crate::operations::initialize(
@@ -938,6 +957,7 @@ pub fn lab(directory: &Path) -> anyhow::Result<()> {
         )?;
     }
     require_lab(directory)?;
+    prepare_lab_console(directory, false)?;
     let source = crate::package::source_identity(Path::new("."))?;
     let (app, gateway) = image_references(&source, uuid::Uuid::new_v4())?;
     crate::operations::run(
@@ -984,6 +1004,7 @@ pub fn lab(directory: &Path) -> anyhow::Result<()> {
     let metadata = directory.join("config/images.json");
     if !metadata.exists() {
         atomic_json(&metadata, &candidate)?;
+        prepare_lab_console(directory, true)?;
         return boot(directory);
     }
     let installation = Installation::open(directory)?;
@@ -991,14 +1012,18 @@ pub fn lab(directory: &Path) -> anyhow::Result<()> {
         && installation.release.gateway.fingerprint == candidate.gateway.fingerprint
     {
         atomic_json(&metadata, &candidate)?;
+        prepare_lab_console(directory, true)?;
         return boot(directory);
     }
+    boot(directory)?;
     let backup = directory
         .parent()
         .context("lab requires a parent")?
         .join("backups")
         .join(uuid::Uuid::new_v4().to_string());
-    replace(directory, candidate, &backup, None, Retention::AllReleases)
+    replace(directory, candidate, &backup, None, Retention::AllReleases)?;
+    prepare_lab_console(directory, true)?;
+    boot(directory)
 }
 pub fn require_lab(directory: &Path) -> anyhow::Result<()> {
     let config: toml::Value = toml::from_str(&std::fs::read_to_string(
