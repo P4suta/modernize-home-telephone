@@ -6,6 +6,7 @@ export const callSchema = z.object({
 	id: z.uuid(),
 	direction: z.enum(["inbound", "outbound"]),
 	caller: z.string().max(256),
+	caller_label: z.string().min(1).max(512).exactOptional(),
 	phase: z.enum([
 		"offered",
 		"screening",
@@ -52,11 +53,17 @@ export const statusSchema = z.object({
 	gateway_ready: z.boolean(),
 	ai_configured: z.boolean(),
 	vapid_public_key: z.string().nullable(),
+	recording: z.object({
+		enabled: z.boolean(),
+		destination: z.enum(["local", "nas"]),
+		max_seconds: seconds.min(1).max(7200),
+		minimum_bytes: seconds.min(1),
+	}),
 }) satisfies z.ZodType<components["schemas"]["Status"]>;
 export type Status = z.infer<typeof statusSchema>;
 export const settingsSchema = z.object({
 	rules: z.record(z.string(), z.enum(["allow", "block", "screen"])),
-	retention_days: z.number().int().min(1).max(365).nullable(),
+	retention_days: z.number().int().min(0).max(365).nullable(),
 	recording_limit_bytes: seconds.min(1048576).nullable(),
 	webhook_url: z.url().nullable(),
 }) satisfies z.ZodType<components["schemas"]["Settings"]>;

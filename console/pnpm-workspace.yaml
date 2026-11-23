@@ -1,0 +1,15 @@
+minimumReleaseAgeStrict: true
+packages:
+  - mutation
+  - packages/*
+overrides:
+  typed-rest-client>qs: 6.16.1
+  minimatch@10.2.6: 11.0.1
+  '@sveltejs/vite-plugin-svelte>deepmerge': '-'
+packageExtensions:
+  '@sveltejs/vite-plugin-svelte@7.3.1':
+    dependencies:
+      deepmerge-ts: 8.0.2
+patchedDependencies:
+  '@stryker-mutator/instrumenter@10.1.1': patches/@stryker-mutator__instrumenter@10.1.1.patch
+  '@sveltejs/vite-plugin-svelte@7.3.1': patches/@sveltejs__vite-plugin-svelte@7.3.1.patch

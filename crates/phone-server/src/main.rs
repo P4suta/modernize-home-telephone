@@ -26,6 +26,18 @@ enum Operation {
         output: PathBuf,
     },
     CheckConfig,
+    CheckRecordingStorage,
+    ExportNasCredentials {
+        #[arg(long)]
+        output: PathBuf,
+    },
+    SyncPhonebook {
+        #[arg(long, default_value = "https://www.dial.page")]
+        origin: String,
+    },
+    LookupPhonebook {
+        number: String,
+    },
 }
 
 #[tokio::main]
@@ -52,9 +64,76 @@ async fn main() -> anyhow::Result<()> {
         None => Config::default(),
     };
     config.validate()?;
+    if let Some(Operation::ExportNasCredentials { output }) = &cli.command {
+        Secrets::export_nas_credentials(
+            &config,
+            secrets_file
+                .as_deref()
+                .context("a configuration file is required")?,
+            output,
+            |name| std::env::var(name).ok(),
+        )?;
+        println!("NASの認証情報を秘密ファイルへ保存しました。");
+        return Ok(());
+    }
     if matches!(cli.command, Some(Operation::CheckConfig)) {
         println!("Configuration is valid.");
         return Ok(());
+    }
+    if let Some(Operation::SyncPhonebook { origin }) = &cli.command {
+        #[cfg(feature = "plugin-phonebook")]
+        {
+            let sync = phone_plugin_phonebook::Sync::new(
+                origin,
+                config.mode == phone_server::config::Mode::Lab,
+            )?;
+            match sync.run(&config.data_dir).await? {
+                phone_plugin_phonebook::Report::Unchanged { snapshot } => {
+                    println!("公共電話帳は最新です。スナップショット: {snapshot}");
+                }
+                phone_plugin_phonebook::Report::Installed {
+                    snapshot,
+                    contacts,
+                    numbers,
+                    labels,
+                    skipped,
+                } => {
+                    println!(
+                        "公共電話帳を取り込みました。スナップショット: {snapshot}、連絡先: {contacts}件、番号: {numbers}件、表示名: {labels}件、除外: {skipped}件"
+                    );
+                }
+            }
+            return Ok(());
+        }
+        #[cfg(not(feature = "plugin-phonebook"))]
+        {
+            let _ = origin;
+            anyhow::bail!("Public Phonebook is absent from this build");
+        }
+    }
+    if let Some(Operation::LookupPhonebook { number }) = &cli.command {
+        #[cfg(feature = "plugin-phonebook")]
+        {
+            let label = phone_plugin_phonebook::label(&config.data_dir, number)?;
+            println!("{}", label.as_deref().unwrap_or("未登録"));
+            return Ok(());
+        }
+        #[cfg(not(feature = "plugin-phonebook"))]
+        {
+            let _ = number;
+            anyhow::bail!("Public Phonebook is absent from this build");
+        }
+    }
+    if matches!(cli.command, Some(Operation::CheckRecordingStorage)) {
+        #[cfg(feature = "plugin-nas")]
+        {
+            let secrets = Secrets::load_with_file(&config, secrets_file.as_deref())?;
+            phone_server::recordings::probe(&config, secrets.nas_credentials.as_ref()).await?;
+            println!("NASへの書き込みと読み取り照合を確認しました。");
+            return Ok(());
+        }
+        #[cfg(not(feature = "plugin-nas"))]
+        anyhow::bail!("NAS recording storage is absent from this build");
     }
     tracing_subscriber::fmt()
         .json()
@@ -63,9 +142,18 @@ async fn main() -> anyhow::Result<()> {
                 .unwrap_or_else(|_| "phone_server=info".into()),
         )
         .init();
-    let secrets = Secrets::load_with_file(&config, secrets_file.as_deref())?;
+    let secrets = Secrets::load_for_calls(&config, secrets_file.as_deref())?;
     let listener = tokio::net::TcpListener::bind(config.listen).await?;
     let store = Store::open(&config.data_dir.join("phone.sqlite")).await?;
+    if phone_server::recordings::cleanup_temporary(&config.data_dir)
+        .await
+        .is_err()
+    {
+        tracing::warn!(
+            operation = "recording_temporary_cleanup",
+            code = "startup_cleanup_failed"
+        );
+    }
     let ari = Ari::new(config.ari.clone(), secrets.ari_password.clone())?;
     let control = Control::start_quiesced(
         config.clone(),
@@ -82,9 +170,14 @@ async fn main() -> anyhow::Result<()> {
         ari.clone(),
         store.clone(),
         secrets.openai_key.clone(),
-    )?;
+    )?
+    .with_archive_credentials(secrets.nas_credentials.clone());
+    let mut notification_config = config.clone();
+    if notification_config.notifications.ntfy.is_some() && secrets.ntfy_token.is_none() {
+        notification_config.notifications.ntfy = None;
+    }
     let notifier =
-        phone_server::notifications::Notifier::new(config.clone(), store, secrets.clone())?;
+        phone_server::notifications::Notifier::new(notification_config, store, secrets.clone())?;
     let processing = tokio::spawn(processor.run(stop.clone()));
     let notifying = tokio::spawn(notifier.run(stop.clone()));
     let app = router(config.clone(), control.clone(), ari, secrets);
@@ -94,7 +187,7 @@ async fn main() -> anyhow::Result<()> {
         app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
     )
     .with_graceful_shutdown(async move {
-        shutdown_signal().await;
+        phone_server::shutdown::wait().await;
         control.shutdown().await;
     })
     .await?;
@@ -103,26 +196,4 @@ async fn main() -> anyhow::Result<()> {
     processing.context("recording worker shutdown failed")?;
     notifying.context("notification worker shutdown failed")?;
     Ok(())
-}
-
-async fn shutdown_signal() {
-    #[cfg(unix)]
-    {
-        match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
-            Ok(mut terminate) => {
-                tokio::select! { _ = terminate.recv() => {}, _ = tokio::signal::ctrl_c() => {} }
-            }
-            Err(_) => {
-                if tokio::signal::ctrl_c().await.is_err() {
-                    tracing::warn!(operation = "shutdown_signal", code = "ctrl_c_failed");
-                }
-            }
-        }
-    }
-    #[cfg(not(unix))]
-    {
-        if tokio::signal::ctrl_c().await.is_err() {
-            tracing::warn!(operation = "shutdown_signal", code = "ctrl_c_failed");
-        }
-    }
 }

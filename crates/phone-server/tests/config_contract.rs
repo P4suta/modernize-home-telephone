@@ -11,6 +11,123 @@ fn browser_calls_use_registered_sip_for_new_and_existing_configurations() {
     assert_eq!(custom.browser_endpoint, "PJSIP/office");
 }
 
+#[cfg(feature = "plugin-nas")]
+#[test]
+fn nas_directory_segments_match_the_archive_adapters_input_limits() {
+    let mut config = Config {
+        data_dir: "/srv/telephone/data".into(),
+        ..Config::default()
+    };
+    config.ai.provider = "disabled".into();
+    config.storage.retention_days = 0;
+    config.recording = Some(phone_server::config::CallRecording {
+        enabled: true,
+        max_seconds: 7200,
+        gateway_spool_dir: "/tmp/spool".into(),
+        nas: Some(phone_server::config::Nas {
+            archive_id: uuid::Uuid::new_v4(),
+            server: "nas.invalid".into(),
+            share: "home".into(),
+            directory: "a".repeat(128),
+            port: 445,
+            username_env: "NAS_USERNAME".into(),
+            password_env: "NAS_PASSWORD".into(),
+        }),
+    });
+    config.validate().unwrap();
+    config
+        .recording
+        .as_mut()
+        .unwrap()
+        .nas
+        .as_mut()
+        .unwrap()
+        .directory
+        .push('a');
+    assert!(config.validate().is_err());
+    config
+        .recording
+        .as_mut()
+        .unwrap()
+        .nas
+        .as_mut()
+        .unwrap()
+        .directory
+        .pop();
+    config.validate().unwrap();
+    config.data_dir = ".local/data".into();
+    assert!(
+        config.validate().is_err(),
+        "the NAS adapter needs absolute local paths"
+    );
+}
+
+#[test]
+fn production_accepts_explicit_local_calls_with_ai_off() {
+    let config: Config = toml::from_str(
+        "mode = 'production'\npublic_origin = 'https://phone.example.ts.net'\n[ai]\nprovider = 'disabled'\n",
+    ).unwrap();
+    config.validate().unwrap();
+}
+
+#[cfg(feature = "plugin-ntfy")]
+#[test]
+fn ntfy_is_optional_and_accepts_the_private_server_configuration() {
+    let config: Config = toml::from_str(
+        "[notifications.ntfy]\nserver = 'https://notify.example.ts.net:10443'\ntopic = 'home-status'\n",
+    )
+    .unwrap();
+    assert!(config.validate().is_ok());
+    assert!(Config::default().validate().is_ok());
+}
+
+#[cfg(feature = "plugin-ntfy")]
+#[test]
+fn ntfy_configuration_refuses_ambiguous_origins_topics_and_secret_names() {
+    let baseline: Config = toml::from_str(
+        "[notifications.ntfy]\nserver = 'https://notify.example.ts.net:10443'\ntopic = 'home-status'\n",
+    )
+    .unwrap();
+    for server in [
+        "http://notify.example.ts.net",
+        "http://localhost:8081",
+        "https://notify.example.ts.net/topic",
+        "https://user:password@notify.example.ts.net",
+        "https://notify.example.ts.net/?auth=secret",
+        "https://notify.example.ts.net/#topic",
+        "file:///tmp/ntfy",
+        "not-a-url",
+    ] {
+        let mut config = baseline.clone();
+        config.notifications.ntfy.as_mut().unwrap().server = server.into();
+        assert!(config.validate().is_err(), "{server}");
+    }
+    for topic in ["", "home/status", "home status", "着信", &"a".repeat(65)] {
+        let mut config = baseline.clone();
+        config.notifications.ntfy.as_mut().unwrap().topic = topic.into();
+        assert!(config.validate().is_err());
+    }
+    for topic in ["a", "Home-status_1", &"a".repeat(64)] {
+        let mut config = baseline.clone();
+        config.notifications.ntfy.as_mut().unwrap().topic = topic.into();
+        assert!(config.validate().is_ok());
+    }
+    for name in ["", "lowercase", "TOKEN-NAME", "TOKEN\n"] {
+        let mut config = baseline.clone();
+        config.notifications.ntfy.as_mut().unwrap().token_env = name.into();
+        assert!(config.validate().is_err());
+    }
+    for server in ["http://127.0.0.1:8081", "http://[::1]:8081"] {
+        let mut config = baseline.clone();
+        config.notifications.ntfy.as_mut().unwrap().server = server.into();
+        assert!(config.validate().is_ok());
+        config.mode = Mode::Production;
+        config.ai.provider = "openai".into();
+        config.public_origin = "https://phone.example.ts.net".into();
+        assert!(config.validate().is_err());
+    }
+}
+
 #[test]
 fn lab_is_local_and_requires_no_cloud_credentials() {
     let config = Config::default();
@@ -28,12 +145,28 @@ fn production_rejects_mock_ai_and_untrusted_http_access() {
         ..Config::default()
     };
     assert!(config.validate().is_err());
-    config.ai.provider = "openai".into();
-    config.allowed_users = vec!["owner@example.invalid".into()];
+    config.ai.provider = if cfg!(feature = "plugin-ai") {
+        "openai"
+    } else {
+        "disabled"
+    }
+    .into();
     config.public_origin = "https://phone.example.ts.net".into();
     assert!(config.validate().is_ok());
+    config.ai.provider = "disabled".into();
     config.listen = "0.0.0.0:8787".parse().unwrap();
     assert!(config.validate().is_err());
+}
+
+#[test]
+fn configurations_from_earlier_releases_keep_loading_without_user_lists() {
+    let config: Config = toml::from_str(
+        "mode = 'production'\npublic_origin = 'https://phone.example.ts.net'\nallowed_users = ['person@example.com']\n[ai]\nprovider = 'disabled'\n",
+    )
+    .unwrap();
+    config.validate().unwrap();
+    assert!(!toml::to_string(&config).unwrap().contains("allowed_users"));
+    assert!(toml::from_str::<Config>("allowed_users = 'person@example.com'").is_err());
 }
 
 #[test]

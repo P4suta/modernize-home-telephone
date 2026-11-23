@@ -50,6 +50,7 @@ async fn channel_readiness_bounds_identifiers_and_live_channel_inventory() {
     let client = Ari::new(Config::default().ari, "test-secret".into()).unwrap();
     let event = |id: String| AriEvent::StasisStart {
         channel: Channel {
+            creationtime: Some("2026-11-15T05:32:13.000+0900".into()),
             id,
             state: "Up".into(),
             caller: Default::default(),
@@ -75,6 +76,7 @@ async fn stasis_readiness_requires_the_exact_live_channel_and_resets_on_disconne
     let client = Ari::new(Config::default().ari, "test-secret".into()).unwrap();
     let event = |id: &str| AriEvent::StasisStart {
         channel: Channel {
+            creationtime: Some("2026-11-15T05:32:13.000+0900".into()),
             id: id.into(),
             state: "Up".into(),
             caller: Default::default(),
@@ -90,6 +92,7 @@ async fn stasis_readiness_requires_the_exact_live_channel_and_resets_on_disconne
     client
         .observe(&AriEvent::StasisEnd {
             channel: Channel {
+                creationtime: Some("2026-11-15T05:32:13.000+0900".into()),
                 id: "expected".into(),
                 state: "Down".into(),
                 caller: Default::default(),
@@ -172,4 +175,34 @@ async fn ari_distinguishes_not_found_cleanup_from_authentication_failure() {
             .is_err()
     );
     task.abort();
+}
+
+#[test]
+fn ingress_identity_requires_valid_creation_metadata_and_normalizes_offsets() {
+    use phone_server::gateway::IngressId;
+    let mut channel = Channel {
+        id: "generation-id".into(),
+        state: "Ring".into(),
+        creationtime: Some("2026-11-15T05:32:13.000+0900".into()),
+        caller: Default::default(),
+    };
+    let first = IngressId::new(&channel).unwrap();
+    channel.creationtime = Some("2026-11-14T20:32:13Z".into());
+    assert_eq!(first, IngressId::new(&channel).unwrap());
+    channel.creationtime = Some("2026-11-14T20:32:13.001Z".into());
+    assert_ne!(first, IngressId::new(&channel).unwrap());
+    for invalid in [
+        None,
+        Some(String::new()),
+        Some("2026-99-14T20:32:13Z".into()),
+        Some("x".repeat(65)),
+    ] {
+        channel.creationtime = invalid;
+        assert!(IngressId::new(&channel).is_err());
+    }
+    channel.creationtime = Some("2026-11-14T20:32:13Z".into());
+    for invalid in [String::new(), "x".repeat(257), "bad\nidentity".into()] {
+        channel.id = invalid;
+        assert!(IngressId::new(&channel).is_err());
+    }
 }

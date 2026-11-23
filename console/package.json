@@ -1,0 +1,63 @@
+{
+	"name": "homephone-console",
+	"private": true,
+	"type": "module",
+	"packageManager": "pnpm@12.17.0",
+	"engines": {
+		"node": ">=26.13.0"
+	},
+	"imports": {
+		"#lib": "./src/lib/index.js",
+		"#lib/*": "./src/lib/*"
+	},
+	"scripts": {
+		"dev": "vite --host 127.0.0.1 --port 5174 --strictPort",
+		"build": "pnpm build:packages && svelte-kit sync && vite build",
+		"build:packages": "pnpm --filter @homephone/settings-workflow build",
+		"preview": "vite preview --host 127.0.0.1",
+		"prepare": "svelte-kit sync",
+		"check": "pnpm build:packages && svelte-kit sync && svelte-check --fail-on-warnings --tsconfig ./tsconfig.json && vitest run",
+		"lint": "pnpm build:packages && svelte-kit sync && biome check src test packages package.json tsconfig.json vite.config.ts vitest.config.ts playwright.config.ts eslint.config.js prettier.config.js && prettier --check 'src/**/*.svelte' && eslint . --max-warnings 0",
+		"format": "biome format --write src test package.json tsconfig.json vite.config.ts vitest.config.ts playwright.config.ts eslint.config.js prettier.config.js && prettier --write 'src/**/*.svelte'",
+		"e2e": "playwright test",
+		"mutate": "node mutation/node_modules/@stryker-mutator/core/bin/stryker.js run"
+	},
+	"dependencies": {
+		"@homephone/settings-workflow": "workspace:*",
+		"@tanstack/svelte-query": "6.4.1",
+		"zod": "4.6.7"
+	},
+	"devDependencies": {
+		"@stryker-mutator/instrumenter": "10.1.1",
+		"@stryker-mutator/api": "10.1.1",
+		"@sveltejs/package": "3.0.2",
+		"@axe-core/playwright": "4.14.0",
+		"@biomejs/biome": "2.6.4",
+		"@eslint/js": "10.0.1",
+		"@playwright/test": "1.64.1",
+		"@sveltejs/adapter-static": "4.0.1",
+		"@sveltejs/kit": "3.2.0",
+		"@sveltejs/vite-plugin-svelte": "7.3.1",
+		"@testing-library/jest-dom": "7.0.1",
+		"@testing-library/svelte": "5.4.2",
+		"@testing-library/user-event": "14.6.8",
+		"@types/node": "26.6.6",
+		"chrome-launcher": "1.2.3",
+		"deepmerge-ts": "8.0.2",
+		"eslint": "10.14.0",
+		"eslint-config-prettier": "10.1.8",
+		"eslint-plugin-svelte": "3.24.1",
+		"globals": "17.14.0",
+		"jsdom": "30.1.3",
+		"lighthouse": "13.6.0",
+		"prettier": "3.10.1",
+		"prettier-plugin-svelte": "4.1.1",
+		"publint": "0.3.25",
+		"svelte": "5.57.3",
+		"svelte-check": "4.7.8",
+		"typescript": "6.0.3",
+		"typescript-eslint": "8.72.2",
+		"vite": "8.3.6",
+		"vitest": "5.1.0"
+	}
+}

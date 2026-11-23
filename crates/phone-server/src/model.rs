@@ -64,6 +64,9 @@ pub struct Call {
     pub id: Uuid,
     pub direction: String,
     pub caller: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schema(nullable = false, min_length = 1, max_length = 512)]
+    pub caller_label: Option<String>,
     pub phase: Phase,
     pub started_at: u64,
     pub ended_at: Option<u64>,
@@ -80,6 +83,7 @@ impl Call {
             id: Uuid::new_v4(),
             direction,
             caller,
+            caller_label: None,
             phase: Phase::Offered,
             started_at: now,
             ended_at: None,
@@ -146,6 +150,23 @@ pub struct Delivery {
     pub id: i64,
     pub payload: String,
     pub attempts: u32,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) enum NotificationReceipt {
+    #[cfg(feature = "plugin-ntfy")]
+    Ntfy(Uuid),
+    WebhookAndPush(i64),
+}
+
+impl NotificationReceipt {
+    pub(crate) fn key(self) -> (&'static str, String) {
+        match self {
+            #[cfg(feature = "plugin-ntfy")]
+            Self::Ntfy(call) => ("ntfy", call.to_string()),
+            Self::WebhookAndPush(event) => ("webhook_and_push", event.to_string()),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, ToSchema)]

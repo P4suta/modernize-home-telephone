@@ -1,0 +1,25 @@
+[package]
+name = "phone-plugin-nas"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+sha2 = "0.10"
+thiserror = "2"
+tokio = { version = "1", features = [
+  "fs",
+  "io-util",
+  "process",
+  "time",
+  "macros",
+] }
+uuid = "1"
+
+[dev-dependencies]
+tempfile = "3"
+tokio = { version = "1", features = ["rt-multi-thread"] }
+
+[lints]
+workspace = true

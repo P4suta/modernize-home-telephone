@@ -324,9 +324,14 @@ fn the_maintained_budgets_cover_the_lab_services_in_both_phases() {
     let budgets =
         Budgets::parse(&std::fs::read_to_string("../verification/footprint.toml").unwrap())
             .unwrap();
-    let expected = ["app", "gateway"];
-    assert!(budgets.images.keys().eq(expected));
+    assert!(budgets.images.keys().eq(["app", "gateway"]));
     for phase in [Phase::Started, Phase::Settled] {
-        assert!(budgets.services(phase).keys().eq(expected), "{phase:?}");
+        assert!(
+            budgets
+                .services(phase)
+                .keys()
+                .eq(["app", "console", "gateway"]),
+            "{phase:?}"
+        );
     }
 }

@@ -91,6 +91,132 @@ pub fn evidence(name: &str) -> anyhow::Result<()> {
     let value = std::fs::read(Path::new(".cache/assurance").join(format!("{name}.json")))?;
     check_evidence(Path::new("."), &value)
 }
+
+pub fn check_nas_report(report: &str, expected: &[String]) -> anyhow::Result<()> {
+    let inventory: BTreeSet<_> = expected.iter().cloned().collect();
+    ensure!(
+        !inventory.is_empty() && inventory.len() == expected.len(),
+        "NAS case inventory is empty or duplicated"
+    );
+    let mut actual = BTreeSet::new();
+    let mut complete = None;
+    for line in report.lines() {
+        if let Some(name) = line.strip_prefix("NAS PASS ") {
+            ensure!(
+                complete.is_none() && inventory.contains(name) && actual.insert(name.to_owned()),
+                "unknown, duplicated, or late NAS case"
+            );
+        } else if let Some(count) = line.strip_prefix("NAS COMPLETE ") {
+            ensure!(complete.is_none(), "NAS completion was repeated");
+            complete = Some(count.parse::<usize>()?);
+        } else {
+            ensure!(
+                !line.starts_with("NAS "),
+                "NAS case was skipped, retried, or failed"
+            );
+        }
+    }
+    ensure!(
+        actual == inventory && complete == Some(inventory.len()),
+        "NAS run is incomplete"
+    );
+    Ok(())
+}
+
+pub fn nas() -> anyhow::Result<()> {
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Inventory {
+        cases: Vec<String>,
+    }
+    let inventory: Inventory = toml::from_str(&std::fs::read_to_string("verification/nas.toml")?)?;
+    let mut trace = Trace::new()?;
+    trace.run(
+        "docker",
+        &[
+            "build",
+            "--platform",
+            "linux/arm64",
+            "-f",
+            "verification/Dockerfile.nas",
+            "-t",
+            "homephone-verification-nas:local",
+            ".",
+        ],
+    )?;
+    let image = Command::new("docker")
+        .args([
+            "image",
+            "inspect",
+            "--format",
+            "{{.Id}}",
+            "homephone-verification-nas:local",
+        ])
+        .output()?;
+    ensure!(
+        image.status.success(),
+        "NAS verification image is unavailable"
+    );
+    let image = String::from_utf8(image.stdout)?.trim().to_owned();
+    ensure!(
+        image.strip_prefix("sha256:").is_some_and(
+            |value| value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+        ),
+        "invalid NAS verification image identity"
+    );
+    let result = Command::new("docker")
+        .args([
+            "run",
+            "--rm",
+            "--pull",
+            "never",
+            "--network",
+            "none",
+            "--read-only",
+            "--cpus",
+            "2",
+            "--memory",
+            "2g",
+            "--memory-swap",
+            "2g",
+            "--pids-limit",
+            "256",
+            "--ulimit",
+            "core=0",
+            "--cap-drop",
+            "ALL",
+            "--cap-add",
+            "SETUID",
+            "--cap-add",
+            "SETGID",
+            "--cap-add",
+            "CHOWN",
+            "--cap-add",
+            "DAC_OVERRIDE",
+            "--cap-add",
+            "FOWNER",
+            "--tmpfs",
+            "/tmp:rw,noexec,nosuid,nodev,size=64m",
+            "--tmpfs",
+            "/run:rw,noexec,nosuid,nodev,size=16m",
+            "--tmpfs",
+            "/nas-share:rw,noexec,nosuid,nodev,size=16m",
+            &image,
+        ])
+        .output()?;
+    let mut bytes = result.stdout;
+    bytes.extend_from_slice(&result.stderr);
+    let path = trace.directory.join("nas.log");
+    crate::operations::private_file(&path, &bytes)?;
+    trace.files.push(path);
+    print!("{}", String::from_utf8_lossy(&bytes));
+    ensure!(
+        result.status.success(),
+        "NAS verification failed or exceeded its limits"
+    );
+    check_nas_report(std::str::from_utf8(&bytes)?, &inventory.cases)?;
+    trace.finish("nas")
+}
 pub fn check_evidence(root: &Path, bytes: &[u8]) -> anyhow::Result<()> {
     let stamp: Stamp = serde_json::from_slice(bytes)?;
     ensure!(
@@ -532,6 +658,45 @@ fn schema_with(trace: &mut Trace, update: bool) -> anyhow::Result<()> {
             "../.cache/schema-check/api.d.ts",
         ],
     )?;
+    trace.run(
+        "cargo",
+        &[
+            "run",
+            "--locked",
+            "-p",
+            "phone-server",
+            "--bin",
+            "ht813-console",
+            "--",
+            "schema",
+            "--output",
+            ".cache/schema-check/console.openapi.json",
+        ],
+    )?;
+    trace.run(
+        "pnpm",
+        &[
+            "--dir",
+            "web/codegen",
+            "exec",
+            "openapi-typescript",
+            "../../.cache/schema-check/console.openapi.json",
+            "-o",
+            "../../.cache/schema-check/console-api.d.ts",
+        ],
+    )?;
+    trace.run(
+        "pnpm",
+        &[
+            "--dir",
+            "console",
+            "exec",
+            "biome",
+            "format",
+            "--write",
+            "../.cache/schema-check/console-api.d.ts",
+        ],
+    )?;
     for (generated, target) in [
         (
             directory.join("openapi.json"),
@@ -540,6 +705,14 @@ fn schema_with(trace: &mut Trace, update: bool) -> anyhow::Result<()> {
         (
             directory.join("api.d.ts"),
             Path::new("web/src/generated/api.d.ts"),
+        ),
+        (
+            directory.join("console.openapi.json"),
+            Path::new("api/console.openapi.json"),
+        ),
+        (
+            directory.join("console-api.d.ts"),
+            Path::new("console/src/lib/generated/api.d.ts"),
         ),
     ] {
         if update {
@@ -568,6 +741,10 @@ pub fn fast() -> anyhow::Result<()> {
         ],
     )?;
     crate::assurance::contract_sources()?;
+    crate::console::check_references(
+        Path::new("."),
+        &std::fs::read("console/src/lib/parameters.json")?,
+    )?;
     trace.run("cargo", &["fmt", "--all", "--check"])?;
     trace.run(
         "cargo",
@@ -587,6 +764,31 @@ pub fn fast() -> anyhow::Result<()> {
         ],
     )?;
     trace.run("cargo", &["test", "--locked", "--workspace"])?;
+    trace.run(
+        "cargo",
+        &[
+            "test",
+            "--locked",
+            "-p",
+            "phone-server",
+            "--no-default-features",
+        ],
+    )?;
+    crate::plugins::check(Path::new("."))?;
+    for features in crate::plugins::host_feature_sets() {
+        let mut args = vec![
+            "clippy",
+            "--locked",
+            "-p",
+            "phone-server",
+            "--no-default-features",
+        ];
+        if !features.is_empty() {
+            args.extend(["--features", &features]);
+        }
+        args.extend(["--", "-D", "warnings"]);
+        trace.run("cargo", &args)?;
+    }
     trace.run(
         "pnpm",
         &[
@@ -631,6 +833,19 @@ pub fn fast() -> anyhow::Result<()> {
     )?;
     trace.run("pnpm", &["--dir", "web", "check"])?;
     trace.run("pnpm", &["--dir", "web", "exec", "vite", "build"])?;
+    trace.run(
+        "pnpm",
+        &[
+            "--dir",
+            "console",
+            "install",
+            "--frozen-lockfile",
+            "--ignore-scripts",
+        ],
+    )?;
+    trace.run("pnpm", &["--dir", "console", "lint"])?;
+    trace.run("pnpm", &["--dir", "console", "check"])?;
+    trace.run("pnpm", &["--dir", "console", "build"])?;
     schema_with(&mut trace, false)?;
     sources()?;
     crate::fault_catalog::check(
@@ -713,6 +928,10 @@ pub fn security() -> anyhow::Result<()> {
     let mut trace = Trace::new()?;
     trace.run("cargo", &["audit", "--deny", "warnings"])?;
     trace.run("pnpm", &["--dir", "web", "audit", "--audit-level", "low"])?;
+    trace.run(
+        "pnpm",
+        &["--dir", "console", "audit", "--audit-level", "low"],
+    )?;
     let source = PathBuf::from(".cache/secret-scan").join(uuid::Uuid::new_v4().to_string());
     crate::operations::private_directory(&source)?;
     let result = (|| -> anyhow::Result<()> {
@@ -737,4 +956,26 @@ pub fn security() -> anyhow::Result<()> {
     })();
     crate::operations::finish_cleanup(result, std::fs::remove_dir_all(source))?;
     trace.finish("security")
+}
+
+pub fn console_browser() -> anyhow::Result<()> {
+    let mut trace = Trace::new()?;
+    let report = PathBuf::from("console/test-results/results.json");
+    if report.try_exists()? {
+        std::fs::remove_file(&report)?;
+    }
+    trace.run("pnpm", &["--dir", "console", "e2e"])?;
+    #[derive(Deserialize)]
+    struct Inventory {
+        tests: Vec<String>,
+    }
+    let inventory: Inventory = toml::from_str(&std::fs::read_to_string(
+        "verification/console-browser.toml",
+    )?)?;
+    check_browser_report(
+        &serde_json::from_slice(&std::fs::read(&report)?)?,
+        &inventory.tests,
+    )?;
+    trace.files.push(report);
+    trace.finish("console_browser")
 }

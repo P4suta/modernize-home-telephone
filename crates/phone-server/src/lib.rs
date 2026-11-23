@@ -1,6 +1,8 @@
 pub mod app;
 pub mod config;
+pub mod console;
 pub mod controller;
+pub mod directory;
 pub mod gateway;
 mod http_body;
 pub mod maintenance;
@@ -10,6 +12,9 @@ pub mod notifications;
 pub mod postcall;
 pub mod provider;
 pub mod push;
+pub mod recordings;
 pub mod secrets;
+pub mod shutdown;
 pub mod snapshot;
 pub mod store;
+mod tailnet;

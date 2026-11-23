@@ -26,7 +26,7 @@ fn deployment_evidence_requires_current_sources_complete_operations_and_unchange
     let recording = directory.join(format!("restored/data/recordings/{sample}.wav"));
     std::fs::create_dir_all(recording.parent().unwrap()).unwrap();
     std::fs::write(&recording, "preserved recording").unwrap();
-    let report = serde_json::json!({"schema":1,"source":xtask::package::source_identity(root.path()).unwrap(),"instance_id":uuid::Uuid::new_v4(),"sample_id":sample,"successful_update":true,"failed_candidate_recovered":true,"journal_recovered":true,"restored_installation_booted":true,"recording_sha256":bundle::digest(&recording).unwrap(),"artifacts":artifacts,"manifests":manifests});
+    let report = serde_json::json!({"schema":2,"source":xtask::package::source_identity(root.path()).unwrap(),"instance_id":uuid::Uuid::new_v4(),"sample_id":sample,"successful_update":true,"failed_candidate_recovered":true,"journal_recovered":true,"restored_installation_booted":true,"console_restarted":true,"recording_sha256":bundle::digest(&recording).unwrap(),"artifacts":artifacts,"manifests":manifests});
     let check = |value: &serde_json::Value| {
         xtask::manager::check_rehearsal_report(root.path(), &serde_json::to_vec(value).unwrap())
     };
@@ -36,6 +36,7 @@ fn deployment_evidence_requires_current_sources_complete_operations_and_unchange
         "failed_candidate_recovered",
         "journal_recovered",
         "restored_installation_booted",
+        "console_restarted",
     ] {
         let mut changed = report.clone();
         changed[field] = serde_json::json!(false);

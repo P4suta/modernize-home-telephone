@@ -26,6 +26,8 @@ async fn committed_background_updates_and_deletions_wake_the_stream_before_its_p
         openai_key: None,
         webhook_secret: None,
         vapid_pem: None,
+        ntfy_token: None,
+        nas_credentials: None,
     };
     let ari = Ari::new(config.ari.clone(), secrets.ari_password.clone()).unwrap();
     let store = Store::open(&root.path().join("phone.sqlite"))
@@ -131,6 +133,8 @@ async fn an_idle_event_stream_observes_gateway_readiness_changes_without_call_ev
         openai_key: None,
         webhook_secret: None,
         vapid_pem: None,
+        ntfy_token: None,
+        nas_credentials: None,
     };
     let ari = Ari::new(config.ari.clone(), secrets.ari_password.clone()).unwrap();
     let store = Store::open(&root.path().join("phone.sqlite"))

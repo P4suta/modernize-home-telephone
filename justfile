@@ -45,10 +45,16 @@ mutants:
 web-mutants:
     mise x -- cargo xtask verify web-mutants
 
+console-mutants:
+    mise x -- cargo xtask verify console-mutants
+
+console-browser:
+    mise x -- cargo xtask console-browser
+
 evidence:
     mise x -- cargo xtask evidence
 
-release-check: check security package-inputs lab (footprint "started") browser (footprint "settled") deployment proof miri fuzz mutants web-mutants evidence
+release-check: check security package-inputs lab (footprint "started") browser (footprint "settled") deployment proof miri fuzz mutants web-mutants console-mutants console-browser evidence
 
 package output:
     mise x -- cargo xtask package --output {{ quote(output) }}

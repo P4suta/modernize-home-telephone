@@ -1,5 +1,6 @@
 tests = [
   "the synthetic microphone disables voice processing",
+  "NAS settings retain audio manually and explain a bounded local spool at narrow and enlarged sizes",
   "the workspace is accessible, monochrome, and fits a narrow screen with recording history",
   "real WebRTC carries known audio through takeover, hold, read aloud, and the saved recording",
   "outgoing WebRTC completes a SIPp dialog and returns the browser audio through RTP echo",

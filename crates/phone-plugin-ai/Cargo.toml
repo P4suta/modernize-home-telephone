@@ -1,0 +1,47 @@
+[package]
+name = "phone-plugin-ai"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+default = []
+runtime = [
+  "dep:anyhow",
+  "dep:base64",
+  "dep:futures-util",
+  "dep:serde",
+  "dep:serde_json",
+  "dep:tokio",
+  "dep:tokio-tungstenite",
+  "dep:tokio-util",
+  "dep:tracing",
+  "dep:reqwest",
+  "dep:url",
+]
+
+[dependencies]
+phone-core = { path = "../phone-core" }
+thiserror = "2"
+uuid = { version = "1", features = ["v4", "serde"] }
+anyhow = { version = "1", optional = true }
+base64 = { version = "0.22", optional = true }
+futures-util = { version = "0.3", optional = true }
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }
+tokio = { version = "1", features = ["full"], optional = true }
+tokio-tungstenite = { version = "0.30.0", features = [
+  "rustls-tls-webpki-roots",
+], optional = true }
+tokio-util = { version = "0.7", features = ["rt"], optional = true }
+tracing = { version = "0.1", optional = true }
+reqwest = { version = "0.13.5", features = [
+  "json",
+  "multipart",
+  "stream",
+], optional = true }
+url = { version = "2", optional = true }
+
+[lints]
+workspace = true

@@ -22,6 +22,12 @@ const status = {
 	gateway_ready: true,
 	ai_configured: true,
 	vapid_public_key: null,
+	recording: {
+		enabled: true,
+		destination: "local",
+		max_seconds: 7200,
+		minimum_bytes: 1048576,
+	},
 };
 const call = {
 	id: "5d85948d-d676-4933-bc83-6e04562efe8b",

@@ -1,0 +1,21 @@
+{
+	"extends": "$app/tsconfig",
+	"compilerOptions": {
+		"strict": true,
+		"allowJs": true,
+		"checkJs": true,
+		"noUncheckedIndexedAccess": true,
+		"exactOptionalPropertyTypes": true,
+		"types": ["$app/types", "node"]
+	},
+	"include": [
+		"src",
+		"test",
+		"packages/settings-workflow/src",
+		"vitest.config.ts",
+		"playwright.config.ts",
+		"vite.config.ts",
+		"prettier.config.js",
+		"eslint.config.js"
+	]
+}

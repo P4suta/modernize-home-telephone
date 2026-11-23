@@ -1,4 +1,18 @@
 [[cases]]
+source = "xtask/tests/rootless.rs"
+test = "installation_operations_run_only_through_the_selected_engine"
+invariant = "Installation, update, rollback, and rehearsal operations run every container command through the selected engine."
+previous_gap = "Release image retention listed, tagged, and removed images through Docker, so a rootless Podman installation reported a failure after every committed update."
+enforcement = "Scan the manager and operation adapters for direct Docker or Podman invocations and refuse any call that bypasses the engine selection."
+
+[[cases]]
+source = "xtask/tests/release_retention_faults.rs"
+test = "committed_replacements_select_only_superseded_release_images_that_no_container_uses"
+invariant = "A committed update or rollback leaves the engine with the running and replaced releases, every image a container uses, and no older release image."
+previous_gap = "Updates loaded every candidate and never removed one, so each superseded release kept its images and Podman's ID-mapped copies."
+enforcement = "Selection covers qualified Podman names, container-held images, unrelated repositories, and foreign registries; the deployment rehearsal removes a synthetic superseded tag through the real engine and reverifies the running release."
+
+[[cases]]
 source = "xtask/tests/cached_packages.rs"
 test = "prefetched_packages_do_not_require_repository_downloads"
 invariant = "APT's acquisition plan must request no repository download for a prefetched package."
@@ -90,6 +104,111 @@ previous_gap = "Sound downloads shared the untested checksum boundary, and cache
 enforcement = "Each attempt and archive has unique content; the real Docker instruction accepts valid bytes, rejects the injected corrupt digest, and accepts corruption after removing only its checksum option."
 
 [[cases]]
+source = "crates/phone-core/tests/notification.rs"
+test = "fresh_inbound_notifications_preserve_exact_time_boundaries"
+invariant = "Incoming publication includes the exact 120-second bound and refuses expired or inconsistent timestamps without overflow."
+previous_gap = "Incoming notification eligibility had no production decision or boundary tests."
+enforcement = "Core tests check zero, the exact bound, the next second, clock regression, and integer extrema, with a source-bound Kani property."
+
+[[cases]]
+source = "crates/phone-core/tests/notification.rs"
+test = "only_the_original_inbound_offered_event_can_notify"
+invariant = "Only the original inbound offered event permits an incoming notification."
+previous_gap = "Incoming and ringing events could both be treated as a request to notify."
+enforcement = "The native test crosses every event, direction, and call phase, and the Kani harness quantifies their complete domains."
+
+[[cases]]
+source = "crates/phone-core/tests/notification.rs"
+test = "notification_names_reject_unknown_and_misleading_external_values"
+invariant = "Stored event and direction names map to their exact notification meaning."
+previous_gap = "The notification boundary had no checked mapping for unknown names or trailing characters."
+enforcement = "Native parsing tests require every supported name and refuse changed case, empty values, unknown names, and trailing spaces."
+
+[[cases]]
+source = "crates/phone-server/tests/config_contract.rs"
+test = "ntfy_is_optional_and_accepts_the_private_server_configuration"
+invariant = "An absent ntfy section preserves disabled publication while a complete private configuration is accepted."
+previous_gap = "The configuration rejected the ntfy section as an unknown field."
+enforcement = "The native TOML test parses the private server shape and validates the unchanged default configuration."
+
+[[cases]]
+source = "crates/phone-server/tests/config_contract.rs"
+test = "ntfy_configuration_refuses_ambiguous_origins_topics_and_secret_names"
+invariant = "Ntfy configuration admits only a bounded topic and an unambiguous server origin with protected transport."
+previous_gap = "Ntfy had no endpoint, topic, or credential-reference validation."
+enforcement = "Independent invalid inputs cover URL components, topic characters and length, environment names, and production refusal of loopback HTTP."
+
+[[cases]]
+source = "crates/phone-server/tests/secrets_contract.rs"
+test = "ntfy_requires_a_private_header_safe_publisher_token_when_enabled"
+invariant = "Enabled ntfy publication requires a bounded credential that cannot inject a header."
+previous_gap = "Secret loading ignored the ntfy publisher token."
+enforcement = "Native tests refuse missing, empty, whitespace, control, Unicode, and oversized values while accepting the exact limit and disabled publication."
+
+[[cases]]
+source = "crates/phone-server/tests/ntfy_contract.rs"
+test = "incoming_calls_publish_private_japanese_ntfy_payloads"
+invariant = "Ntfy receives only the Japanese incoming notification and its selected publisher authorization."
+previous_gap = "No ntfy adapter existed and no test restricted its payload."
+enforcement = "A real HTTP fixture requires the exact payload, original call time, private app link, and bearer header without diagnostic or summary text."
+
+[[cases]]
+source = "crates/phone-server/tests/ntfy_contract.rs"
+test = "successful_ntfy_calls_stay_suppressed_across_events_and_restarts"
+invariant = "Acknowledged ntfy publication for a call survives repeated events and service restart."
+previous_gap = "A successful HTTP request alone left no durable per-call checkpoint."
+enforcement = "Repeated incoming and ringing events and a reopened SQLite store must leave the observed publication count at one."
+
+[[cases]]
+source = "crates/phone-server/tests/ntfy_contract.rs"
+test = "ntfy_and_webhook_failures_retry_without_repeating_successful_channels"
+invariant = "One notification channel failure cannot prevent another channel from being attempted or repeat its completed work."
+previous_gap = "Sequential publication stopped after the first failure and retried successful work after another channel failed."
+enforcement = "Each channel fails independently through real HTTP, and a retry must contact only the unfinished channel with a stable ntfy payload."
+
+[[cases]]
+source = "crates/phone-server/tests/ntfy_contract.rs"
+test = "delayed_ntfy_retries_expire_and_do_not_publish_stale_calls"
+invariant = "An old incoming event cannot become a new ntfy notification after recovery."
+previous_gap = "The durable outbox had no incoming publication age limit."
+enforcement = "A failed request remains pending until a retry beyond the publication window settles without another ntfy request."
+
+[[cases]]
+source = "crates/phone-server/tests/ntfy_contract.rs"
+test = "unknown_caller_values_never_enter_the_notification_body"
+invariant = "An unavailable or invalid caller value becomes a fixed Japanese explanation."
+previous_gap = "No ntfy payload contract excluded arbitrary caller text."
+enforcement = "HTTP observations check missing, anonymous, injected, Unicode, and oversized caller values against the exact safe body."
+
+[[cases]]
+source = "crates/phone-server/tests/ntfy_contract.rs"
+test = "rejected_or_unverified_ntfy_responses_remain_pending"
+invariant = "Only a bounded acknowledgement for the selected topic and sequence completes ntfy publication."
+previous_gap = "No ntfy response contract distinguished rejection or unrelated successful responses from acceptance."
+enforcement = "HTTP fixtures inject redirects, authentication and rate failures, malformed and oversized JSON, and independently incorrect acknowledgement fields before a successful retry."
+
+[[cases]]
+source = "crates/phone-server/tests/ntfy_contract.rs"
+test = "failed_ntfy_checkpoint_writes_keep_the_same_pending_notification"
+invariant = "A failed checkpoint write cannot discard an uncertain publication or change its sequence."
+previous_gap = "Notification tests did not fail the durable write after remote acceptance."
+enforcement = "A SQLite trigger rejects the checkpoint after HTTP acceptance, and a reopened store must retry the same payload after the fault is removed."
+
+[[cases]]
+source = "crates/phone-server/tests/ntfy_contract.rs"
+test = "notification_checkpoints_follow_call_deletion_and_history_retention"
+invariant = "Notification checkpoints retain no call identity after its event history is deleted."
+previous_gap = "Adding checkpoints initially left their rows behind during deletion and history pruning."
+enforcement = "Independent deletion and retention paths must remove the observed checkpoint rows without publishing another notification."
+
+[[cases]]
+source = "crates/phone-server/tests/ntfy_contract.rs"
+test = "ineligible_events_and_disabled_configuration_never_contact_ntfy"
+invariant = "Disabled publication and ineligible persisted events cause no ntfy request."
+previous_gap = "Core eligibility alone did not check its HTTP adapter wiring or the disabled configuration."
+enforcement = "A real HTTP observer must remain empty for outbound, unknown, ringing, completed, expired, future, and non-offered cases and default configuration."
+
+[[cases]]
 source = "xtask/tests/vendor_sources.rs"
 test = "inaccessible_archive_members_are_errors_instead_of_an_absent_archive"
 invariant = "A source member lookup failure cannot masquerade as an absent optional archive."
@@ -141,9 +260,9 @@ enforcement = "Each required asset is removed and resealed independently, and an
 [[cases]]
 source = "xtask/tests/deployment_evidence.rs"
 test = "deployment_evidence_requires_current_sources_complete_operations_and_unchanged_recoverable_files"
-invariant = "Deployment evidence must retain complete operations and recoverable files for the current sources."
+invariant = "Deployment evidence requires complete recovery, successful console shutdown and restart, and recoverable files for the current sources."
 previous_gap = "The rehearsal report recorded successful flags without a gate that revalidated its source identity, backup manifests, and restored recording."
-enforcement = "Incomplete operations, stale sources, changed restored audio, corrupted backups, and resealed changed manifests are refused."
+enforcement = "Incomplete operations, missing console lifecycle verification, stale sources, changed restored audio, corrupted backups, and resealed changed manifests are refused."
 
 [[cases]]
 source = "xtask/tests/sip_evidence.rs"
@@ -314,6 +433,318 @@ previous_gap = "A small fixture hid history page truncation and deletion of rows
 enforcement = "More than ten thousand earlier tombstones precede available recordings, and successive bounded expiry batches check file and row consistency."
 
 [[cases]]
+source = "crates/phone-core/tests/console_contract.rs"
+test = "stale_or_empty_drafts_cannot_begin_a_device_write"
+invariant = "A device write requires a changed draft based on the current settings revision."
+previous_gap = "No console submission gate distinguished stale drafts from changes based on a current snapshot."
+enforcement = "The contract rejects earlier and later revisions and an empty draft before producing a write plan."
+
+[[cases]]
+source = "crates/phone-core/tests/console_contract.rs"
+test = "every_submitted_write_requires_readback_before_another_write"
+invariant = "A submitted write requires device reconciliation before another write is permitted."
+previous_gap = "No console state recorded that a request could reach the device without a response reaching the browser."
+enforcement = "The contract refuses another write until a fresh read advances the revision and invalidates the previous draft."
+
+[[cases]]
+source = "crates/phone-server/src/console/http.rs"
+test = "status_rows_separate_registration_from_hook_state_and_ignore_table_wrappers"
+invariant = "Registration and line state remain distinct."
+previous_gap = "Generic table flattening omitted native port columns."
+enforcement = "Parse direct cells and reject nested wrapper duplication."
+
+[[cases]]
+source = "xtask/tests/console_contract.rs"
+test = "nested_fault_tests_cannot_bypass_required_enforcement_records"
+invariant = "Nested fault tests need their own enforcement records."
+previous_gap = "The inventory parser visited only top-level functions."
+enforcement = "Recursively collect qualified test identities and reject missing records."
+
+[[cases]]
+source = "xtask/tests/console_contract.rs"
+test = "parameter_coverage_refuses_omissions_duplicate_identifiers_and_changed_source_bindings"
+invariant = "The parameter catalogue preserves the complete source inventory."
+previous_gap = "A finite help count couldn't detect renamed or duplicated identifiers."
+enforcement = "Bind the identifier inventory and preserved source facts."
+
+[[cases]]
+source = "xtask/tests/console_contract.rs"
+test = "parameter_inventory_preserves_domains_and_rejects_ambiguous_definitions"
+invariant = "Source extraction preserves identifiers and commented definitions."
+previous_gap = "Initial extraction omitted commented parameters and section boundaries."
+enforcement = "Check source editions, domains, raw identifiers, and inactive definitions."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "secret_choice_values_remain_private_and_cannot_be_edited_as_public_options"
+invariant = "Private credentials never enter public choice values."
+previous_gap = "Radio grouping could restore a secret value after its initial redaction."
+enforcement = "Redact every secret after grouping and refuse public edits of secret choices."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "every_preserved_parameter_has_distinct_help_with_correct_polarity_and_ranges"
+invariant = "Every parameter retains its own meaning, polarity, range, and source value."
+previous_gap = "The initial help catalogue conflated account, mask, and duration parameters."
+enforcement = "Bind all 598 definitions and assert independent defaults and template assignments."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "private_keys_and_plain_text_credentials_are_never_disclosed"
+invariant = "Existing credentials remain private for every native control representation."
+previous_gap = "Password input checks omitted credential identifiers and private-key text areas."
+enforcement = "Identify credential parameters and reject empty replacement secrets."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "native_certificates_accept_the_documented_size_without_exposing_private_keys"
+invariant = "The native value bound admits documented certificate sizes."
+previous_gap = "The initial 4096-byte cap rejected an 8192-character certificate."
+enforcement = "Exercise the documented certificate size through native parsing and submission."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "unwrapped_radio_labels_preserve_negative_setting_semantics"
+invariant = "Yes and No preserve the meaning of negative settings."
+previous_gap = "Unwrapped native labels could lose their setting polarity."
+enforcement = "Extract adjacent radio labels and preserve their literal Boolean meaning."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "unverified_form_metadata_is_readable_but_never_writable"
+invariant = "Unverified metadata supplies no write authority."
+previous_gap = "Strict parsing prevented safe inspection without a separate read-only path."
+enforcement = "Read supported controls while refusing every submission mode."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "login_preserves_tokens_and_the_native_latin1_base64_encoding"
+invariant = "Native login preserves tokens and its defined password encoding."
+previous_gap = "The adapter had no executable native authentication contract."
+enforcement = "Assert exact hidden fields and Latin-1 Base64 values."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "form_parsing_groups_choices_and_redacts_password_values"
+invariant = "Public fields reflect successful controls and exclude saved secrets."
+previous_gap = "The adapter had no grouped-control projection contract."
+enforcement = "Check field kinds, selected values, and password redaction."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "settings_preserve_successful_controls_and_the_clicked_submitter"
+invariant = "A submission preserves untouched native state and its selected action."
+previous_gap = "Save and Apply could otherwise collapse into one request."
+enforcement = "Assert exact successful controls and the distinct clicked submitter."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "untrusted_field_changes_cannot_replace_tokens_or_escape_choices"
+invariant = "Patches cannot edit native tokens or unsupported values."
+previous_gap = "Browser input alone supplied no native-field trust boundary."
+enforcement = "Reject hidden, unknown, oversized, and invalid-choice patches."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "token_rotation_does_not_hide_changed_controls_or_reordered_fields"
+invariant = "Fresh tokens don't hide a changed native baseline."
+previous_gap = "Token equality could incorrectly stand in for form equality."
+enforcement = "Compare private controls while excluding only rotating token values."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "external_endpoints_and_ambiguous_native_tokens_are_refused"
+invariant = "Native actions remain within the configured device origin."
+previous_gap = "Untrusted form metadata could redirect credential-bearing submissions."
+enforcement = "Reject external actions and malformed or duplicated tokens."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "login_refuses_ambiguous_or_disabled_credentials_and_different_handlers"
+invariant = "Only the observed native credential transform can authorize login."
+previous_gap = "A familiar form label alone didn't establish equivalent encoding."
+enforcement = "Reject altered handlers and ambiguous credential controls."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "uppercase_submit_types_preserve_native_browser_behavior"
+invariant = "HTML attribute casing preserves submitter behavior."
+previous_gap = "A case-sensitive adapter could drop valid native actions."
+enforcement = "Parse uppercase native submit types and preserve both operations."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "disabled_option_groups_are_not_submittable"
+invariant = "Unavailable native choices can't enter a patch."
+previous_gap = "Option-group state could be lost during field flattening."
+enforcement = "Reject choices inherited from disabled groups."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "unchanged_required_fields_still_block_an_invalid_submission"
+invariant = "Required native controls remain valid across the complete form."
+previous_gap = "Validating only edited values omitted unchanged required controls."
+enforcement = "Reject a submission with an unchanged empty required control."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "oversized_forms_and_unknown_script_transforms_are_refused"
+invariant = "Unbounded or unverified native behavior grants no write authority."
+previous_gap = "A familiar action URL didn't prove script equivalence or bounded input."
+enforcement = "Enforce body bounds and refuse unknown transformations."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::matching_public_readback_still_requires_independent_secret_verification"
+invariant = "Secret changes remain unverified even after public values match."
+previous_gap = "An accepted response couldn't establish the saved secret value."
+enforcement = "Require independent secret verification and omit its value from receipts."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::a_secret_change_cannot_hide_an_unapplied_public_change"
+invariant = "Every public change must match after a mixed write."
+previous_gap = "The secret result could conceal a failed public comparison."
+enforcement = "Inject an ignored public value beside an accepted secret change."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::readback_cannot_confirm_values_bound_to_a_different_native_parameter"
+invariant = "Readback requires the reviewed native parameter identity."
+previous_gap = "Equal opaque field positions could refer to different parameters."
+enforcement = "Replace a native parameter after submission and require an uncertain result."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::a_review_from_an_earlier_browser_session_cannot_authorize_a_write"
+invariant = "Reviews belong to one application session."
+previous_gap = "Numeric revisions could collide after reauthentication."
+enforcement = "Reject a prior view token without a native submission."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::a_review_for_another_page_cannot_authorize_a_write"
+invariant = "Reviews belong to their specific settings page."
+previous_gap = "Independent pages could share the same numeric revision."
+enforcement = "Reject a different page's review token without a native submission."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::console_configuration_refuses_public_listeners_and_ambiguous_origins"
+invariant = "Remote access requires an explicit protected boundary."
+previous_gap = "A generic listener or URL could expose device administration."
+enforcement = "Validate loopback listeners, strict origins, HTTPS, and the user allowlist."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::browser_authentication_hides_native_credentials_and_revokes_logout"
+invariant = "Browser authentication conveys no native credentials and logout revokes access."
+previous_gap = "The administration adapter had no session-lifetime contract."
+enforcement = "Check cookie attributes, redaction, and revoked requests."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::cross_origin_and_unknown_fields_do_not_reach_native_authentication"
+invariant = "Untrusted browser requests can't cross the native boundary."
+previous_gap = "Origin and payload validation needed observable effect checks."
+enforcement = "Require rejection before native authentication or writes."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::native_read_authentication_recovers_without_invalidating_an_unchanged_draft"
+invariant = "Read recovery preserves a review whose values remain unchanged."
+previous_gap = "Native expiry could otherwise discard a pending edit."
+enforcement = "Expire the native cookie and require one reauthentication with a stable revision."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::reviewed_writes_use_fresh_tokens_and_cannot_replay_the_old_revision"
+invariant = "Each reviewed write uses fresh native tokens and can't replay its revision."
+previous_gap = "A saved form token could become stale before submission."
+enforcement = "Rotate native tokens and reject a repeated review after one write."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::a_failed_native_response_is_reconciled_without_automatic_write_retry"
+invariant = "A response failure never repeats a possibly completed write."
+previous_gap = "Transport failure alone couldn't distinguish an unapplied request."
+enforcement = "Inject failure after the native effect and require one write and an uncertain receipt."
+[[cases]]
+source = "crates/phone-core/tests/plugins.rs"
+test = "unavailable_reception_preserves_ringing_and_explicit_block_rules"
+invariant = "An unavailable reception plugin preserves ordinary ringing and explicit block rules."
+previous_gap = "The default screening rule selected reception even when no plugin was available."
+enforcement = "Native cases cross every rule and availability value, and a Kani harness checks the production decision without assumptions."
+
+[[cases]]
+source = "xtask/tests/plugins.rs"
+test = "plugin_dependencies_cannot_reach_the_host_or_another_plugin"
+invariant = "Optional plugin implementations cannot depend on the host or another plugin."
+previous_gap = "Optional implementations shared the host crate without an executable dependency boundary."
+enforcement = "The fast gate checks Cargo metadata, rejects missing inventories and forbidden dependencies, and compiles every feature combination."
+
+[[cases]]
+source = "xtask/tests/rootless.rs"
+test = "rootless_units_preserve_the_selected_engine_without_a_system_docker_dependency"
+invariant = "Rootless supervision retains Podman and uses the service account's user manager."
+previous_gap = "The manager rejected the engine option and generated only a system Docker dependency."
+enforcement = "The public command must generate the Podman environment and user target without a system Docker service or User directive."
+
+[[cases]]
+source = "crates/phone-server/tests/config_contract.rs"
+test = "production_accepts_explicit_local_calls_with_ai_off"
+invariant = "Production can select ordinary calls without AI."
+previous_gap = "Production configuration required an OpenAI provider even for ordinary telephone service."
+enforcement = "The complete production configuration must accept the explicit provider selection while existing HTTPS and identity checks remain required."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "ai_off_rings_unknown_callers_without_answering_recording_or_voicemail"
+invariant = "Unknown callers ring normally with AI off and unanswered calls end without automatic media."
+previous_gap = "Missing AI reception still answered the line and started a recording before fallback."
+enforcement = "An HTTP observer and persisted call state reject automatic answering, recordings, media creation, and voicemail during an unanswered call."
+
+[[cases]]
+source = "crates/phone-server/tests/postcall_faults.rs"
+test = "ai_off_never_sends_preserved_recordings_to_a_provider"
+invariant = "AI off prevents cloud inference for preserved recordings even when a credential exists."
+previous_gap = "The inference worker treated every non-mock provider as OpenAI."
+enforcement = "A real HTTP observer must see no request, completion must succeed, and the preserved audio bytes must remain intact."
+
+[[cases]]
+source = "crates/phone-server/tests/provider_off.rs"
+test = "ai_off_refuses_media_before_any_request_even_with_credentials"
+invariant = "AI off refuses a media session before an external effect."
+previous_gap = "Any present key admitted media creation regardless of provider selection."
+enforcement = "A real HTTP observer must remain empty when the media entry point receives synthetic credentials with AI off."
+
+[[cases]]
+source = "crates/phone-server/tests/secrets_contract.rs"
+test = "missing_ntfy_credentials_do_not_prevent_loading_the_call_service"
+invariant = "Unavailable ntfy credentials do not prevent ordinary call-service startup."
+previous_gap = "An optional publisher credential was required by the main service secret loader."
+enforcement = "The call-service loader must preserve required telephone credentials without ntfy while still refusing missing production credentials."
+[[cases]]
+source = "xtask/tests/bundle.rs"
+test = "packages_preserve_framework_source_names_without_relaxing_backup_paths"
+invariant = "Package source names preserve framework punctuation without admitting traversal or changing backup validation."
+previous_gap = "The first real package refused SvelteKit route and patch filenames after successful image builds."
+enforcement = "A package must restore exact plus and at-sign filenames, backup sealing must refuse them, and hostile manifests must fail at path validation before any destination exists."
+[[cases]]
+source = "crates/phone-server/tests/http_contract.rs"
+test = "identity_headers_require_loopback_and_delegate_user_authorization_to_the_tailnet"
+invariant = "The tailnet policy authorizes remote users while only loopback peers can supply trusted identity headers."
+previous_gap = "A duplicate application user list could reject a user already authorized by the tailnet policy."
+enforcement = "Native HTTP cases accept distinct identities without a local list and refuse missing or blank identities and nonloopback peers."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::remote_console_requires_identity_and_device_authentication_without_a_user_list"
+invariant = "Remote console access requires a trusted identity, valid request origin, and a separate authenticated device session."
+previous_gap = "Remote console access depended on a duplicate user list and lacked a direct remote identity contract test."
+enforcement = "Native HTTP cases reject absent, empty, whitespace, underscore-spelled, and duplicate identity headers, foreign origins, and unauthenticated page access."
+
+[[cases]]
 source = "xtask/tests/gateway_migration.rs"
 test = "the_published_asterisk_configuration_upgrades_with_its_original_credentials"
 invariant = "An installation initialized by the published Asterisk release can use its existing credentials after the update."
@@ -403,3 +834,549 @@ test = "package_builds_isolate_compiled_artifacts_between_source_revisions"
 invariant = "Package binaries match the source in their build context."
 previous_gap = "A shared Cargo target directory reused the Rusterisk call path when building the earlier Asterisk app."
 enforcement = "The build recipes keep workspace targets in source-specific Docker layers and cache registry downloads independently."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "external_scripts_cannot_silently_qualify_as_plain_settings"
+invariant = "External scripts require reviewed behavior before settings can be submitted."
+previous_gap = "Empty external script bodies could be mistaken for a form without scripts."
+enforcement = "An external resource on an otherwise plain form must remove save and apply authority."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "native_session_tokens_rotate_without_changing_a_reviewed_setting"
+invariant = "One hidden native session token may rotate without changing the reviewed settings."
+previous_gap = "The adapter recognized only csrf_token and refused the observed session_token form."
+enforcement = "Accept the native alias, preserve fresh tokens, and reject duplicated, disabled, or visible session tokens."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "submitters_preserve_their_position_before_trailing_hidden_controls"
+invariant = "The selected submitter retains its position in the HTML form entry list."
+previous_gap = "Appending the submitter moved it after a trailing gnkey control in observed firmware."
+enforcement = "Save and apply must each match the independent expected order with the hidden key last."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "changed_web_passwords_must_remain_encodable_by_native_login"
+invariant = "Changed device web passwords remain representable by the native Latin-1 login transform."
+previous_gap = "Password edits accepted characters that the native login encoder must refuse."
+enforcement = "Exercise every web password parameter with an admitted Latin-1 value and a rejected Japanese value."
+
+[[cases]]
+source = "crates/phone-server/src/console/native/profile.rs"
+test = "tests::reviewed_profiles_enable_password_editing_and_preserve_generated_controls"
+invariant = "Reviewed script profiles preserve generated controls and deliberate password edits."
+previous_gap = "Refusing every scripted form prevented saving settings on the observed firmware."
+enforcement = "A privately injected fixture manifest exercises the production qualification logic without redistributing manufacturer scripts."
+
+[[cases]]
+source = "crates/phone-server/src/console/native/profile.rs"
+test = "tests::changed_peer_ports_invalidate_review_and_collisions_are_refused"
+invariant = "Reviewed SIP port constraints remain current and prevent local port collisions."
+previous_gap = "The opposite port exists in a script literal outside the parsed form controls."
+enforcement = "Changing the peer port changes review identity, while collisions, malformed ports, and out-of-domain literals are refused."
+
+[[cases]]
+source = "crates/phone-server/src/console/native/profile.rs"
+test = "tests::altered_script_bindings_do_not_grant_write_authority"
+invariant = "Known scripts authorize only their expected control bindings and generated-control location."
+previous_gap = "A fingerprint alone accepted renamed controls or a generated control outside the settings form."
+enforcement = "Rename or retype dependent controls, move a generator, duplicate its parameter, or replace the form handler and require refusal."
+
+[[cases]]
+source = "crates/phone-server/src/console/native/profile.rs"
+test = "tests::missing_or_changed_script_evidence_cannot_authorize_settings"
+invariant = "Qualification requires all reviewed same-origin resources and unchanged inline behavior."
+previous_gap = "External resource identity was absent from the submission boundary."
+enforcement = "Reject absent or changed resource bytes, foreign and unknown URLs, query changes, altered script attributes, and changed or additional inline behavior."
+
+[[cases]]
+source = "crates/phone-server/src/console/native/profile.rs"
+test = "tests::reviewed_single_select_aliases_preserve_the_last_selected_value"
+invariant = "A reviewed single select preserves browser value semantics when labels share one value."
+previous_gap = "The observed basic settings page repeats one timezone value, making strict parsing refuse the complete page."
+enforcement = "Require the last selected value and reject multiple selection or aliases with conflicting disabled states."
+
+[[cases]]
+source = "crates/phone-server/src/console/native/profile.rs"
+test = "tests::reviewed_tls_validation_preserves_the_native_sentinel_and_comparison"
+invariant = "The qualified advanced form preserves the native TLS range sentinel and string comparison."
+previous_gap = "Ignoring the native form handler could submit a minimum version that its browser validation refuses."
+enforcement = "Cross all observed minimum and maximum encodings, including the sentinel, and reject absent or duplicated controls."
+
+[[cases]]
+source = "crates/phone-server/src/console/native/profile.rs"
+test = "tests::unrelated_quoted_values_are_not_treated_as_generated_option_slots"
+invariant = "Only the reviewed generated-option pattern supplies a normalized value slot."
+previous_gap = "A reset button contained a quoted value that the generic slot prefix incorrectly treated as an option field."
+enforcement = "Unrelated quoted button values retain their exact source and produce no generated-option data."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "observed_firmware_parameters_have_help_without_invented_template_values"
+invariant = "Observed firmware controls have complete help without fabricated template assignments."
+previous_gap = "The preserved template omitted ten active controls and used an unprefixed identifier that did not match the native form."
+enforcement = "Require each additional parameter and the confirmed P8467 mapping, while refusing invented template values."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "firmware_help_rejects_duplicate_missing_or_misrepresented_sources"
+invariant = "Firmware supplements retain distinct identities and their actual source kind."
+previous_gap = "A template-only model could not express an observed control without a fabricated line or secret-value placeholder."
+enforcement = "Reject empty and duplicated supplements, template provenance, invented values, empty explanations, and reversed ranges."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "every_observed_form_field_remains_documented"
+invariant = "Every field in the four qualified firmware forms resolves to one explanation."
+previous_gap = "Counting the preserved template definitions did not cover fields omitted from that template."
+enforcement = "The maintained 597-field inventory requires all four observed pages, their exact field counts, unique identifiers, and exactly one explanation per field."
+
+[[cases]]
+source = "crates/phone-server/src/console/http.rs"
+test = "status_columns_follow_headers_across_spacers_and_separate_port_tables"
+invariant = "Status fields retain their table column meanings."
+previous_gap = "Fixed offsets mislabeled registration after an empty spacer and treated a separate DND row as hook state."
+enforcement = "Synthetic spacer, reordered, and separate port tables require exact hook, registration, and DND labels."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::review_checks_native_values_without_submitting_or_consuming_the_revision"
+invariant = "Review validates native values without a device write."
+previous_gap = "The console API provided submission without a headless validation operation."
+enforcement = "Valid and invalid reviews preserve the write count and allow the unchanged reviewed revision to submit once."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::cli_login_reads_and_revokes_its_own_private_session_without_a_browser"
+invariant = "CLI authentication remains independent from browser storage."
+previous_gap = "Only browser interaction could create and revoke a management session."
+enforcement = "A subprocess authenticates, reads state, and revokes its private session without retaining the device password."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::cli_public_plans_are_validated_single_use_and_reconciled"
+invariant = "A reviewed plan permits one submission across concurrent processes and copied files."
+previous_gap = "Headless submission had no shared review or persistent claim."
+enforcement = "Concurrent attempts produce one confirmed write and one local refusal, copied plans remain consumed, and reconciliation observes public values."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::cli_plan_and_private_secret_changes_cannot_authorize_an_unreviewed_write"
+invariant = "A plan binds public values and resolved private secrets without disclosing them."
+previous_gap = "A secret reference alone could change after review."
+enforcement = "Modified public values and secret contents refuse writes, while an unchanged secret produces an explicit verification requirement."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::cli_ambiguous_and_stale_writes_never_retry_or_report_success"
+invariant = "Stale or ambiguous submissions never become successful automatic retries."
+previous_gap = "A headless adapter could lose the browser reconciliation discipline."
+enforcement = "External changes prevent submission, native failure remains uncertain, consumed plans refuse replay, and a fresh read reports current public values."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::cli_private_inputs_refuse_permissions_links_pipes_and_plaintext_secrets"
+invariant = "CLI private inputs have bounded regular-file and permission checks."
+previous_gap = "Inherited FIFO permissions could trigger a permission refusal before the intended file-type check."
+enforcement = "A private FIFO must produce the file-type refusal, while other cases reject unsafe permissions, links, plaintext secrets, malformed input, or empty changes without a write."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::cli_credentials_do_not_follow_redirects_and_invalid_responses_cannot_leak_secrets"
+invariant = "Remote responses cannot redirect credentials or expose secret values."
+previous_gap = "A generic HTTP client could follow login redirects or print invalid server fields."
+enforcement = "A redirect never reaches its sink, and malformed secret snapshots and error bodies produce no sensitive output."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::cli_sessions_bind_plans_and_accept_credentials_from_a_private_pipe"
+invariant = "A plan cannot cross independently authenticated CLI sessions."
+previous_gap = "A revision or plan file alone could be mistaken for session authority."
+enforcement = "Another session cannot submit the plan, and piped administrator credentials remain absent from retained state and output."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::cli_incomplete_login_revokes_an_issued_cookie_without_retaining_credentials"
+invariant = "An incomplete CLI login revokes any known issued session."
+previous_gap = "A malformed response could leave an untracked native-authenticated session active until expiry."
+enforcement = "A successful cookie with an invalid body causes one authenticated revocation and leaves no session file or sensitive diagnostic."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::cli_output_failures_return_errors_without_panics_or_replaying_writes"
+invariant = "CLI output failures return command errors while preserving single-use submission claims."
+previous_gap = "Printing macros could panic when the receiving process closed an output socket."
+enforcement = "Broken output after submission and broken error output after a stale refusal return command failure, preserve the single native write, and leave both plans consumed."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::cli_human_output_explains_the_workflow_and_preserves_machine_results"
+invariant = "Human presentation preserves redaction and the exact submission outcome."
+previous_gap = "Interactive users received raw JSON without a readable workflow or recovery action."
+enforcement = "A synthetic workflow checks greetings, documentation, public changes, hidden secrets, independent verification, JSON output, and logout."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::cli_human_output_neutralizes_terminal_controls_and_explains_empty_passwords"
+invariant = "Device text cannot inject terminal controls into human output."
+previous_gap = "Human presentation introduced a boundary where escaped JSON values could become active terminal control sequences."
+enforcement = "A device value containing an OSC clipboard sequence renders without active controls, while empty credentials receive a specific explanation without creating a session."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::cli_selects_human_output_in_a_terminal_and_json_when_requested"
+invariant = "An actual terminal receives human output and explicit JSON remains parseable."
+previous_gap = "A pseudo-terminal driver closed its input and mixed its own EOF echo into captured CLI output."
+enforcement = "An open input stream preserves the native pseudo-terminal while subprocesses check human output, parseable JSON, bold-only styling, and NO_COLOR."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::cli_human_failures_preserve_uncertainty_and_explain_connection_errors"
+invariant = "Human error messages preserve uncertainty and provide readable recovery actions."
+previous_gap = "A diagnostic escaped its intended line breaks and left connection failures as a generic technical error."
+enforcement = "A stale submission remains consumed with no write, its explanation keeps line breaks and a reconciliation command, and a refused connection receives a readable explanation."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "a_terminal_ingress_cannot_be_admitted_again_or_block_the_next_call"
+invariant = "One gateway ingress channel can create at most one incoming call."
+previous_gap = "Admission recognized a repeated channel only while its first call still owned the line."
+enforcement = "Replay a completed ingress and require refusal, one original record, no repeated ringing, and admission of a distinct channel with the same caller."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "deleting_history_does_not_allow_a_retired_ingress_to_ring_again"
+invariant = "Deleting call history cannot reopen a consumed gateway ingress."
+previous_gap = "No admission identity survived terminal cleanup or deletion of its call record."
+enforcement = "Delete a completed call, replay its ingress, and require no call record or ringing while a distinct ingress remains admissible."
+
+[[cases]]
+source = "crates/phone-server/tests/store_contract.rs"
+test = "ingress_consumption_survives_deletion_retention_and_restart"
+invariant = "Consumed ingress identities survive history deletion and restart without suppressing a new channel generation."
+previous_gap = "Admission identities disappeared with live resources."
+enforcement = "Reopen after deletion and retention, refuse an equivalent timestamp, and accept the same ID with a new creation instant."
+
+[[cases]]
+source = "crates/phone-server/tests/store_contract.rs"
+test = "ingress_event_and_resource_admission_roll_back_together"
+invariant = "Ingress consumption, its initial event, and root resource commit atomically."
+previous_gap = "No storage fault exercised ingress identity consumption with event and resource insertion."
+enforcement = "Abort event and resource inserts separately, require complete rollback, and then accept the same ingress."
+
+[[cases]]
+source = "crates/phone-server/tests/store_contract.rs"
+test = "ingress_schema_migration_preserves_previous_calls_and_refuses_future_versions"
+invariant = "Schema migration preserves existing calls and refuses unknown database versions."
+previous_gap = "No migration test covered persistent ingress protection."
+enforcement = "Migrate a previous schema with retained calls, verify its version, and reject a newer unsupported version."
+
+[[cases]]
+source = "crates/phone-server/tests/gateway_contract.rs"
+test = "ingress_identity_requires_valid_creation_metadata_and_normalizes_offsets"
+invariant = "Ingress identity includes a validated canonical creation instant."
+previous_gap = "A process restart can reuse an Asterisk channel ID."
+enforcement = "Normalize equivalent offsets, distinguish creation instants, and refuse missing or invalid identity metadata."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "stale_gateway_events_cannot_reuse_or_terminate_another_channel_generation"
+invariant = "Lifecycle events belong to the exact channel generation that produced them."
+previous_gap = "Active root matching discarded channel creation metadata."
+enforcement = "Deliver a stale terminal event through the gateway WebSocket, wait for a causal event barrier, and preserve the newer call while refusing competing generations."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "rejected_ingress_cleanup_failure_blocks_admission_until_reconciled"
+invariant = "Rejected live ingress remains recoverable after cleanup failure."
+previous_gap = "A refused ingress could return without tracking an orphan channel."
+enforcement = "Fail rejected-channel deletion, require quarantine and durable tracking, then reconcile before admitting another call."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "rejected_orphan_quarantine_preserves_the_active_call"
+invariant = "Unowned-channel quarantine preserves an already-owned live call."
+previous_gap = "The unavailable gate could delete the active root before checking its identity."
+enforcement = "Fail orphan cleanup beside an active call and require idempotent acceptance of its live root without ending it."
+
+[[cases]]
+source = "crates/phone-server/tests/store_contract.rs"
+test = "concurrent_ingress_admission_commits_one_initial_event"
+invariant = "Concurrent ingress attempts can commit one initial call and event."
+previous_gap = "A second active-call constraint could mask missing ingress deduplication."
+enforcement = "Require one explicit replay outcome, one accepted outcome, and one call, event, outbox row, and root."
+
+[[cases]]
+source = "crates/phone-server/tests/store_contract.rs"
+test = "a_failed_ingress_migration_preserves_the_previous_schema"
+invariant = "Failed migration leaves the previous schema and retained data intact."
+previous_gap = "An interrupted multi-statement migration could leave a partial ingress table."
+enforcement = "Force migration failure after table creation and require the previous version without the new table."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "malformed_ingress_cannot_delete_live_root_or_peer_channels"
+invariant = "Invalid ingress metadata cannot delete channels belonging to the active call."
+previous_gap = "Orphan rejection tests omitted malformed events naming an active root or peer."
+enforcement = "Reject missing creation metadata for the live root and both peers, preserve resources and readiness, and accept the valid repeated root without gateway effects."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "gateway_admission_preserves_numbers_and_normalizes_unavailable_callers"
+invariant = "Gateway admission preserves numeric callers and normalizes unavailable incoming identity."
+previous_gap = "Controller tests checked call phases without asserting caller identity across directions."
+enforcement = "Admit numbered incoming, unavailable incoming, and numbered outgoing calls and verify their persisted caller and direction independently."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "valid_peer_replays_preserve_ringing_and_connected_calls"
+invariant = "Valid repeated ingress cannot delete a channel retained by the active call."
+previous_gap = "Ownership tests supplied missing creation metadata and omitted the busy admission branch."
+enforcement = "Offer valid ringing peers and the connected winner and require no gateway request or phase change."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "endpoint_replays_preserve_the_winner_and_discard_late_losers"
+invariant = "Repeated endpoint events preserve the winner while late losing endpoints remain disposable."
+previous_gap = "Endpoint rejection deleted a connected winner and phase assertions could not observe the fake gateway deletion."
+enforcement = "Replay native endpoint events, use causal barriers, reject winner deletion requests, and require deletion of the late loser."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "failed_busy_channel_cleanup_quarantines_the_orphan_and_preserves_the_call"
+invariant = "Failed cleanup during busy admission preserves the current call and tracks the orphan for recovery."
+previous_gap = "Busy admission logged deletion failures without durable tracking or quarantine."
+enforcement = "Fail deletion of an unconsumed foreign root, preserve the live owner, then release and reconcile before another call."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "gateway_start_events_preserve_inbound_and_outbound_identity"
+invariant = "Gateway start events preserve incoming identity and use the outgoing dial target."
+previous_gap = "Direct control offers bypassed native event dispatch."
+enforcement = "Send incoming and outgoing WebSocket events and verify distinct persisted calls, caller values, direction, and termination."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "browser_originator_events_dial_the_carrier_for_the_owned_root"
+invariant = "A browser originator can dial the carrier through its currently owned root."
+previous_gap = "No native originator event checked the root ownership guard."
+enforcement = "Deliver foreign and owned originator events with causal barriers and require carrier origination for the owned root."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "gateway_terminal_events_end_the_owned_root_and_winning_peer"
+invariant = "Valid terminal events release the current root or winning peer."
+previous_gap = "Stale event refusal lacked positive terminal event observations."
+enforcement = "Exercise both gateway terminal event variants against the root and winner and require persisted termination and released ownership."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "quarantined_calls_keep_their_deadline_and_end_once"
+invariant = "Orphan quarantine preserves the current call through its normal terminal deadline."
+previous_gap = "Immediate assertions could finish before an incorrect reconciliation tick destroyed ownership."
+enforcement = "Fail orphan deletion during an active call, wait for its normal no-answer deadline, and require one terminal event and subsequent admission."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "a_replayed_ingress_leaves_a_new_channel_generation_with_the_same_id_alone"
+invariant = "Replay cleanup deletes a channel only while the gateway still lists the replayed generation."
+previous_gap = "Replay cleanup deleted by channel identifier, so a reused identifier could end a new incoming call."
+enforcement = "Replay a retired ingress while the gateway lists a successor with the same identifier and count channel deletions."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "resuming_admission_cannot_reconcile_away_a_live_call"
+invariant = "Resuming admission refuses to reconcile while a live call awaits recovery."
+previous_gap = "A resume request reconciled gateway resources and released the line without ending the call."
+enforcement = "Fail a rejected channel cleanup during a ringing call, then request resume and check the call phase and line owner."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "unavailable_read_aloud_tracks_no_media_channel"
+invariant = "Read-aloud without an available provider records no media channel."
+previous_gap = "Each refused read-aloud request left a tracked channel that hangup then tried to delete."
+enforcement = "Repeat read-aloud on a connected call with AI off and compare the tracked resources."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "ringing_deadlines_select_reception_and_outgoing_no_answer"
+invariant = "Available reception handles unanswered incoming calls while outgoing calls end without voicemail."
+previous_gap = "Deadline tests covered disabled reception without distinguishing the outgoing terminal reason."
+enforcement = "Use short controller deadlines with the mock provider, require incoming voicemail and capture stop before channel deletion, and require outgoing no-answer without voicemail or capture stop."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "each_cleanup_failure_retains_ownership_until_retry_succeeds"
+invariant = "Every independent gateway cleanup failure retains ownership until a successful retry."
+previous_gap = "Simultaneous channel and bridge failures masked weakened failure accumulation and recording-stop failures were absent."
+enforcement = "Fail recording stop, channel deletion, and bridge deletion independently while other operations succeed, refuse reassignment, then recover."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "normal_cleanup_preserves_a_pending_gateway_ingress"
+invariant = "Ordinary call cleanup cannot delete a later ingress awaiting admission."
+previous_gap = "An empty gateway snapshot hid unnecessary global reconciliation after normal cleanup."
+enforcement = "Advertise a pending application channel during normal hangup, reject its deletion, and admit the distinct next call."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "endpoint_identity_guards_reject_each_invalid_condition"
+invariant = "Endpoint admission requires both the current call identity and a tracked peer."
+previous_gap = "A foreign endpoint also carried a foreign call identity, masking weakened independent guards."
+enforcement = "Reject a tracked peer with a foreign call identity without deletion, and delete an untracked peer with the correct call identity without connecting it."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "explicit_recording_captures_ordinary_calls_without_ai_or_provider_media"
+invariant = "Explicit recording operates independently of AI reception after endpoint answer."
+previous_gap = "The recording guard required AI reception, so ordinary calls with AI off never started capture."
+enforcement = "An answered endpoint must start exactly one recording without provider media or announcement playback."
+
+[[cases]]
+source = "crates/phone-server/tests/manual_retention.rs"
+test = "manual_retention_keeps_old_audio_and_history_until_explicit_deletion"
+invariant = "Manual retention never expires an ended recording or its history because time passed."
+previous_gap = "The adapter interpreted zero days as an immediate expiration deadline."
+enforcement = "Keep old audio and history after four hundred days with zero-day retention."
+
+[[cases]]
+source = "crates/phone-server/tests/nas_archive_state.rs"
+test = "archive_deletion_survives_restart_and_refuses_late_publication"
+invariant = "Deletion preserves a durable NAS intent and prevents late publication from recreating history."
+previous_gap = "History deletion had no independent remote-object lifecycle."
+enforcement = "Delete a pending archive, reopen SQLite, refuse publication, and finish the retained deletion intent."
+
+[[cases]]
+source = "crates/phone-server/tests/nas_archive_state.rs"
+test = "one_changed_local_copy_does_not_keep_other_archived_copies"
+invariant = "A changed local copy of one archived recording neither blocks cleanup of the others nor loses its own audio."
+previous_gap = "The first failed digest check ended the cache scan and the archive pass before any queued upload or deletion."
+enforcement = "Archive six recordings, change one local copy, and require the other five removed and the changed one retained."
+
+[[cases]]
+source = "crates/phone-server/tests/nas_archive_state.rs"
+test = "archive_receipts_require_exact_pending_bytes_and_preserve_call_faults"
+invariant = "Archive ownership requires the expected pending byte count and preserves unrelated call failures."
+previous_gap = "Local capture had no durable remote ownership receipt."
+enforcement = "Refuse missing and mismatched intents, preserve a gateway failure through retry and commit, and refuse repeated publication."
+
+[[cases]]
+source = "crates/phone-server/tests/nas_archive_state.rs"
+test = "a_successful_archive_clears_its_own_retry_error"
+invariant = "Successful archive publication clears its own obsolete retry failure."
+previous_gap = "A remote retry failure had no completion transition."
+enforcement = "Persist an archive retry error and require its removal after verified publication."
+
+[[cases]]
+source = "xtask/tests/nas_report.rs"
+test = "nas_reports_refuse_missing_repeated_skipped_and_retried_cases"
+invariant = "Only an exact complete native NAS campaign satisfies the release gate."
+previous_gap = "The release gate had no native SMB campaign inventory."
+enforcement = "Reject empty, missing, repeated, skipped, retried, unknown, and duplicated-completion reports."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_shutdown.rs"
+test = "shutdown_releases_the_actor_database_owner_before_returning"
+invariant = "Completed shutdown releases the actor's database ownership before another instance opens it."
+previous_gap = "Shutdown acknowledged cancellation before the actor dropped its store handle."
+enforcement = "Repeat immediate close and reopen on a multithreaded runtime without waiting for a favorable schedule."
+
+[[cases]]
+source = "crates/phone-server/tests/manual_retention.rs"
+test = "nas_archives_ignore_legacy_expiry_and_local_spool_quota"
+invariant = "Manual NAS retention preserves archived history beyond the local spool quota and legacy expiry."
+previous_gap = "Local quota accounting could treat remote audio as disposable local storage."
+enforcement = "Keep six archived recordings beyond the quota and four hundred days with both manual and legacy settings."
+
+[[cases]]
+source = "crates/phone-server/tests/recording_settings.rs"
+test = "nas_settings_migrate_effective_retention_without_applying_legacy_expiry"
+invariant = "The NAS settings response exposes manual retention despite a persisted legacy value."
+previous_gap = "The settings form loaded thirty days and submitted a value refused by the NAS policy."
+enforcement = "Load persisted legacy settings through the authenticated HTTP endpoint and require zero-day manual retention."
+
+[[cases]]
+source = "xtask/tests/manager.rs"
+test = "restore_relocates_the_recording_spool_and_preserves_the_nas_identity"
+invariant = "A restored installation uses its own bounded spool while preserving access to its NAS archive."
+previous_gap = "Restore changed the data directory and installation identity without relocating recording paths."
+enforcement = "Restore a sealed backup and compare the relocated spool, stable archive identity, and replaced installation identity."
+
+[[cases]]
+source = "crates/phone-server/tests/secrets_contract.rs"
+test = "optional_nas_and_notification_credentials_fail_independently"
+invariant = "Unavailable credentials for one optional plugin leave other plugins and ordinary calls available."
+previous_gap = "Loading optional credentials together could disable otherwise usable integrations."
+enforcement = "Exercise both independent credential availability states and malformed NAS inputs while preserving notification credentials."
+
+[[cases]]
+source = "crates/phone-server/tests/secrets_contract.rs"
+test = "literal_secret_files_preserve_password_whitespace"
+invariant = "Literal private credential files preserve significant password whitespace."
+previous_gap = "Trimming whole lines silently changed passwords with trailing spaces."
+enforcement = "Parse indented comments and CRLF records while preserving leading and trailing password spaces."
+
+[[cases]]
+source = "crates/phone-server/tests/secrets_contract.rs"
+test = "nas_credential_export_preserves_call_secrets_and_refuses_colliding_names"
+invariant = "NAS credential staging preserves telephone credentials and refuses overwrites or shared secret names."
+previous_gap = "Credential staging and SMB execution duplicated a grammar that rejected account names containing spaces."
+enforcement = "Stage a spaced username exactly, and verify literal values, private permissions, overwrite refusal, missing-input refusal, and secret-name isolation."
+
+[[cases]]
+source = "crates/phone-plugin-nas/src/lib.rs"
+test = "tests::command_keeps_passwords_off_arguments_and_bounds_the_child"
+invariant = "A spaced SMB account name remains one argument while passwords remain outside process arguments."
+previous_gap = "The command fixture used an account name without spaces, leaving an overly restrictive constructor unobserved."
+enforcement = "Construct a spaced account, inspect its complete user argument, and require bounded child execution without a password argument."
+
+[[cases]]
+source = "crates/phone-plugin-nas/src/lib.rs"
+test = "tests::usernames_preserve_spaces_and_domain_separators_within_the_byte_limit"
+invariant = "Credential staging and SMB execution share one bounded account-name grammar that preserves spaces."
+previous_gap = "Separate validators rejected legitimate spaced names without a shared boundary contract."
+enforcement = "Accept account spaces, domain separators, and the exact byte limit while rejecting blank names, command syntax, controls, and oversized values."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "a_full_recording_spool_preserves_calls_and_recovers_after_space_is_freed"
+invariant = "A full recording spool suspends capture while preserving ordinary calls and permits recording after capacity recovers."
+previous_gap = "Capture tests checked the reservation policy without observing connected calls across an actual spool quota failure."
+enforcement = "Fill the configured spool quota, require a connected unrecorded call, free space, and require the next connected call to start capture without AI media."
+
+[[cases]]
+source = "crates/phone-server/tests/config_contract.rs"
+test = "nas_directory_segments_match_the_archive_adapters_input_limits"
+invariant = "Configuration validation refuses directory segments that the NAS adapter cannot address."
+previous_gap = "The configuration checker bounded the entire directory while the adapter also bounded each segment."
+enforcement = "Accept a segment at 128 bytes and refuse the first unsupported byte before runtime."
+
+[[cases]]
+source = "crates/phone-plugin-phonebook/tests/sync_contract.rs"
+test = "a_failed_sync_keeps_the_previous_index_intact"
+invariant = "A rejected directory listing, download, archive, or limit leaves the installed index byte-identical and removes the partial index."
+previous_gap = "No caller directory existed, so archive identity, size, format, and row checks had no failure contract."
+enforcement = "Serve each fault from a loopback fixture after a successful sync and compare the index bytes, a lookup, and the data directory entries."
+
+[[cases]]
+source = "crates/phone-server/tests/controller_contract.rs"
+test = "admission_continues_without_a_label_when_the_directory_cannot_answer"
+invariant = "A missing, damaged, or locked caller directory admits the call within the lookup bound and without a label."
+previous_gap = "Admission had no external read before the call was created."
+enforcement = "Offer real calls against absent, corrupt, and exclusively locked SQLite indexes and bound the admission time."
+
+[[cases]]
+source = "crates/phone-server/tests/ntfy_contract.rs"
+test = "directory_labels_lead_the_message_only_when_they_are_visible_and_bounded"
+invariant = "Only nonempty, control-free directory labels of at most 512 bytes enter the ntfy message, and never for an invalid caller."
+previous_gap = "The payload carried only the validated caller number and call time."
+enforcement = "Publish labeled, unlabeled, empty, multiline, and oversized labels to a loopback ntfy fixture and compare the exact message."
+
+[[cases]]
+source = "crates/phone-server/tests/nas_archive_contract.rs"
+test = "isolated_smb_archive_preserves_verified_audio_and_recovers_durable_work"
+invariant = "Native SMB effects preserve verified audio and durable ownership through storage and process faults."
+previous_gap = "Database and HTTP mocks left authentication, remote disk exhaustion, child cancellation, and runtime-user permissions unobserved."
+enforcement = "Execute the bounded native SMB binary with synthetic data; the independent case collector requires the complete expected inventory."

@@ -31,7 +31,12 @@ Inspect fixtures and evidence collectors when a test gives a misleading result.
 Run `just check` and `just security` after a change.
 Regenerate changed API contracts with `just api` and commit their corresponding source change.
 For browser or deployment behavior, rebuild with `just lab` before `just browser` or `just deployment`.
-The browser suite runs pinned Chromium in a Linux ARM64 container on the gateway's loopback network.
+The telephone browser suite runs pinned Chromium in a Linux ARM64 container on the gateway's loopback network.
+Install Chromium on the development host before running the gateway console browser suite.
+
+```sh
+mise x -- pnpm --dir console exec playwright install --with-deps chromium
+```
 
 The [assurance contracts](docs/assurance.md) define the proof domains, fixed fuzz campaigns, mutation scope, and evidence completeness rules.
 Run affected heavy checks through the bounded project commands.

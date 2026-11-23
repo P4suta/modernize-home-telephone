@@ -9,6 +9,14 @@ pub async fn enforce(store: &Store, config: &Config, now: u64) -> anyhow::Result
     if store.background_paused() {
         return Ok(());
     }
+    if config
+        .recording
+        .as_ref()
+        .and_then(|recording| recording.nas.as_ref())
+        .is_some()
+    {
+        return Ok(());
+    }
     let settings = store.settings().await?;
     let retention = u64::from(
         settings
@@ -57,7 +65,9 @@ pub async fn enforce(store: &Store, config: &Config, now: u64) -> anyhow::Result
                 .await?;
         }
     }
-    store.prune_history(now.saturating_sub(retention)).await?;
+    if retention != 0 {
+        store.prune_history(now.saturating_sub(retention)).await?;
+    }
     Ok(())
 }
 

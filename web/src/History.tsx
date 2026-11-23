@@ -6,6 +6,7 @@ import {
 	useState,
 } from "react";
 import type { Perform } from "./App";
+import { CallerName } from "./CallerName";
 import type { Call } from "./contracts";
 import { phoneStore } from "./service";
 
@@ -100,7 +101,10 @@ export function RecordingPlayer({ call }: { call: Call }): ReactElement {
 					const value = audio.current?.duration ?? 0;
 					setDuration(Number.isFinite(value) ? value : 0);
 				}}
-				onError={(): void => setError(true)}
+				onError={(): void => {
+					setPlaying(false);
+					setError(true);
+				}}
 			/>
 			<button
 				type="button"
@@ -109,6 +113,7 @@ export function RecordingPlayer({ call }: { call: Call }): ReactElement {
 					if (!player) return;
 					if (playing) player.pause();
 					else {
+						if (error) player.load();
 						setError(false);
 						void player.play().catch((): void => setError(true));
 					}
@@ -166,7 +171,7 @@ export function History({
 				.map((call) => (
 					<article className="history-call" key={call.id}>
 						<div className="section-heading">
-							<h3>{call.caller || "非通知"}</h3>
+							<CallerName call={call} />
 							<time dateTime={new Date(call.started_at * 1000).toISOString()}>
 								{callTime(call.started_at)}
 							</time>
@@ -187,6 +192,13 @@ export function History({
 										? "音声処理を再試行中"
 										: "音声処理待ち"}
 						</p>
+						{call.last_error === "nas_archive_unavailable" && (
+							<div role="status" aria-label="録音の保存状況" className="panel">
+								<h4>NASへの保存を再試行中</h4>
+								<p>録音は本体で保持しています。</p>
+								<p>NASへの接続が戻ると自動で保存します。</p>
+							</div>
+						)}
 						{call.summary && <p>{call.summary}</p>}
 						<Transcript call={call} />
 						{call.recording.status === "available" ? (

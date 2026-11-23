@@ -77,7 +77,7 @@ Native report upload and the final evidence check exercise the real file-permiss
 ## Prove the pure production boundary
 
 The [Kani inventory](../verification/contracts.toml) imports executable production functions from `phone-core`.
-It covers call ownership, every call and update action, terminal state refusal, number validation, path traversal refusal, routing, retention, playback marks, deadlines, input lengths, and streamed byte budgets.
+It covers call ownership, every call and update action, terminal state refusal, number validation, directory number normalization, shared caller labels, path traversal refusal, routing, retention, playback marks, deadlines, input lengths, and streamed byte budgets.
 Enums use their complete generated domains.
 Integer properties quantify the declared Rust integer domains, including zero, exact limits, integer extrema, checked overflow, and clock regression where applicable.
 The proof target uses 64-bit integer and pointer semantics, matching the intended ARM64 runtime's integer widths.
@@ -85,6 +85,9 @@ It doesn't establish equivalence of arbitrary platform libraries or operating sy
 
 The path proof admits arbitrary byte content and lengths through 257 bytes, with the public parser accepting at most 256 bytes.
 The dial-number proof admits arbitrary byte content through 33 bytes.
+The national-number proof admits the same domain and checks that only complete Japanese numbers normalize.
+The spelling proof quantifies every nine- and ten-digit sequence in its `0` and `+81` forms.
+The caller-label proof quantifies up to three matches over three names and doesn't check rendered text.
 An independently checked length predicate covers the entire `usize` domain, and an Abstract Syntax Tree (AST) gate binds the public rejection guards to that predicate.
 The composition accounts for inputs larger than the finite backing arrays without assuming that every input already fits.
 The AST gate also checks the proof inventory, permitted assumptions, public parser wrapper, observation erasure, and loop decrease form.
@@ -134,6 +137,11 @@ Retention tests include more than the history page limit and more than one expir
 They require quota accounting across the complete recording inventory while protecting an active or quarantined owner.
 Deletion tests let a worker finish after history deletion and require conditional writes to prevent resurrection.
 Notification tests require stable event identities during retries and verify webhook authentication, push encryption, and push signatures.
+The ntfy contracts verify Japanese caller notifications, private authentication, bounded acknowledgements, independent channel retries, persistent checkpoints, expiry, and checkpoint removal.
+The production eligibility proof quantifies every event, direction, phase, and 64-bit timestamp, including clock regression and the exact 120-second publication bound.
+Native string parsing and HTTP fixtures connect those typed inputs to persisted call events.
+The proof establishes publication eligibility rather than network delivery or phone receipt.
+See the [notification configuration](notifications.md) for payload and installation boundaries.
 Actual delivery through a browser vendor's push service remains separate from those cryptographic checks.
 
 ## Test the measurement and collection code
@@ -204,9 +212,49 @@ The container deadline is only a resource stop condition.
 
 `just mutants` selects every production Rust file in the core and excludes only the proof harness file.
 The gate requires every generated mutant to trigger a test failure or a compilation refusal, with both categories retained in the report.
-`just web-mutants` uses Stryker on the frontend's pure timeline reducer with per-test coverage and the pinned TypeScript checker.
-The TypeScript mutation result covers only the timeline reducer.
+`just web-mutants` uses Stryker on the frontend's pure timeline reducer and recording duration and capacity conversion functions.
+It uses per-test coverage and the pinned TypeScript checker.
+The TypeScript mutation result covers those selected functions.
+`just console-mutants` independently mutates the console adapter, the settings-workflow core, and its Svelte adapter.
+The core tests check 49 ordered edit pairs and 294 changed-value readbacks over selections of at most two values.
+The adapter tests check all 1,296 four-action traces for a fixed valid draft and matching readback.
+Those finite checks establish their stated bounds without claiming an unbounded TypeScript proof.
+The Rust submission guard remains subject to the maintained Kani harnesses.
+Installed-instrumenter regressions require Svelte snippet defaults and render arguments to produce mutations at their original positions.
+Each instrumented fixture must compile for both client and server rendering.
+Both TypeScript collectors reject empty inventories and every status other than killed or compile error, including survivors, timeouts, ignored cases, and runtime errors.
 The Kani broken-parser and broken-alphabet controls also challenge macro implementation changes.
+
+## Bound independent NAS recording
+
+The core capacity proof quantifies every 64-bit usage, pending count, recording size, quota, and free-space value.
+An independent wide-integer specification checks the four-copy reservation and refuses checked overflow.
+Manual retention leaves finished history untouched by elapsed time.
+Filesystem statistics, complete bounded directory traversal, and actual recording byte limits connect the pure decision to the runtime.
+The proof assumes the external filesystem reports free space accurately and other processes don't consume reserved space after the observation.
+Other processes can still consume physical blocks after the check.
+
+The [NAS inventory](../verification/nas.toml) requires fifteen complete native cases.
+An encrypted loopback Server Message Block (SMB) server uses synthetic credentials and audio inside a network-isolated ARM64 container.
+The server maps an account containing spaces through Samba's documented [username mapping](https://www.samba.org/samba/docs/current/man-html/smb.conf.5.html) and authenticates it with the real client.
+Cases cover capture with AI off, unavailable and unwritable storage, separate-session readback, restart, and stable archive identity after restore.
+They also cover authenticated overlapping byte ranges, changed and oversize audio, interrupted child cleanup, failed database commit, durable deletion, probe cleanup, and automatic archive retry.
+An independently mounted 16 MiB share must return an actual remote disk-full status while the local spool retains its audio.
+The production storage-check command also runs with the runtime's unprivileged numeric user and checks valid and invalid credentials containing Unicode and significant whitespace.
+The worker case runs the production background loops and observes durable retry state before restoring the SMB service.
+The collector rejects missing, duplicated, skipped, retried, unknown, or late cases.
+
+Native database tests preserve unrelated call faults, refuse mismatched archive receipts, prevent publication after deletion, and ignore legacy expiry and local quotas for NAS audio.
+The controller releases its store handle before shutdown returns.
+Readiness publishes after the controller unpauses background processing.
+NAS storage probes use a fixed non-call object identity, verify a synthetic file, and remove the probe without opening a call-service database or listener.
+
+The browser journey checks manual retention, the local quota boundary, keyboard-operated contextual help, narrow layout, enlarged text, and playback retry after a storage failure.
+The project combines [200 percent text resizing](https://www.w3.org/WAI/WCAG22/Understanding/resize-text.html) and [text-spacing overrides](https://www.w3.org/WAI/WCAG22/Understanding/text-spacing.html) at a narrow viewport as an assurance target.
+Browser storage selection uses a typed status fixture.
+The native SMB lab supplies the remote-storage behavior.
+Neither fixture establishes a physical handset recording or actual NAS interoperability.
+The [recording guide](recordings.md) describes those installation boundaries.
 
 `just security` checks the locked Rust and JavaScript dependencies and scans maintained source for credentials with redacted output.
 The gate validates the exact 14-entry source checksum inventory even when a public checkout has no manufacturer originals.
@@ -240,6 +288,9 @@ Reconsider the boundary if archives need remote acquisition, untrusted manifests
 
 The real deployment rehearsal uses ARM64 app and Rusterisk images, a wrong executable as a failed candidate, an uncommitted recovery journal, and a fresh restored installation.
 The rehearsal returns the original installation to service.
+The rehearsal sends the `SIGTERM` termination signal to the idle console container and requires exit status zero within two seconds.
+It restarts the console and checks installation readiness before continuing.
+A missing fixture or failed shutdown prevents a successful receipt.
 Native update-port tests inject paired failures, so a failed recovery can't erase the error that triggered it.
 Filesystem tests reject symlinks, parent traversal, deep empty directory trees, occupied destinations, and incomplete publication.
 Package validation requires the executable, both image archives, licenses, the release's gateway source archive, and the maintained source identity before Docker import.
@@ -274,11 +325,44 @@ The switch rate counts the growth of every surviving thread and the full count o
 A thread that exits during the window loses its final switches, so the rate understates short-lived threads.
 A reused thread identity counts from zero.
 The window starts when the first sample returns and ends when the second sample starts, so probe startup can shift a reading by about one second.
-The first budgets come from three runs of the Rusterisk lab on OrbStack ARM64 on 2026-11-24.
-They add 25 percent to the highest service value of each phase and 5 percent to each image size, rounded up to 256 KiB, one thread, 50 switches, or 1 MB.
-After the browser and SIPp calls, the app's anonymous memory grew from about 3.4 MB to 6.9 MB and its threads from 6 to 14, so the settled budgets record that growth instead of bounding it.
+The first budgets come from runs of the Rusterisk lab with the console on OrbStack ARM64 on 2026-11-24.
+They add 25 percent to the highest service value of each phase and 5 percent to each image size, rounded up to the next multiple of 256 KiB, one thread, 50 switches, or 1 MB.
+After the browser and SIPp calls, the app's anonymous memory grew from about 4.2 MB to 8.2 MB and its threads from 6 to 14, so the settled budgets record that growth instead of bounding it.
 A change that lowers the footprint tightens the matching budget in the same pull request.
 The lab doesn't establish the footprint on the Raspberry Pi, where Podman, the kernel, and storage differ.
+
+## Verify gateway administration
+
+Two submission harnesses quantify the production guard over every u64 revision, every usize change count, both write modes, and each admitted phase.
+They reject revision zero and exhaustion, stale reviews, empty changes, concurrent submissions, and reuse before readback.
+The harnesses contain no input assumptions.
+They establish guard behavior without modeling native HTTP, firmware scripts, browser lifetimes, or device persistence.
+
+Native adapter contracts cover hidden tokens, exact submitters, form encoding, `disabled` controls, private credentials, source constraints, and read-only refusal.
+The reviewed native-script profile binds resource hashes, bounded dynamic literals, dependent control identities, and generated-control positions.
+Rejecting fixtures cover missing resources, changed behavior, moved generators, port collisions, stale derived constraints, and conflicting choice aliases.
+Offline browser comparison uses private captured firmware pages and exact resources, with every network request intercepted.
+The comparison checks all entries and their order for both save and apply on each observed settings page.
+Hash equality establishes source identity rather than script semantics, and the Kani guard proof doesn't model the native parser or script-profile translator.
+HTTP contracts bind reviews to a browser view and page and require fresh native tokens before one submission.
+Readback requires the same parameter identity and control kind.
+A secret edit can't conceal an unsuccessful public edit.
+Matching public values leave secret changes independently unverified.
+
+The browser fixture exercises navigation caches, pending drafts, console and native authentication expiry, keyboard help, review cancellation, stale preflight, and uncertain results.
+It also rejects unapproved inline scripts and styles and verifies cache headers.
+Automatic accessibility and narrow-layout checks complement the interaction cases.
+Lighthouse checks seven routes in mobile and desktop modes.
+The private console's indexing refusal is intentional.
+Every other applicable Search Engine Optimization (SEO) audit remains required.
+
+The parameter gate binds all 598 preserved definitions, source lines, and available template assignments.
+A separate 597-field inventory binds the four observed settings forms to complete help coverage.
+Ten supplemental definitions keep their firmware sources separate from template assignments.
+The help schema distinguishes a template line from a device form, and negative fixtures reject empty, duplicated, or misrepresented supplements.
+Documentation separates factory claims from template examples and refuses ambiguous numeric definitions.
+These checks establish the checked software contracts.
+Actual firmware compatibility and analog operation require separate observations.
 
 ## Follow ownership across failures
 
@@ -364,3 +448,30 @@ Returning only the second error would erase the operation that initiated recover
 The update tests inject both faults in the same run and require the returned error chain to preserve both causes.
 The real rehearsal additionally checks service readiness and the sample recording after rejecting a candidate.
 Neither an informative error string nor a successful rollback state alone establishes that the restored service can answer another call.
+
+## Optional reception and publication
+
+The optional-reception harness quantifies every call rule and both availability values without input assumptions.
+It checks the production routing function: unavailable reception preserves ordinary ringing, and explicit blocking remains effective.
+The proof doesn't establish that the host reports actual plugin availability correctly.
+Native HTTP observers check automatic-answer refusal, media isolation, preserved recordings, and unavailable ntfy credentials.
+The dependency gate rejects plugins that depend on the host or another plugin and checks each host feature combination.
+Compiled plugins share process memory, so the routing proof establishes no process-crash isolation.
+Real handset behavior and notification receipt require installation observations.
+
+## Headless gateway operations
+
+The headless console client uses the same native validation and source-bound submission guard as browser writes.
+Synthetic process tests exercise private files, secret redaction, sealed plans, concurrent claims, stale revisions, ambiguous outcomes, and session cleanup.
+Native pseudo-terminal subprocesses exercise automatic human output, explicit JSON, and unstyled output preferences.
+Presentation regressions preserve submission exit codes and reject active terminal controls in device text.
+A hash-based message authentication code and operating-system file permissions remain cryptographic and kernel assumptions rather than Kani-proved implementations.
+CLI readback doesn't establish runtime activation or physical telephone acceptance.
+
+Gateway admission validates the ARI channel ID and canonical creation instant before consuming its generation.
+Native controller and SQLite tests cover terminal replay, history deletion, restart, atomic rollback, migration, and valid later generations.
+Consumed fingerprints contain no caller or recording data and remain independent of history retention.
+Kani checks pure line transitions.
+Physical disconnect signaling requires hardware observations.
+Schema 2 requires a database snapshot when rolling back to an earlier server.
+The [admission decision](adr/consume-gateway-ingress-identities-before-publishing-calls.md) records the boundary.

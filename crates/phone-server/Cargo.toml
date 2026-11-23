@@ -1,9 +1,44 @@
 [package]
 name = "phone-server"
+default-run = "phone-server"
 version = "0.0.0"
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
+
+[features]
+default = ["plugin-ai", "plugin-ntfy", "plugin-nas", "plugin-phonebook"]
+plugin-ai = ["phone-plugin-ai/runtime"]
+plugin-ntfy = ["dep:phone-plugin-ntfy"]
+plugin-nas = ["dep:phone-plugin-nas"]
+plugin-phonebook = ["dep:phone-plugin-phonebook"]
+console-fixture = []
+nas-lab = ["plugin-nas"]
+
+[[bin]]
+name = "nas-lab"
+path = "src/bin/nas-lab.rs"
+required-features = ["nas-lab"]
+
+[[test]]
+name = "nas_archive_contract"
+path = "tests/nas_archive_contract.rs"
+required-features = ["nas-lab"]
+
+[[test]]
+name = "media_faults"
+path = "tests/media_faults.rs"
+required-features = ["plugin-ai"]
+
+[[test]]
+name = "media_contract"
+path = "tests/media_contract.rs"
+required-features = ["plugin-ai"]
+
+[[test]]
+name = "gateway_readiness_faults"
+path = "tests/gateway_readiness_faults.rs"
+required-features = ["plugin-ai"]
 
 [dependencies]
 tower = { version = "0.5", features = ["util"] }
@@ -16,13 +51,26 @@ futures-util = "0.3"
 hmac = "0.12"
 hound = "3.5"
 phone-core = { path = "../phone-core" }
-reqwest = { version = "0.13.5", features = ["json", "multipart", "stream"] }
+phone-plugin-ai = { path = "../phone-plugin-ai", default-features = false }
+phone-plugin-ntfy = { path = "../phone-plugin-ntfy", optional = true }
+phone-plugin-nas = { path = "../phone-plugin-nas", optional = true }
+phone-plugin-phonebook = { path = "../phone-plugin-phonebook", optional = true }
+reqwest = { version = "0.13.5", features = [
+  "cookies",
+  "form",
+  "json",
+  "multipart",
+  "stream",
+] }
+rpassword = "=7.5.5"
+indicatif = "=0.18.6"
 rusqlite = { version = "0.41.1", features = ["bundled", "backup"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
 subtle = "2"
 thiserror = "2"
+time = { version = "0.3", features = ["formatting", "parsing"] }
 tokio = { version = "1", features = ["full", "test-util"] }
 tokio-tungstenite = { version = "0.30.0", features = [
   "rustls-tls-webpki-roots",
@@ -37,6 +85,10 @@ utoipa = { version = "5", features = ["uuid"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 ece = "2.4.2"
 openssl = "0.10.82"
+scraper = { version = "0.29.0", default-features = false }
+
+[target.'cfg(unix)'.dependencies]
+rustix = { version = "=1.1.6", features = ["fs", "process"] }
 
 [dev-dependencies]
 http-body-util = "0.1"

@@ -77,6 +77,8 @@ async fn candidate_health_requires_the_event_stream_and_completed_reconciliation
                 openai_key: None,
                 webhook_secret: None,
                 vapid_pem: None,
+                ntfy_token: None,
+                nas_credentials: None,
             },
         );
         if websocket {

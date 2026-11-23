@@ -28,16 +28,26 @@ Deliver the XML using the firmware's documented provisioning mechanism and verif
 
 ## Exercise normal and failed calls
 
-Check both port registrations before making an ordinary incoming test call.
-Observe the caller number, AI announcement, intelligible audio in both directions, intended handset ringing, and browser takeover.
+Record every device sharing `FXS`, including fax equipment, and its automatic-answer settings.
+Choose an acceptable test time and check each device's ringer level before making incoming calls.
+Verify the configured registration or direct-peer state before testing the SIP path.
+Cancel an incoming call through the SIP service from the calling side before answering.
+Require every shared ringer to stop, `FXO` to return to idle, and Rusterisk to have no active call channels.
+Confirm one call record per physical attempt.
+Place another call from the same number and require a distinct record.
+When using ntfy, require one notification containing the expected caller identity for each attempt.
+Exclude connection-test notifications from the call count.
+
+Answer a separate call and observe the caller number, intelligible audio in both directions, intended handset ringing, and browser takeover.
+A connected state doesn't establish that a person answered or that audio worked.
 End separate calls from each side, verify that `FXO` returns to idle, and place another call.
 Exercise handset and browser outgoing calls to an ordinary test destination and verify `DTMF` with a destination that reports the received digits.
 
-Check voicemail playback, saved recording, transcript, and summary with the paid provider configured.
+For an enabled AI plugin with authorized paid provider calls, check the announcement, voicemail playback, saved recording, transcript, and summary.
 The default policy disconnects both spam and suspected spam, so inspect false positives during acceptance.
 Status reports whether the AI configuration contains credentials.
 Paid provider readiness requires an observed connection.
-Observe actual Web Push delivery through the browser's push service.
+With browser notifications configured, observe actual Web Push delivery through the browser's push service.
 
 While the line is idle, test app loss, SIP service loss, and HT813 power loss as separate conditions.
 The documented `Life Line Mode` behavior and `*00` analog access code depend on effective settings and upstream power.

@@ -23,6 +23,7 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
 };
+mod console;
 mod rehearsal;
 pub use rehearsal::{
     check_report as check_rehearsal_report, evidence as deployment_evidence, run as rehearse,
@@ -106,6 +107,14 @@ fn unit_quote(path: &Path) -> anyhow::Result<String> {
     ))
 }
 pub fn systemd_unit(binary: &Path, directory: &Path, user: &str) -> anyhow::Result<String> {
+    systemd_unit_for_engine(binary, directory, user, crate::container::Engine::Docker)
+}
+pub fn systemd_unit_for_engine(
+    binary: &Path,
+    directory: &Path,
+    user: &str,
+    engine: crate::container::Engine,
+) -> anyhow::Result<String> {
     ensure!(
         !user.is_empty()
             && user
@@ -115,6 +124,11 @@ pub fn systemd_unit(binary: &Path, directory: &Path, user: &str) -> anyhow::Resu
     );
     let binary = unit_quote(binary)?;
     let directory = unit_quote(directory)?;
+    if engine == crate::container::Engine::Podman {
+        return Ok(format!(
+            "[Unit]\nDescription=Home Telephone\nAfter=network-online.target\n\n[Service]\nType=oneshot\nRemainAfterExit=yes\nEnvironment=HOMEPHONE_CONTAINER_ENGINE=podman\nExecStart={binary} boot --directory {directory}\nExecStop={binary} stop --directory {directory}\nTimeoutStartSec=180\nTimeoutStopSec=90\nUMask=0077\n\n[Install]\nWantedBy=default.target\n"
+        ));
+    }
     Ok(format!(
         "[Unit]\nDescription=Home Telephone\nRequires=docker.service\nWants=network-online.target\nAfter=network-online.target docker.service\n\n[Service]\nType=oneshot\nRemainAfterExit=yes\nUser={user}\nExecStart={binary} boot --directory {directory}\nExecStop={binary} stop --directory {directory}\nTimeoutStartSec=180\nTimeoutStopSec=90\nUMask=0077\n\n[Install]\nWantedBy=multi-user.target\n"
     ))
@@ -130,7 +144,7 @@ fn output(command: &mut Command) -> anyhow::Result<Vec<u8>> {
 }
 fn inspect(reference: &str) -> anyhow::Result<serde_json::Value> {
     let [image] = serde_json::from_slice::<[_; 1]>(&output(
-        Command::new("docker").args(["image", "inspect", reference]),
+        crate::container::command()?.args(["image", "inspect", reference]),
     )?)?;
     Ok(image)
 }
@@ -152,18 +166,26 @@ pub fn inspect_image(reference: &str) -> anyhow::Result<Image> {
         fingerprint: image_fingerprint(&inspect(reference)?)?,
     })
 }
-fn verified_id<'a>(expected: &Image, image: &'a serde_json::Value) -> anyhow::Result<&'a str> {
+fn verified_id(expected: &Image, image: &serde_json::Value) -> anyhow::Result<String> {
     ensure!(
         image_fingerprint(image)? == expected.fingerprint,
         "loaded image differs from the package"
     );
-    image["Id"]
+    let id = image["Id"]
         .as_str()
-        .filter(|id| id.strip_prefix("sha256:").is_some_and(digest))
-        .context("gateway requires an immutable image ID")
+        .context("gateway requires an immutable image ID")?;
+    let hex = id.strip_prefix("sha256:").unwrap_or(id);
+    ensure!(
+        hex.len() == SHA256_HEX_DIGITS
+            && hex
+                .bytes()
+                .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f')),
+        "gateway requires an immutable image ID"
+    );
+    Ok(format!("sha256:{hex}"))
 }
 pub fn verified_image_id(expected: &Image) -> anyhow::Result<String> {
-    Ok(verified_id(expected, &inspect(&expected.reference)?)?.to_owned())
+    verified_id(expected, &inspect(&expected.reference)?)
 }
 pub fn verify_images(release: &Release) -> anyhow::Result<()> {
     compatible(release, "arm64")?;
@@ -171,6 +193,65 @@ pub fn verify_images(release: &Release) -> anyhow::Result<()> {
         verified_image_id(expected)?;
     }
     Ok(())
+}
+const RELEASE_TAG_PREFIXES: [&str; 2] = ["homephone-app:source-", "homephone-gateway:source-"];
+const ENGINE_NAMESPACES: [&str; 2] = ["docker.io/library/", "localhost/"];
+fn local_reference(reference: &str) -> &str {
+    ENGINE_NAMESPACES
+        .iter()
+        .find_map(|namespace| reference.strip_prefix(namespace))
+        .unwrap_or(reference)
+}
+pub fn superseded_references(
+    listed: &[String],
+    in_use: &[String],
+    retained: &[&Release],
+) -> Vec<String> {
+    let kept: std::collections::BTreeSet<&str> = retained
+        .iter()
+        .flat_map(|release| [&release.app.reference, &release.gateway.reference])
+        .chain(in_use)
+        .map(|reference| local_reference(reference))
+        .collect();
+    listed
+        .iter()
+        .filter(|reference| {
+            let local = local_reference(reference);
+            RELEASE_TAG_PREFIXES
+                .iter()
+                .any(|prefix| local.starts_with(prefix))
+                && !kept.contains(local)
+        })
+        .cloned()
+        .collect()
+}
+fn engine_lines(arguments: &[&str]) -> anyhow::Result<Vec<String>> {
+    Ok(
+        String::from_utf8(output(crate::container::command()?.args(arguments))?)?
+            .lines()
+            .map(str::to_owned)
+            .collect(),
+    )
+}
+fn release_images() -> anyhow::Result<Vec<String>> {
+    engine_lines(&["image", "ls", "--format", "{{.Repository}}:{{.Tag}}"])
+}
+fn container_images() -> anyhow::Result<Vec<String>> {
+    engine_lines(&["ps", "--all", "--format", "{{.Image}}"])
+}
+fn remove_images(references: &[String]) -> anyhow::Result<()> {
+    for reference in references {
+        output(crate::container::command()?.args(["image", "rm", reference]))?;
+    }
+    Ok(())
+}
+fn retire_superseded(running: &Release, previous: &Release) -> anyhow::Result<()> {
+    remove_images(&superseded_references(
+        &release_images()?,
+        &container_images()?,
+        &[running, previous],
+    ))
+    .context("the replacement committed, but removing superseded release images failed")
 }
 pub fn atomic_json<T: Serialize>(path: &Path, value: &T) -> anyhow::Result<()> {
     let parent = path.parent().context("state file requires a parent")?;
@@ -195,6 +276,11 @@ struct Configuration {
     data_dir: PathBuf,
     #[serde(default = "token_env")]
     api_token_env: String,
+    recording: Option<RecordingConfiguration>,
+}
+#[derive(Deserialize)]
+struct RecordingConfiguration {
+    gateway_spool_dir: PathBuf,
 }
 fn listen() -> SocketAddr {
     SocketAddr::from((std::net::Ipv4Addr::LOCALHOST, DEFAULT_HTTP_PORT))
@@ -220,6 +306,13 @@ impl Installation {
         ensure!(
             config.data_dir == directory.join("data"),
             "installation data must reside in its data directory"
+        );
+        ensure!(
+            config
+                .recording
+                .as_ref()
+                .is_none_or(|recording| recording.gateway_spool_dir == directory.join("spool")),
+            "installation recording spool must reside in its spool directory"
         );
         ensure!(
             config.listen.ip().is_loopback(),
@@ -264,6 +357,7 @@ impl Installation {
             self.client.request(Operation::Ready)?.status == HTTP_NO_CONTENT,
             "gateway application is unavailable"
         );
+        self.console_health()?;
         Ok(())
     }
     fn wait_health(&self) -> anyhow::Result<()> {
@@ -311,7 +405,10 @@ impl Installation {
         Ok(())
     }
     fn container(&self, name: &str) -> anyhow::Result<Option<serde_json::Value>> {
-        let result = Command::new("docker")
+        if crate::container::absent(name)? {
+            return Ok(None);
+        }
+        let result = crate::container::command()?
             .args(["container", "inspect", name])
             .output()?;
         if !result.status.success() {
@@ -334,10 +431,11 @@ impl Installation {
     }
     pub fn stop_containers(&self) -> anyhow::Result<()> {
         let (app, gateway) = self.names();
-        for name in [&app, &gateway] {
+        let console = self.console_name();
+        for name in [&console, &app, &gateway] {
             if self.container(name)?.is_some() {
-                output(Command::new("docker").args(["stop", "--time", "20", name]))?;
-                output(Command::new("docker").args(["rm", name]))?;
+                output(crate::container::command()?.args(["stop", "--time", "20", name]))?;
+                output(crate::container::command()?.args(["rm", name]))?;
             }
         }
         Ok(())
@@ -364,7 +462,7 @@ impl Installation {
         let (app, gateway) = self.names();
         if let Some(container) = self.container(&gateway)? {
             if container["State"]["Running"] != true {
-                output(Command::new("docker").args(["start", &gateway]))?;
+                output(crate::container::command()?.args(["start", &gateway]))?;
             }
         } else {
             crate::operations::start_gateway(
@@ -376,7 +474,7 @@ impl Installation {
         }
         if let Some(container) = self.container(&app)? {
             if container["State"]["Running"] != true {
-                output(Command::new("docker").args(["start", &app]))?;
+                output(crate::container::command()?.args(["start", &app]))?;
             }
         } else {
             let uid = String::from_utf8(output(Command::new("id").arg("-u"))?)?
@@ -385,7 +483,7 @@ impl Installation {
             let gid = String::from_utf8(output(Command::new("id").arg("-g"))?)?
                 .trim()
                 .to_owned();
-            let mut command = Command::new("docker");
+            let mut command = crate::container::command()?;
             command.args([
                 "run",
                 "--detach",
@@ -410,14 +508,16 @@ impl Installation {
                 "768m",
                 "--cpus",
                 "2",
-                "--log-opt",
-                "max-size=10m",
-                "--log-opt",
-                "max-file=3",
                 "--tmpfs",
                 "/tmp:rw,noexec,nosuid,size=32m",
             ]);
-            for (child, readonly) in [("config", true), ("data", false), ("run", false)] {
+            command.args(crate::container::selected()?.run_options());
+            for (child, readonly) in [
+                ("config", true),
+                ("data", false),
+                ("run", false),
+                ("spool", true),
+            ] {
                 let path = self.directory.join(child);
                 let path = path.to_str().context("installation path must be UTF-8")?;
                 ensure!(
@@ -443,6 +543,7 @@ impl Installation {
                 .arg("serve");
             output(&mut command)?;
         }
+        self.start_console(release)?;
         self.wait_health()
     }
     pub fn resume(&self) -> anyhow::Result<()> {
@@ -757,38 +858,61 @@ impl crate::update_flow::Port for Replacement {
 }
 pub fn update(directory: &Path, package: &Path, backup: &Path) -> anyhow::Result<()> {
     let candidate = load_package(package)?;
-    replace(directory, candidate, backup, None)
+    replace(
+        directory,
+        candidate,
+        backup,
+        None,
+        Retention::RunningAndPrevious,
+    )
 }
 pub fn rollback(directory: &Path, snapshot: &Path, backup: &Path) -> anyhow::Result<()> {
     bundle::verify(snapshot, Kind::Backup)?;
     let candidate: Release =
         serde_json::from_slice(&std::fs::read(snapshot.join("config/images.json"))?)?;
     verify_images(&candidate)?;
-    replace(directory, candidate, backup, Some(snapshot.to_owned()))
+    replace(
+        directory,
+        candidate,
+        backup,
+        Some(snapshot.to_owned()),
+        Retention::RunningAndPrevious,
+    )
+}
+#[derive(Clone, Copy)]
+enum Retention {
+    RunningAndPrevious,
+    AllReleases,
 }
 fn replace(
     directory: &Path,
     candidate: Release,
     backup: &Path,
     restore_candidate: Option<PathBuf>,
+    retention: Retention,
 ) -> anyhow::Result<()> {
     let directory = absolute(directory)?;
     let _lock = lock(&directory)?;
     require_settled(&directory)?;
     let installation = Installation::open(&directory)?;
+    let previous = installation.release.clone();
+    let running = candidate.clone();
     crate::update_flow::replace(&mut Replacement {
         installation,
         candidate,
         backup: absolute(backup)?,
         restore_candidate,
     })?;
-    Ok(())
+    match retention {
+        Retention::RunningAndPrevious => retire_superseded(&running, &previous),
+        Retention::AllReleases => Ok(()),
+    }
 }
 pub fn load_package(directory: &Path) -> anyhow::Result<Release> {
     let release = crate::package::validate(directory)?;
     for archive in ["app.tar", "gateway.tar"] {
         output(
-            Command::new("docker")
+            crate::container::command()?
                 .args(["load", "--input"])
                 .arg(directory.join(archive)),
         )?;
@@ -808,17 +932,32 @@ pub fn install(package: &Path, directory: &Path) -> anyhow::Result<()> {
     atomic_json(&directory.join("config/images.json"), &release)
 }
 
+fn prepare_lab_console(directory: &Path, create: bool) -> anyhow::Result<()> {
+    require_lab(directory)?;
+    let console_fixture = directory.join("config/ht813-console.toml");
+    let console_configuration = "listen = \"127.0.0.1:8790\"\npublic_origin = \"http://127.0.0.1:8790\"\ndevice_origin = \"http://127.0.0.1:9\"\nassets = \"/opt/homephone/console/dist\"\n";
+    if console_fixture.try_exists()? {
+        ensure!(
+            std::fs::read_to_string(&console_fixture)? == console_configuration,
+            "lab console configuration must use the fixed isolated fixture"
+        );
+    } else if create {
+        private_file(&console_fixture, console_configuration.as_bytes())?;
+    }
+    Ok(())
+}
+
 pub fn lab(directory: &Path) -> anyhow::Result<()> {
     if !directory.exists() {
         crate::operations::initialize(
             directory,
             std::net::Ipv4Addr::LOCALHOST.into(),
             DEFAULT_PUBLIC_ORIGIN.into(),
-            None,
             true,
         )?;
     }
     require_lab(directory)?;
+    prepare_lab_console(directory, false)?;
     let source = crate::package::source_identity(Path::new("."))?;
     let (app, gateway) = image_references(&source, uuid::Uuid::new_v4())?;
     crate::operations::run(
@@ -865,6 +1004,7 @@ pub fn lab(directory: &Path) -> anyhow::Result<()> {
     let metadata = directory.join("config/images.json");
     if !metadata.exists() {
         atomic_json(&metadata, &candidate)?;
+        prepare_lab_console(directory, true)?;
         return boot(directory);
     }
     let installation = Installation::open(directory)?;
@@ -872,14 +1012,18 @@ pub fn lab(directory: &Path) -> anyhow::Result<()> {
         && installation.release.gateway.fingerprint == candidate.gateway.fingerprint
     {
         atomic_json(&metadata, &candidate)?;
+        prepare_lab_console(directory, true)?;
         return boot(directory);
     }
+    boot(directory)?;
     let backup = directory
         .parent()
         .context("lab requires a parent")?
         .join("backups")
         .join(uuid::Uuid::new_v4().to_string());
-    replace(directory, candidate, &backup, None)
+    replace(directory, candidate, &backup, None, Retention::AllReleases)?;
+    prepare_lab_console(directory, true)?;
+    boot(directory)
 }
 pub fn require_lab(directory: &Path) -> anyhow::Result<()> {
     let config: toml::Value = toml::from_str(&std::fs::read_to_string(
@@ -933,6 +1077,15 @@ pub fn restore(backup: &Path, directory: &Path) -> anyhow::Result<()> {
             .into(),
     );
     configuration["instance_id"] = toml::Value::String(uuid::Uuid::new_v4().to_string());
+    if let Some(recording) = configuration.get_mut("recording") {
+        recording["gateway_spool_dir"] = toml::Value::String(
+            directory
+                .join("spool")
+                .to_str()
+                .context("restore spool path must be UTF-8")?
+                .into(),
+        );
+    }
     let temporary = directory.join("config/.homephone.toml.partial");
     private_file(
         &temporary,
@@ -954,7 +1107,53 @@ fn gateway_fixture_starts_only_the_inspected_release_image() {
     assert_eq!(verified_id(&expected, &image).unwrap(), id);
     image["Id"] = "gateway:installed".into();
     assert!(verified_id(&expected, &image).is_err());
+    image["Id"] = "a".repeat(SHA256_HEX_DIGITS).into();
+    assert_eq!(verified_id(&expected, &image).unwrap(), id);
+    for refused in [
+        "a".repeat(SHA256_HEX_DIGITS - 1),
+        "A".repeat(SHA256_HEX_DIGITS),
+        format!("sha512:{}", "a".repeat(SHA256_HEX_DIGITS)),
+    ] {
+        image["Id"] = refused.into();
+        assert!(verified_id(&expected, &image).is_err());
+    }
     image["Id"] = id.into();
     image["RootFS"]["Layers"][0] = "replacement".into();
     assert!(verified_id(&expected, &image).is_err());
+}
+
+#[cfg(test)]
+#[test]
+fn podman_inspection_reproduces_the_fingerprint_recorded_from_docker() {
+    let podman = serde_json::json!({
+        "Id": "15f496c7123856f1f7092c8fc18826abb429c76c26bdc4d917e0a85e3b7e87ed",
+        "Architecture": "arm64",
+        "Os": "linux",
+        "Config": {
+            "User": "10001:10001",
+            "Env": ["PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],
+            "Entrypoint": ["/usr/local/bin/phone-server"],
+            "WorkingDir": "/opt/homephone"
+        },
+        "RootFS": {"Type": "layers", "Layers": [
+            "sha256:04e61ff9ed2c84e88795bf7562d69d0980188e2bb6d6152d6fe721383e10db9e",
+            "sha256:4a148950ff72db529d512efc5ba2564637666887cab5b47b3efb82532844e62a",
+            "sha256:f7e50594272bf245b65dd88a3e63e4533e507794f42827bdba0d091941b194c7",
+            "sha256:6ff2b57e53017eb072f778a69f472eb5096c0db0600caa79419b7e4f9781a4fe",
+            "sha256:fac08dbb3ef5cdbc7fd35f648df4bed73be6680b1e41d4a15adce2cd6b69b463",
+            "sha256:b7e1d69edd3433cd9b096b318b32733c55318143e4acbb1e50a431ad1ab7c145",
+            "sha256:af6ed2d6d4b63e27d0b6e78aac258f264da5992af6951445da9d76d395ced81e",
+            "sha256:6d9b984ee0aa7a3ca8270f229930bc2bdf539a62281090d76d0013efa496d274",
+            "sha256:214f086335fc4da5d128cc23b17027ea8d8decb9f187ae59cc6e81dbd4667489",
+            "sha256:f116cccc1d8c09882eb0b2e60ca34e49969ef788a76e125ea385974b0d877c22"
+        ]}
+    });
+    let recorded_with_docker = Image {
+        reference: "homephone-app:installed".into(),
+        fingerprint: "9ae83d587c833a3a9c0738f85a341c060c5474dd6e34cd1582c6c84ad6074548".into(),
+    };
+    assert_eq!(
+        verified_id(&recorded_with_docker, &podman).unwrap(),
+        "sha256:15f496c7123856f1f7092c8fc18826abb429c76c26bdc4d917e0a85e3b7e87ed"
+    );
 }

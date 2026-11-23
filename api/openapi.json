@@ -312,6 +312,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
           }
         }
       }
@@ -474,6 +484,11 @@
         "properties": {
           "caller": {
             "type": "string"
+          },
+          "caller_label": {
+            "type": "string",
+            "maxLength": 512,
+            "minLength": 1
           },
           "direction": {
             "type": "string"
@@ -866,6 +881,40 @@
           }
         ]
       },
+      "RecordingDestination": {
+        "type": "string",
+        "enum": [
+          "local",
+          "nas"
+        ]
+      },
+      "RecordingStorage": {
+        "type": "object",
+        "required": [
+          "enabled",
+          "destination",
+          "max_seconds",
+          "minimum_bytes"
+        ],
+        "properties": {
+          "destination": {
+            "$ref": "#/components/schemas/RecordingDestination"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "max_seconds": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "minimum_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
       "Rule": {
         "type": "string",
         "enum": [
@@ -971,7 +1020,8 @@
           "instance_id",
           "mode",
           "gateway_ready",
-          "ai_configured"
+          "ai_configured",
+          "recording"
         ],
         "properties": {
           "ai_configured": {
@@ -986,6 +1036,9 @@
           },
           "mode": {
             "type": "string"
+          },
+          "recording": {
+            "$ref": "#/components/schemas/RecordingStorage"
           },
           "vapid_public_key": {
             "type": [

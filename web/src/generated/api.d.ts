@@ -218,6 +218,7 @@ export interface components {
 	schemas: {
 		Call: {
 			caller: string;
+			caller_label?: string;
 			direction: string;
 			/** Format: int64 */
 			ended_at?: number | null;
@@ -331,6 +332,16 @@ export interface components {
 					status: "failed";
 			  };
 		/** @enum {string} */
+		RecordingDestination: "local" | "nas";
+		RecordingStorage: {
+			destination: components["schemas"]["RecordingDestination"];
+			enabled: boolean;
+			/** Format: int32 */
+			max_seconds: number;
+			/** Format: int64 */
+			minimum_bytes: number;
+		};
+		/** @enum {string} */
 		Rule: "allow" | "block" | "screen";
 		Settings: {
 			/**
@@ -370,6 +381,7 @@ export interface components {
 			/** Format: uuid */
 			instance_id: string;
 			mode: string;
+			recording: components["schemas"]["RecordingStorage"];
 			vapid_public_key?: string | null;
 		};
 		Transcript: {
@@ -642,6 +654,14 @@ export interface operations {
 				};
 			};
 			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["ErrorBody"];
+				};
+			};
+			503: {
 				headers: {
 					[name: string]: unknown;
 				};

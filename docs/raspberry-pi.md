@@ -2,7 +2,7 @@
 
 ## Runtime and package
 
-The deployment target is Raspberry Pi 4 or 5 running a 64-bit Linux operating system with Docker and OpenSSL available.
+The deployment target is Raspberry Pi 4 or 5 running a 64-bit Linux operating system with Docker or rootless Podman and OpenSSL available.
 Use Raspberry Pi OS Lite 64-bit for the intended installation.
 Raspberry Pi documents headless network and SSH setup in its [getting started guide](https://www.raspberrypi.com/documentation/computers/getting-started.html).
 Docker documents ARM64 support and installation for the underlying Debian release in its [Debian installation guide](https://docs.docker.com/engine/install/debian/).
@@ -24,23 +24,27 @@ The [third-party notices](../THIRD_PARTY_NOTICES.md) describe the source boundar
 The gateway image retains the Japanese sound license and credits under `/usr/share/licenses/asterisk-ja`.
 
 Copy the package to the Pi and run the following commands from a directory owned by the service user.
-Replace the documentation address, origin, and user with the Pi's observed local network address, private HTTPS origin, and allowed tailnet login.
+Replace the documentation address and origin with the Pi's observed local network address and private HTTPS origin.
 The installation directory must be empty or absent.
 
 ```sh
 install -m 755 package/homephone ./homephone
-./homephone init --production --directory ./telephone --address 192.0.2.10 --origin https://phone.example.ts.net --owner owner@example.com
+./homephone init --production --directory ./telephone --address 192.0.2.10 --origin https://phone.example.ts.net
 ./homephone install --package ./package --directory ./telephone
 ```
 
 Initialization creates private configuration, gateway and browser passwords, administration credentials, WebRTC certificate keys, and push signing keys.
-Add `OPENAI_API_KEY` to `telephone/config/secrets.env` using an editor.
+Production initialization keeps AI off for ordinary calls.
+To enable the [AI plugin](plugins.md), select `openai` for `ai.provider` and add `OPENAI_API_KEY` to `telephone/config/secrets.env` using an editor.
 The file contains literal assignments that the server parses as data.
 The parser rejects shell syntax and duplicate assignments.
 Keep the generated credentials when changing configuration.
 
 The HTTP listener binds to `127.0.0.1:8787`.
-Production access requires HTTPS and an explicitly allowed Tailscale user, or the administration token on the loopback management path.
+Production browser access requires HTTPS and a Tailscale identity supplied by Serve.
+The tailnet policy authorizes access to the management port without an app user list.
+Configurations from earlier releases can keep `allowed_users`, which the server reads and ignores, so an update and its rollback both accept them.
+The administration token remains available on the loopback management path.
 [Tailscale Serve](https://tailscale.com/docs/reference/tailscale-cli/serve) can provide the private HTTPS endpoint and identity headers.
 
 ```sh
@@ -78,9 +82,39 @@ The service user must already be able to use the Docker engine.
 Runtime containers use the installation's user identity, read-only images, bounded memory and CPU, and bounded Docker logs.
 The Pi runs prebuilt images and doesn't need the Rust or Node.js toolchain.
 
+## Rootless containers
+
+Use an unprivileged service account with subordinate user and group mappings, a running systemd user manager, and lingering configured by the machine baseline.
+The account needs delegated CPU, memory, and process controllers.
+Podman's [`keep-id` namespace](https://docs.podman.io/en/v5.4.2/markdown/podman-run.1.html#userns-mode) preserves private file access without changing ownership.
+Select the engine for every administration command.
+The generated user unit retains the selection and uses the recovery-aware lifecycle.
+
+```sh
+export HOMEPHONE_CONTAINER_ENGINE=podman
+./homephone install --package ./package --directory ./telephone
+./homephone unit --engine podman --directory ./telephone --binary "$(pwd)/homephone" --user "$(id -un)" --output ./homephone.service
+install -m 644 ./homephone.service ~/.config/systemd/user/homephone.service
+systemctl --user daemon-reload
+systemctl --user enable --now homephone.service
+./homephone doctor --directory ./telephone
+```
+
+The manager uses Podman's bounded file logger and Docker's rotated JSON logger.
+The public `stop` operation first quiesces admission and refuses an active call.
+For an operator restart, run `stop` and continue to `boot` only after a successful stop.
+Keep administrative recovery available independently of the telephone service.
+
+Add `config/ht813-console.toml` to supervise the optional [gateway console](ht813-console.md) from the app image.
+Use `/opt/homephone/console/dist` for its asset path inside the container.
+The console binds to its configured loopback listener and keeps its own device sessions.
+Configuration and static assets must pass startup checks before the installation becomes ready.
+
 ## Preserve and recover data
 
-Backups contain credentials, call metadata, recordings, and gateway spool files.
+Backups contain credentials, call metadata, locally stored recordings, and gateway spool files.
+NAS audio requires a separate NAS backup alongside the preserved archive configuration and receipts.
+Take the NAS backup right after the app backup without deleting calls in between, as the [recording guide](recordings.md) describes.
 Store backups as private artifacts.
 The manager refuses backup during an active call and refuses to overwrite an existing destination.
 It quiesces new calls, creates a consistent SQLite snapshot, verifies the file inventory, and resumes after publication.
@@ -111,7 +145,15 @@ A fresh restore receives a new installation identity and refuses an occupied des
 Only one installation may own the configured HTTP and SIP ports at a time.
 Restoring an earlier snapshot intentionally restores its earlier call history.
 
+A committed update or rollback keeps the images of the running release and the release it replaced.
+It then removes every other `homephone-app` and `homephone-gateway` source image that no container uses.
+A removal failure reports an error after the commit, and the new release keeps running.
+Keep one installation in each container engine store, because the manager can't see the releases of another installation without containers.
+Before rolling back to an older backup, load its release images with `docker load --input PACKAGE/app.tar` and `docker load --input PACKAGE/gateway.tar`.
+Keep the package directories of the running and previous releases, and delete older package directories after a successful update.
+
 The default recording policy keeps finished recordings for 30 days with a 4 GiB quota.
+Explicit [NAS recording](recordings.md) uses manual retention and a bounded local spool instead of the default expiry policy.
 Capture and quota enforcement continue independently of slow transcription or summary requests.
 Active and quarantined calls remain protected until gateway cleanup releases ownership.
 The policy can temporarily exceed the quota while a protected recording remains active.

@@ -8,6 +8,12 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Operation {
+    ConsoleParameters {
+        #[arg(long)]
+        template: PathBuf,
+        #[arg(long)]
+        output: PathBuf,
+    },
     Check,
     Sources,
     Api {
@@ -15,6 +21,7 @@ enum Operation {
         update: bool,
     },
     Security,
+    ConsoleBrowser,
     GatewayAuthentication {
         #[arg(long, default_value = ".local/telephone")]
         directory: PathBuf,
@@ -33,6 +40,8 @@ enum Operation {
     Lab {
         #[arg(long, default_value = ".local/telephone")]
         directory: PathBuf,
+        #[arg(long)]
+        nas_only: bool,
     },
     Footprint {
         #[arg(value_enum)]
@@ -95,6 +104,8 @@ enum Operation {
         output: PathBuf,
     },
     Unit {
+        #[arg(long, value_enum, default_value = "docker")]
+        engine: xtask::container::Engine,
         #[arg(long)]
         directory: PathBuf,
         #[arg(long)]
@@ -124,8 +135,6 @@ enum Operation {
         #[arg(long, default_value = "http://localhost:8787")]
         origin: String,
         #[arg(long)]
-        owner: Option<String>,
-        #[arg(long)]
         production: bool,
     },
     GatewayStart {
@@ -147,6 +156,9 @@ enum Operation {
 }
 fn main() -> anyhow::Result<()> {
     match Cli::parse().operation {
+        Operation::ConsoleParameters { template, output } => {
+            xtask::console::export(&template, &output)
+        }
         Operation::Check => xtask::check::fast(),
         Operation::Sources => xtask::check::sources_at(
             std::path::Path::new(".agents/skills/grandstream-ht813/references"),
@@ -154,6 +166,7 @@ fn main() -> anyhow::Result<()> {
         ),
         Operation::Api { update } => xtask::check::schema(update),
         Operation::Security => xtask::check::security(),
+        Operation::ConsoleBrowser => xtask::check::console_browser(),
         Operation::GatewayAuthentication { directory } => {
             xtask::check::gateway_authentication(&directory)
         }
@@ -166,7 +179,17 @@ fn main() -> anyhow::Result<()> {
             }
         }
         Operation::Evidence => xtask::assurance::receipts(),
-        Operation::Lab { directory } => xtask::manager::lab(&directory),
+        Operation::Lab {
+            directory,
+            nas_only,
+        } => {
+            xtask::check::nas()?;
+            if nas_only {
+                Ok(())
+            } else {
+                xtask::manager::lab(&directory)
+            }
+        }
         Operation::Footprint { phase, directory } => xtask::check::footprint(&directory, phase),
         Operation::Rehearse { directory } => xtask::manager::rehearse(&directory),
         Operation::Boot { directory } => xtask::manager::boot(&directory),
@@ -187,14 +210,20 @@ fn main() -> anyhow::Result<()> {
         Operation::Install { package, directory } => xtask::manager::install(&package, &directory),
         Operation::Package { output } => xtask::package::build(&output),
         Operation::Unit {
+            engine,
             directory,
             binary,
             user,
             output,
         } => xtask::operations::private_file(
             &output,
-            xtask::manager::systemd_unit(&binary, &xtask::manager::absolute(&directory)?, &user)?
-                .as_bytes(),
+            xtask::manager::systemd_unit_for_engine(
+                &binary,
+                &xtask::manager::absolute(&directory)?,
+                &user,
+                engine,
+            )?
+            .as_bytes(),
         ),
         Operation::Provision {
             directory,
@@ -223,9 +252,8 @@ fn main() -> anyhow::Result<()> {
             directory,
             address,
             origin,
-            owner,
             production,
-        } => xtask::operations::initialize(&directory, address, origin, owner, !production),
+        } => xtask::operations::initialize(&directory, address, origin, !production),
         Operation::GatewayStart {
             directory,
             image,

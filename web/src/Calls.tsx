@@ -1,6 +1,7 @@
 import { type FormEvent, type ReactElement, useState } from "react";
 import type { Perform } from "./App";
 import { type BrowserState, browserPhone } from "./browser-phone";
+import { CallerName } from "./CallerName";
 import type { Call } from "./contracts";
 import { callTime, Transcript } from "./History";
 import { phoneStore, type Workspace } from "./service";
@@ -153,7 +154,7 @@ export function Calls({
 			{active && (
 				<article className="active-call">
 					<div className="section-heading">
-						<h3>{active.caller || "非通知"}</h3>
+						<CallerName call={active} />
 						<span>{phases[active.phase]}</span>
 					</div>
 					<p>

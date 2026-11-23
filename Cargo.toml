@@ -1,5 +1,13 @@
 [workspace]
-members = ["crates/phone-core", "crates/phone-server", "xtask"]
+members = [
+  "crates/phone-core",
+  "crates/phone-server",
+  "crates/phone-plugin-ai",
+  "crates/phone-plugin-ntfy",
+  "crates/phone-plugin-nas",
+  "crates/phone-plugin-phonebook",
+  "xtask",
+]
 resolver = "3"
 
 [workspace.package]

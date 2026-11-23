@@ -9,7 +9,6 @@ fn initialization_publishes_complete_configuration_and_cleans_up_failed_key_gene
             &target,
             "127.0.0.1".parse().unwrap(),
             "http://localhost:8787".into(),
-            None,
             true,
             |_| anyhow::bail!("injected key generation failure")
         )
@@ -20,7 +19,6 @@ fn initialization_publishes_complete_configuration_and_cleans_up_failed_key_gene
         &target,
         "127.0.0.1".parse().unwrap(),
         "http://localhost:8787".into(),
-        None,
         true,
         |keys| {
             for name in ["dtls.key", "dtls.crt", "vapid.pem"] {
@@ -39,7 +37,6 @@ fn initialization_publishes_complete_configuration_and_cleans_up_failed_key_gene
             &target,
             "127.0.0.1".parse().unwrap(),
             "http://localhost:8787".into(),
-            None,
             true,
             |_| Ok(())
         )

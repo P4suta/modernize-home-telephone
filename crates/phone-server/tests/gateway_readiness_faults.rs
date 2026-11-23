@@ -80,6 +80,7 @@ async fn external_media_waits_for_its_own_stasis_event_before_bridge_attachment(
         offered
             .offer(
                 Channel {
+                    creationtime: Some("2026-11-15T05:32:13.000+0900".into()),
                     id: "external-call".into(),
                     state: "Ring".into(),
                     caller: Caller {
