@@ -26,7 +26,7 @@ RUN --mount=type=cache,id=homephone-rusterisk-registry,target=/usr/local/cargo/r
     grep -Fqx 'test authenticated_registration_replaces_only_previous_contacts ... ok' /tmp/registration-test.log
 RUN --mount=type=cache,id=homephone-rusterisk-registry,target=/usr/local/cargo/registry,sharing=locked cargo build --locked --release -p rusterisk-server --bin rusterisk && cp target/release/rusterisk /usr/local/bin/rusterisk
 
-FROM rust:1.99.1-trixie@sha256:edc584c5d2f915bcc5b08049987e7a492ccb8ab188444daf0a870b3ef82a3b2e AS assets
+FROM rust:1.99.1-trixie@sha256:8a4e90c7946b74626488b1446f712c0fe0ed1a596cbd3d871684bc9c5433ae07 AS assets
 WORKDIR /build
 COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
