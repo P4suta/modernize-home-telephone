@@ -403,3 +403,10 @@ test = "package_builds_isolate_compiled_artifacts_between_source_revisions"
 invariant = "Package binaries match the source in their build context."
 previous_gap = "A shared Cargo target directory reused the Rusterisk call path when building the earlier Asterisk app."
 enforcement = "The build recipes keep workspace targets in source-specific Docker layers and cache registry downloads independently."
+
+[[cases]]
+source = "xtask/tests/release_retention_faults.rs"
+test = "committed_replacements_select_only_superseded_release_images_that_no_container_uses"
+invariant = "A committed update or rollback leaves the engine with the running and replaced releases, every image a container uses, and no older release image."
+previous_gap = "Updates loaded every candidate and never removed one, so each superseded release kept its images and Podman's ID-mapped copies."
+enforcement = "Selection covers qualified Podman names, container-held images, unrelated repositories, and foreign registries; the deployment rehearsal removes a synthetic superseded tag through the real engine and reverifies the running release."
