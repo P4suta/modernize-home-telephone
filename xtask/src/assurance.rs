@@ -314,6 +314,7 @@ pub enum Check {
     Fuzz,
     Mutants,
     WebMutants,
+    ConsoleMutants,
 }
 impl Check {
     fn name(self) -> &'static str {
@@ -323,6 +324,14 @@ impl Check {
             Self::Fuzz => "fuzz",
             Self::Mutants => "mutants",
             Self::WebMutants => "web_mutants",
+            Self::ConsoleMutants => "console_mutants",
+        }
+    }
+    fn node_directory(self) -> Option<&'static str> {
+        match self {
+            Self::WebMutants => Some("web"),
+            Self::ConsoleMutants => Some("console"),
+            Self::Proof | Self::Miri | Self::Fuzz | Self::Mutants => None,
         }
     }
 }
@@ -341,9 +350,9 @@ fn binding(check: Check) -> anyhow::Result<BTreeMap<String, String>> {
     Ok(files
         .into_iter()
         .filter(|(name, _)| {
-            if matches!(check, Check::WebMutants) {
-                name.starts_with("web/")
-                    || name == "verification/Dockerfile.web"
+            if let Some(directory) = check.node_directory() {
+                name.starts_with(&format!("{directory}/"))
+                    || name == recipe(check)
                     || name.starts_with("xtask/")
             } else {
                 name.starts_with("crates/phone-core/")
@@ -388,10 +397,10 @@ fn names() -> anyhow::Result<Vec<String>> {
     Ok(contracts.harnesses)
 }
 fn recipe(check: Check) -> &'static str {
-    if matches!(check, Check::WebMutants) {
-        "verification/Dockerfile.web"
-    } else {
-        "verification/Dockerfile"
+    match check.node_directory() {
+        Some("web") => "verification/Dockerfile.web",
+        Some(_) => "verification/Dockerfile.console",
+        None => "verification/Dockerfile",
     }
 }
 fn reject_broken_parser(
@@ -466,8 +475,8 @@ fn reject_broken_parser(
 }
 pub fn inside(check: Check) -> anyhow::Result<()> {
     ensure!(
-        !matches!(check, Check::WebMutants),
-        "web mutation runs in its Node image"
+        check.node_directory().is_none(),
+        "TypeScript mutation runs in its Node image"
     );
     let source = binding(check)?;
     let run = PathBuf::from(".cache/assurance/runs").join(uuid::Uuid::new_v4().to_string());
@@ -731,7 +740,7 @@ pub fn inside(check: Check) -> anyhow::Result<()> {
             }
             report
         }
-        Check::WebMutants => unreachable!(),
+        Check::WebMutants | Check::ConsoleMutants => unreachable!(),
     };
     ensure!(
         source == binding(check)?,
@@ -769,12 +778,12 @@ pub fn inside(check: Check) -> anyhow::Result<()> {
 
 fn image(check: Check) -> anyhow::Result<String> {
     use sha2::Digest;
-    let name = if matches!(check, Check::WebMutants) {
-        "homephone-verification-web:local"
-    } else {
-        "homephone-verification:local"
+    let name = match check.node_directory() {
+        Some(directory) => format!("homephone-verification-{directory}:local"),
+        None => "homephone-verification:local".into(),
     };
-    let hash = if matches!(check, Check::WebMutants) {
+    let name = name.as_str();
+    let hash = if check.node_directory().is_some() {
         format!(
             "{:x}",
             sha2::Sha256::digest(serde_json::to_vec(&binding(check)?)?)
@@ -797,7 +806,7 @@ fn image(check: Check) -> anyhow::Result<String> {
             &[
                 "build",
                 "--platform",
-                if matches!(check, Check::WebMutants) {
+                if check.node_directory().is_some() {
                     "linux/arm64"
                 } else {
                     "linux/amd64"
@@ -988,11 +997,11 @@ pub fn verify(check: Check) -> anyhow::Result<()> {
     let driver_target = format!("target/verification-tools/{}", uuid::Uuid::new_v4());
     crate::operations::private_directory(Path::new(".cache/assurance"))?;
     crate::operations::private_directory(Path::new(&driver_target))?;
-    let arguments: Vec<String> = if matches!(check, Check::WebMutants) {
+    let arguments: Vec<String> = if let Some(directory) = check.node_directory() {
         vec![
             "pnpm".into(),
             "--dir".into(),
-            WEB_VERIFICATION_DIRECTORY.into(),
+            format!("{NODE_VERIFICATION_ROOT}/{directory}"),
             "mutate".into(),
         ]
     } else {
@@ -1101,16 +1110,18 @@ pub fn verify(check: Check) -> anyhow::Result<()> {
             source == binding(check)?,
             "sources changed during the verification process"
         );
-        if matches!(check, Check::WebMutants) {
+        if let Some(directory) = check.node_directory() {
             let report = PathBuf::from(".cache/assurance")
-                .join(format!("web-mutants-{}.json", uuid::Uuid::new_v4()));
+                .join(format!("{directory}-mutants-{}.json", uuid::Uuid::new_v4()));
             crate::operations::private_directory(
                 report.parent().context("missing report parent")?,
             )?;
             let status = Command::new("docker")
                 .args([
                     "cp",
-                    &format!("{container}:/opt/web/reports/mutation/mutation.json"),
+                    &format!(
+                        "{container}:{NODE_VERIFICATION_ROOT}/{directory}/reports/mutation/mutation.json"
+                    ),
                 ])
                 .arg(&report)
                 .status()?;
@@ -1131,14 +1142,14 @@ pub fn verify(check: Check) -> anyhow::Result<()> {
                         mutant["status"].as_str(),
                         Some("Killed" | "CompileError")
                     )),
-                "web mutants survived or were not checked"
+                "{directory} mutants survived or were not checked"
             );
             ensure!(
                 binding(check)? == source,
-                "web sources changed during mutation"
+                "{directory} sources changed during mutation"
             );
             crate::manager::atomic_json(
-                Path::new(".cache/assurance/web_mutants.json"),
+                &Path::new(".cache/assurance").join(format!("{}.json", check.name())),
                 &Receipt {
                     schema: 1,
                     check,
@@ -1167,7 +1178,7 @@ pub fn verify(check: Check) -> anyhow::Result<()> {
     }
 }
 pub fn receipts() -> anyhow::Result<()> {
-    for name in ["check", "security", "browser"] {
+    for name in ["check", "security", "browser", "console_browser"] {
         crate::check::evidence(name)?;
     }
     crate::manager::deployment_evidence()?;
@@ -1177,6 +1188,7 @@ pub fn receipts() -> anyhow::Result<()> {
         Check::Fuzz,
         Check::Mutants,
         Check::WebMutants,
+        Check::ConsoleMutants,
     ] {
         let receipt: Receipt = serde_json::from_slice(&std::fs::read(format!(
             ".cache/assurance/{}.json",
@@ -1218,7 +1230,7 @@ const NUMBER_LENGTH_GUARD: &str = "if !bytes::nonempty_within(bytes.len(), MAX_D
 const CACHE_KEY_HEX_DIGITS: usize = 24;
 const IMAGE_ID_LENGTH: usize = 71;
 const SHA256_HEX_DIGITS: usize = 64;
-const WEB_VERIFICATION_DIRECTORY: &str = "/opt/web";
+const NODE_VERIFICATION_ROOT: &str = "/opt";
 const FUZZ_SEEDS: [u64; 4] = [8008, 8009, 4801, 4802];
 const FUZZ_EXECUTIONS: u64 = 40000;
 const FUZZ_MAXIMUM_INPUT_BYTES: usize = 512;

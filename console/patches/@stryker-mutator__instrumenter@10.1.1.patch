@@ -1,0 +1,303 @@
+diff --git a/dist/src/parsers/svelte-parser.js b/dist/src/parsers/svelte-parser.js
+index fe3718d4130131f6428ccb91f09ab5e81adaaed8..3b14df6405da607eed84632e0458e33a104cdce5 100644
+--- a/dist/src/parsers/svelte-parser.js
++++ b/dist/src/parsers/svelte-parser.js
+@@ -74,11 +74,18 @@ export async function parse(text, fileName, context) {
+                         isExpression: false,
+                     });
+                 }
+-                // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+-                const templateExpression = collectTemplateExpression(node);
+-                if (templateExpression) {
++                for (const templateExpression of collectTemplateExpressions(node)) {
+                     const { start, end } = templateExpression;
+-                    ranges.push({ start, end, isExpression: true });
++                    ranges.push({
++                        start,
++                        end,
++                        isExpression: true,
++                        parenthesized: [
++                            'ObjectExpression',
++                            'FunctionExpression',
++                            'ClassExpression',
++                        ].includes(templateExpression.type),
++                    });
+                 }
+             },
+         });
+@@ -90,13 +97,17 @@ export async function parse(text, fileName, context) {
+         }
+         return;
+     }
+-    async function parseTemplateScript({ start, end, isExpression, format, }) {
++    async function parseTemplateScript({ start, end, isExpression, format, parenthesized, }) {
+         const scriptText = text.slice(start, end);
+-        const parsed = await context.parse(scriptText, fileName, format);
++        const parsed = await context.parse(parenthesized ? `(${scriptText})` : scriptText, fileName, format);
++        const offset = positionConverter.positionFromOffset(start);
+         return {
+             ast: {
+                 ...parsed,
+-                offset: positionConverter.positionFromOffset(start),
++                offset: {
++                    line: offset.line,
++                    column: offset.column - (parenthesized ? 1 : 0),
++                },
+             },
+             range: { start, end },
+             isExpression,
+@@ -142,6 +153,7 @@ function remapScriptLocations(code, scriptMap, moduleScriptRange, templateRanges
+         else {
+             // Template expressions use the same format as the file's script lang
+             return {
++                ...range,
+                 start,
+                 end: start + script.length,
+                 isExpression: range.isExpression,
+@@ -154,7 +166,19 @@ function remapScriptLocations(code, scriptMap, moduleScriptRange, templateRanges
+         remappedScriptRanges: newScriptRanges.filter((range) => range !== newModuleScriptRange),
+     };
+ }
+-function collectTemplateExpression(node) {
++function isRangedNode(value) {
++    return (typeof value === 'object' &&
++        value !== null &&
++        'type' in value &&
++        typeof value.type === 'string' &&
++        'start' in value &&
++        typeof value.start === 'number' &&
++        'end' in value &&
++        typeof value.end === 'number');
++}
++function collectTemplateExpressions(node) {
++    if (!isRangedNode(node))
++        return [];
+     switch (node.type) {
+         case 'MustacheTag':
+         case 'RawMustacheTag':
+@@ -164,9 +188,57 @@ function collectTemplateExpression(node) {
+         case 'AwaitBlock':
+         case 'KeyBlock':
+         case 'EventHandler':
+-            return node.expression;
++            return [node.expression].filter(isRangedNode);
++        case 'RenderTag': {
++            const expression = node.expression;
++            if (!isRangedNode(expression))
++                return [];
++            const call = expression.type === 'ChainExpression'
++                ? expression.expression
++                : expression;
++            if (!isRangedNode(call) || call.type !== 'CallExpression')
++                return [];
++            return [
++                call.callee,
++                ...(Array.isArray(call.arguments) ? call.arguments : []),
++            ].filter(isRangedNode);
++        }
++        case 'SnippetBlock':
++            return Array.isArray(node.parameters)
++                ? node.parameters.flatMap(collectParameterExpressions)
++                : [];
++        default:
++            return [];
++    }
++}
++function collectParameterExpressions(node) {
++    if (!isRangedNode(node))
++        return [];
++    switch (node.type) {
++        case 'AssignmentPattern':
++            return [node.right]
++                .filter(isRangedNode)
++                .concat(collectParameterExpressions(node.left));
++        case 'ArrayPattern':
++            return Array.isArray(node.elements)
++                ? node.elements.flatMap(collectParameterExpressions)
++                : [];
++        case 'ObjectPattern':
++            return Array.isArray(node.properties)
++                ? node.properties.flatMap((property) => {
++                    if (!isRangedNode(property))
++                        return [];
++                    if (property.type === 'RestElement') {
++                        return collectParameterExpressions(property.argument);
++                    }
++                    return [
++                        ...(property.computed ? [property.key].filter(isRangedNode) : []),
++                        ...collectParameterExpressions(property.value),
++                    ];
++                })
++                : [];
+         default:
+-            return undefined;
++            return [];
+     }
+ }
+ //# sourceMappingURL=svelte-parser.js.map
+\ No newline at end of file
+diff --git a/dist/src/parsers/svelte-parser.js.map b/dist/src/parsers/svelte-parser.js.map
+index 36f0eca1175920c6d92595b6e1f517acd5a4f58f..b5d6989be1a369bf1fcab49a2fbfd447b9c3cd34 100644
+--- a/dist/src/parsers/svelte-parser.js.map
++++ b/dist/src/parsers/svelte-parser.js.map
+@@ -1 +1 @@
+-{"version":3,"file":"svelte-parser.js","sourceRoot":"","sources":["../../../src/parsers/svelte-parser.ts"],"names":[],"mappings":"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"}
+\ No newline at end of file
++{"version":3,"file":"svelte-parser.js","sourceRoot":"","sources":["../../../src/parsers/svelte-parser.ts"],"names":[],"mappings":"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"}
+\ No newline at end of file
+diff --git a/src/parsers/svelte-parser.ts b/src/parsers/svelte-parser.ts
+index 88cb58cf5321095fbbed905756621e5f6e5315ca..74b809d743b28502a82597987986f2d88e351010 100644
+--- a/src/parsers/svelte-parser.ts
++++ b/src/parsers/svelte-parser.ts
+@@ -19,8 +19,12 @@ interface Range {
+   start: number;
+   end: number;
+ }
++interface RangedNode extends BaseNode, Range {
++  [key: string]: unknown;
++}
+ interface TemplateRange extends Range {
+   isExpression: boolean;
++  parenthesized?: boolean;
+ }
+ 
+ interface TemplateScriptRange extends TemplateRange {
+@@ -134,11 +138,18 @@ export async function parse(
+           });
+         }
+ 
+-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+-        const templateExpression = collectTemplateExpression(node);
+-        if (templateExpression) {
++        for (const templateExpression of collectTemplateExpressions(node)) {
+           const { start, end } = templateExpression;
+-          ranges.push({ start, end, isExpression: true });
++          ranges.push({
++            start,
++            end,
++            isExpression: true,
++            parenthesized: [
++              'ObjectExpression',
++              'FunctionExpression',
++              'ClassExpression',
++            ].includes(templateExpression.type),
++          });
+         }
+       },
+     });
+@@ -159,13 +170,22 @@ export async function parse(
+     end,
+     isExpression,
+     format,
++    parenthesized,
+   }: TemplateScriptRange): Promise<TemplateScript> {
+     const scriptText = text.slice(start, end);
+-    const parsed = await context.parse(scriptText, fileName, format);
++    const parsed = await context.parse(
++      parenthesized ? `(${scriptText})` : scriptText,
++      fileName,
++      format,
++    );
++    const offset = positionConverter.positionFromOffset(start);
+     return {
+       ast: {
+         ...parsed,
+-        offset: positionConverter.positionFromOffset(start),
++        offset: {
++          line: offset.line,
++          column: offset.column - (parenthesized ? 1 : 0),
++        },
+       },
+       range: { start, end },
+       isExpression,
+@@ -225,6 +245,7 @@ function remapScriptLocations(
+     } else {
+       // Template expressions use the same format as the file's script lang
+       return {
++        ...range,
+         start,
+         end: start + script.length,
+         isExpression: range.isExpression,
+@@ -240,10 +261,21 @@ function remapScriptLocations(
+   };
+ }
+ 
+-function collectTemplateExpression(node: {
+-  type: string;
+-  expression: BaseNode & Range;
+-}): (BaseNode & Range) | undefined {
++function isRangedNode(value: unknown): value is RangedNode {
++  return (
++    typeof value === 'object' &&
++    value !== null &&
++    'type' in value &&
++    typeof value.type === 'string' &&
++    'start' in value &&
++    typeof value.start === 'number' &&
++    'end' in value &&
++    typeof value.end === 'number'
++  );
++}
++
++function collectTemplateExpressions(node: unknown): RangedNode[] {
++  if (!isRangedNode(node)) return [];
+   switch (node.type) {
+     case 'MustacheTag':
+     case 'RawMustacheTag':
+@@ -253,8 +285,54 @@ function collectTemplateExpression(node: {
+     case 'AwaitBlock':
+     case 'KeyBlock':
+     case 'EventHandler':
+-      return node.expression;
++      return [node.expression].filter(isRangedNode);
++    case 'RenderTag': {
++      const expression = node.expression;
++      if (!isRangedNode(expression)) return [];
++      const call =
++        expression.type === 'ChainExpression'
++          ? expression.expression
++          : expression;
++      if (!isRangedNode(call) || call.type !== 'CallExpression') return [];
++      return [
++        call.callee,
++        ...(Array.isArray(call.arguments) ? call.arguments : []),
++      ].filter(isRangedNode);
++    }
++    case 'SnippetBlock':
++      return Array.isArray(node.parameters)
++        ? node.parameters.flatMap(collectParameterExpressions)
++        : [];
++    default:
++      return [];
++  }
++}
++
++function collectParameterExpressions(node: unknown): RangedNode[] {
++  if (!isRangedNode(node)) return [];
++  switch (node.type) {
++    case 'AssignmentPattern':
++      return [node.right]
++        .filter(isRangedNode)
++        .concat(collectParameterExpressions(node.left));
++    case 'ArrayPattern':
++      return Array.isArray(node.elements)
++        ? node.elements.flatMap(collectParameterExpressions)
++        : [];
++    case 'ObjectPattern':
++      return Array.isArray(node.properties)
++        ? node.properties.flatMap((property: unknown): RangedNode[] => {
++            if (!isRangedNode(property)) return [];
++            if (property.type === 'RestElement') {
++              return collectParameterExpressions(property.argument);
++            }
++            return [
++              ...(property.computed ? [property.key].filter(isRangedNode) : []),
++              ...collectParameterExpressions(property.value),
++            ];
++          })
++        : [];
+     default:
+-      return undefined;
++      return [];
+   }
+ }

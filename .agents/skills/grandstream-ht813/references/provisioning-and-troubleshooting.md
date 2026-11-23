@@ -73,6 +73,17 @@ Change the identified cause and repeat the same call before adjusting analog gai
 If caller identification is missing, compare upstream number delivery, `FXO` decoding, answer timing, and the SIP caller information.
 Separate a number missing at `FXO` from a number missing at the SIP endpoint or the telephone on the `FXS` port.
 Check the [firmware evidence](#firmware-and-parameter-evidence) before changing Japanese caller identification parameters.
+Keep the calling source constant when comparing ring settings, and correlate each physical attempt with its call record and notification.
+With only `anonymous` in the stored caller field, intentional number withholding and failed number reception remain unresolved alternatives.
+The [HT813 interconnection guide, Channel Dialing](https://documentation.grandstream.com/knowledge-base/connecting-ucm6xxxx-with-ht813/) recommends trying two or four rings when one ring causes caller identification problems.
+Verify the number and ringing delay on the installed line before adopting the shorter setting.
+
+When a fax and telephone share `FXS`, establish their connection order and the fax receive mode before interpreting an automatic answer or continued ringing.
+For the `MFC-L2860DW`, Brother's [external telephone instructions](https://support.brother.co.jp/j/s/support/html/cv_mfcl2880dw_jpn/doc/html/GUID-E03086F9-E188-4CCF-980D-D6D1C619F4E3_1.html) require the `EXT.` socket and prohibit a parallel branch.
+Its [receive-mode guide](https://support.brother.co.jp/j/s/support/html/cv_mfcl2880dw_jpn/doc/html/GUID-E4223EFD-5D6E-41A9-AF19-595FE8663E6E_1.html) explains automatic answering in `F/T=自動切換え` mode.
+Its [repeat-ring instructions](https://support.brother.co.jp/j/s/support/html/cv_mfcl2880dw_jpn/doc/html/GUID-171F671F-E6C6-4A1D-98DF-9159DBE93F4D_1.html) state that the fax continues its own ringing for the selected count after the caller disconnects.
+Require a person's confirmation of answering and audio in both directions even when SIP reports a connected call.
+After a manual-mode comparison, restore the recorded receive mode unless the user chooses a different operating policy.
 
 If `FXO` stays busy after the remote party ends the call, compare the analog line state with the SIP termination trace.
 Grandstream's [HT813 interconnection guide, `FXO` Termination](https://documentation.grandstream.com/knowledge-base/connecting-ucm6xxxx-with-ht813/) requires choosing disconnect detection to match the line's signaling.

@@ -8,6 +8,12 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Operation {
+    ConsoleParameters {
+        #[arg(long)]
+        template: PathBuf,
+        #[arg(long)]
+        output: PathBuf,
+    },
     Check,
     Sources,
     Api {
@@ -15,6 +21,7 @@ enum Operation {
         update: bool,
     },
     Security,
+    ConsoleBrowser,
     GatewayAuthentication {
         #[arg(long, default_value = ".local/telephone")]
         directory: PathBuf,
@@ -143,6 +150,9 @@ enum Operation {
 }
 fn main() -> anyhow::Result<()> {
     match Cli::parse().operation {
+        Operation::ConsoleParameters { template, output } => {
+            xtask::console::export(&template, &output)
+        }
         Operation::Check => xtask::check::fast(),
         Operation::Sources => xtask::check::sources_at(
             std::path::Path::new(".agents/skills/grandstream-ht813/references"),
@@ -150,6 +160,7 @@ fn main() -> anyhow::Result<()> {
         ),
         Operation::Api { update } => xtask::check::schema(update),
         Operation::Security => xtask::check::security(),
+        Operation::ConsoleBrowser => xtask::check::console_browser(),
         Operation::GatewayAuthentication { directory } => {
             xtask::check::gateway_authentication(&directory)
         }

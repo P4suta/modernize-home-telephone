@@ -1,0 +1,1134 @@
+[
+	{
+		"key": "sip-server",
+		"title": "SIPサーバー",
+		"aliases": ["Primary SIP Server", "SIP Server", "SIPサーバー"],
+		"summary": "通話の開始・終了や着信先の登録を管理するサーバーです。",
+		"input": "接続先から指定されたホスト名またはIPアドレスを入力します。\nURLの https:// や管理画面のアドレスは入力しません。",
+		"recommendation": "SIPサーバーを用意してから、指定されたアドレスへ変更します。",
+		"impact": "誤った値を指定すると登録や発着信に失敗します。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "account",
+		"title": "アカウントを使用",
+		"aliases": ["Account Active", "アカウントを使用"],
+		"summary": "FXSまたはFXOのSIPアカウントを使用するかを選びます。",
+		"input": "機器が提示する選択肢から選びます。",
+		"recommendation": "SIP接続を使用する場合は有効にします。",
+		"impact": "無効にすると対象ポートのSIP登録と通話に影響します。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "codec",
+		"title": "優先コーデック",
+		"aliases": [
+			"Preferred Vocoder",
+			"Preferred Vocoder (in listed order)",
+			"優先コーデック",
+			"PCMU",
+			"PCMA",
+			"G.711",
+			"G.729",
+			"G.723.1",
+			"Opus",
+			"iLBC",
+			"G.726"
+		],
+		"summary": "コーデックは、声を通信データへ変換する方式です。\nPCMUとPCMAはG.711の方式で、PCMUはμ-law、PCMAはA-lawを使います。",
+		"input": "優先順位の上から相手と共通の方式を探します。\nPCMU・PCMAは音声部分が64 kbit/sで、ネットワークの総通信量には追加の情報も含まれます。",
+		"recommendation": "接続先と共通の方式を優先します。\n音声が正常なら通常変更不要です。",
+		"impact": "共通する方式がなくなると通話できません。\n帯域には音声データ以外の通信量も加わります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "rtp",
+		"title": "ローカルRTPポート",
+		"aliases": ["Local RTP Port", "ローカルRTPポート"],
+		"summary": "RTPは通話中の音声データを運ぶ仕組みです。\nローカルRTPポートはHT813が音声の送受信に使う窓口の番号です。",
+		"input": "1024〜65535の整数です。\nローカルRTPポートは音声を受け取る入口の番号です。\n相手先のポート範囲を指定する欄ではありません。",
+		"recommendation": "通常は変更不要です。\n他の機能とのポート重複や接続先の指定がある場合に調整します。",
+		"impact": "SIPのポートや電話番号とは異なります。\nポートの衝突や通信経路の不一致で無音になる場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "sip-port",
+		"title": "ローカルSIPポート",
+		"aliases": ["Local SIP Port", "ローカルSIPポート"],
+		"summary": "通話を開始・終了するSIPメッセージをHT813が送受信する窓口です。",
+		"input": "1〜65535の整数です。\n通話の開始・応答・切断を扱うSIPの待受ポートです。\n音声用のRTPポートとは別です。",
+		"recommendation": "通常は変更不要です。\n接続先の指定やポートの重複がある場合に変更します。",
+		"impact": "RTPポートだけを変更してもSIPの設定は変わりません。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "sip-user",
+		"title": "SIPユーザーID",
+		"aliases": ["SIP User ID", "SIPユーザーID"],
+		"summary": "SIPサーバーへ登録する電話側の識別名です。",
+		"input": "SIPサービスやPBXから指定されたIDを入力します。",
+		"recommendation": "接続先の指定に合わせて設定します。",
+		"impact": "認証IDと同じとは限りません。\n表示名や管理画面のログイン名とは区別します。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "auth-id",
+		"title": "認証ID",
+		"aliases": ["Authenticate ID", "認証ID"],
+		"summary": "SIPサーバーがアカウントを認証するためのIDです。",
+		"input": "接続先から指定された認証IDを入力します。",
+		"recommendation": "SIPサーバーのアカウント設定に合わせます。",
+		"impact": "SIPユーザーIDと異なるサービスがあります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "auth-password",
+		"title": "認証パスワード",
+		"aliases": ["Authenticate Password", "認証パスワード"],
+		"summary": "SIPアカウントの認証に使うパスワードです。",
+		"input": "変更する場合だけ新しい値を入力します。\n保存済みの値は画面へ返しません。",
+		"recommendation": "接続先に設定したパスワードと一致させます。",
+		"impact": "空欄のままなら変更しません。\nパスワードの読戻しでは一致を確認できません。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "dial-plan",
+		"title": "ダイヤルプラン",
+		"aliases": ["Dial Plan", "ダイヤルプラン"],
+		"summary": "入力した番号を、発信可能なパターンへ照合するルールです。",
+		"input": "メーカーのダイヤルプラン構文を使用します。\nxは数字、+は直前のパターンの繰り返しを表します。\n例を確認せずに編集しないでください。",
+		"recommendation": "通常は変更不要です。\n許可する番号や発信経路を設計する場合に変更します。",
+		"impact": "意図した番号を拒否したり、想定外の発信を許可したりする場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "call-waiting",
+		"title": "割込通話",
+		"aliases": ["Call Waiting", "Disable Call Waiting", "割込通話"],
+		"summary": "通話中の別の着信を通知する機能です。",
+		"input": "機器の項目が有効化か無効化かを確認して選びます。\nDisable Call Waitingは割込通話を無効にする指定です。",
+		"recommendation": "割込通話を使用する場合は無効化しません。",
+		"impact": "SIP接続先と電話機の対応にも依存します。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "time-zone",
+		"title": "タイムゾーン",
+		"aliases": ["Time Zone", "タイムゾーン"],
+		"summary": "機器の時刻表示に適用する地域と時差です。",
+		"input": "機器が提示する地域またはカスタム時差を選びます。",
+		"recommendation": "日本で使用する場合は日本時間の設定を選びます。\nDHCPによる時差の上書きも確認します。",
+		"impact": "ログの時刻や予定時刻に影響します。\n通話音声の方式は変わりません。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "rings",
+		"title": "応答までの呼び出し回数",
+		"aliases": ["Number of Rings", "応答までの呼び出し回数"],
+		"summary": "電話回線の着信をHT813が受けるまでに待つ呼び出し回数です。",
+		"input": "1〜50回の整数です。",
+		"recommendation": "発信者番号の受信と応答のタイミングを確認して調整します。",
+		"impact": "早すぎる応答は発信者番号の受信に影響する場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "ring-through",
+		"title": "電話機（FXS）も鳴らす",
+		"aliases": ["PSTN Ring Thru FXS", "電話機（FXS）も鳴らす"],
+		"summary": "電話回線の着信をFXSへ接続した電話機にも通知します。",
+		"input": "有効または無効を選びます。",
+		"recommendation": "電話機も鳴らす運用なら有効にします。",
+		"impact": "SIPへの着信転送先の設定とは別の項目です。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "ring-delay",
+		"title": "電話機を鳴らすまでの遅延",
+		"aliases": ["PSTN Ring Thru Delay (sec)", "電話機を鳴らすまでの遅延（秒）"],
+		"summary": "FXOで着信してからFXSの電話機を鳴らすまでの待ち時間です。",
+		"input": "1〜10秒の整数です。",
+		"recommendation": "発信者番号と電話機の着信を確認してから調整します。",
+		"impact": "遅延を短くすると発信者番号の処理に影響する場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "ring-timeout",
+		"title": "呼び出しのタイムアウト",
+		"aliases": ["PSTN Ring Timeout (sec)", "呼び出しのタイムアウト（秒）"],
+		"summary": "電話回線からの呼び出し信号が途切れたと判定する待ち時間です。",
+		"input": "2〜10秒の整数です。",
+		"recommendation": "通常は変更不要です。\n回線の呼び出し信号を確認した場合に調整します。",
+		"impact": "呼び出し間隔と合わない値では着信状態の判定を誤る場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "current-disconnect",
+		"title": "回線電流の断を検出",
+		"aliases": ["Enable Current Disconnect", "回線電流の断を検出"],
+		"summary": "電話回線の電流が途切れた状態から切断を検出します。",
+		"input": "回線が通知する切断方式に合わせて選びます。",
+		"recommendation": "回線仕様を確認せずに変更しないでください。",
+		"impact": "誤った検出で通話が切れたり、切断後に回線を保持したりする場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "disconnect-threshold",
+		"title": "電流断の判定時間",
+		"aliases": ["Current Disconnect Threshold (ms)", "電流断の判定時間（ミリ秒）"],
+		"summary": "電流が途切れた状態を切断として扱うまでの時間です。",
+		"input": "50〜800ミリ秒の整数です。\n100ミリ秒は0.1秒です。",
+		"recommendation": "通常は変更不要です。\n回線の仕様または実測に合わせて調整します。",
+		"impact": "短すぎる値は誤切断、長すぎる値は切断検出の遅れにつながります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "disconnect-tone",
+		"title": "切断音を検出",
+		"aliases": ["Enable PSTN Disconnect Tone Detection", "切断音を検出"],
+		"summary": "電話回線の音を判定し、相手側の切断を検出します。",
+		"input": "切断音の検出と音の定義を回線に合わせます。",
+		"recommendation": "回線の切断通知を確認してから有効にします。",
+		"impact": "米国向けの音の値を日本の回線へ無条件に適用しないでください。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "caller-id",
+		"title": "発信者番号の通知方式",
+		"aliases": ["Caller ID Scheme", "発信者番号の通知方式"],
+		"summary": "電話回線や電話機と発信者番号を受け渡す方式です。",
+		"input": "回線や電話機が使用する方式を選びます。",
+		"recommendation": "日本の方式が必要な場合はNTT JAPANを検討し、実機で確認します。",
+		"impact": "ファームウェア1.0.19.6のリリースノートにはNTT JAPANで早期切断する不具合の修正があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "management-auth",
+		"title": "本家画面の認証",
+		"aliases": ["本家画面の認証"],
+		"summary": "管理者、一般ユーザー、閲覧ユーザーが本家画面へ入るためのパスワードです。",
+		"input": "新しいパスワードを変更時だけ入力します。\n保存済みの秘密情報は表示しません。",
+		"recommendation": "変更する場合は新しい認証情報を安全に保管し、管理アプリへの再ログインを確認します。",
+		"impact": "認証情報を失うと管理できなくなる場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "web-session",
+		"title": "本家画面のログイン制限",
+		"aliases": ["本家画面のログイン制限"],
+		"summary": "本家画面の無操作時間、失敗回数、ロック時間を制御します。",
+		"input": "時間は項目名に示す分単位、回数は整数です。\n管理アプリのセッションとは別です。",
+		"recommendation": "通常は変更不要です。\n本家の短い有効時間を延ばす必要はなく、管理アプリが読み取り時の再認証を処理します。",
+		"impact": "ロック条件を厳しくすると、認証を間違えた後に待機が必要になります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "web-access",
+		"title": "本家画面へのアクセス",
+		"aliases": ["本家画面へのアクセス"],
+		"summary": "本家画面へ接続できる利用者、アドレス、通信方式、ポートを制御します。",
+		"input": "禁止する設定の「はい」はアクセスを止めます。\nポートや許可アドレスは管理するネットワークに合わせます。",
+		"recommendation": "接続経路を確認してから変更します。\nTailscaleの公開設定は管理アプリ側で別に設定します。",
+		"impact": "誤った許可条件やポート変更により管理画面へ接続できなくなる場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "remote-shell",
+		"title": "SSH・Telnet",
+		"aliases": ["SSH・Telnet"],
+		"summary": "端末から機器を管理するための通信です。\nTelnetでは通信内容が暗号化されません。",
+		"input": "待受ポートは機器が受け付ける値を使用します。\nSSHとTelnetに同じポートを指定しません。",
+		"recommendation": "使用しない遠隔端末機能は無効にします。\nWeb管理だけの運用で有効化する必要はありません。",
+		"impact": "無効化すると端末から接続できません。\n有効化すると新たな管理経路が開きます。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "network-ip",
+		"title": "IPアドレスの取得",
+		"aliases": ["IPアドレスの取得"],
+		"summary": "ネットワーク内で機器を識別するアドレスと、IPv4・IPv6の使用方法を決めます。",
+		"input": "DHCPはルーターからの自動取得、固定IPはアドレスの手動指定、PPPoEは契約情報による接続です。",
+		"recommendation": "通常の家庭内LANではDHCPを使い、必要ならルーター側でアドレスを予約します。",
+		"impact": "固定IPや通信方式の誤設定で機器へ接続できなくなる場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "ipv4-octet",
+		"title": "IPv4の数値",
+		"aliases": ["IPv4の数値"],
+		"summary": "IPv4アドレスやサブネットマスクを、ドットで区切る4個の数値に分けた項目です。",
+		"input": "各欄に0〜255の整数を入力します。\n例: 192.0.2.13は192、0、2、13の4欄です。",
+		"recommendation": "DHCPを利用している場合、固定IP用の各欄は通常変更不要です。\n固定IPはルーターのネットワークと重複しない値にします。",
+		"impact": "数値が範囲内でも、ネットワークやマスクの組合せが不正なら通信できません。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "network-dhcp",
+		"title": "DHCPの通知情報",
+		"aliases": ["DHCPの通知情報"],
+		"summary": "アドレスを自動取得するとき、ルーターへ機器のホスト名や識別情報を通知します。",
+		"input": "ホスト名、ドメイン名、Vendor Class IDをネットワークの指定に合わせます。",
+		"recommendation": "通常は変更不要です。\nネットワーク管理者から指定がある場合に入力します。",
+		"impact": "DHCPサーバーの割り当て方針や機器の識別に影響する場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "network-dns",
+		"title": "DNSサーバー",
+		"aliases": ["DNSサーバー"],
+		"summary": "SIPや時刻サーバーなどの名前をIPアドレスへ変換する問い合わせ先です。",
+		"input": "ルーターやネットワーク管理者が指定するDNSサーバーのアドレスを入力します。",
+		"recommendation": "DHCPで正しい値を取得できる場合は変更不要です。\n固定指定は名前解決を確認してから使用します。",
+		"impact": "誤設定によりSIP登録、時刻同期、更新ファイルの取得などが失敗します。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "network-ipv6",
+		"title": "IPv6のアドレス",
+		"aliases": ["IPv6のアドレス"],
+		"summary": "IPv6のアドレスを自動取得するか、アドレスやプレフィックスを固定するかを指定します。",
+		"input": "IPv6アドレスにはコロンを含む表記を使います。\nプレフィックス長とアドレスはルーターの構成に合わせます。",
+		"recommendation": "IPv6を利用していない環境では変更不要です。\n固定指定はネットワークの割り当て情報を確認してから行います。",
+		"impact": "誤設定によりIPv6経由の管理や通話が利用できなくなる場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "pppoe",
+		"title": "PPPoEの接続情報",
+		"aliases": ["PPPoEの接続情報"],
+		"summary": "インターネット接続サービスへ機器から直接認証する場合のアカウント情報です。",
+		"input": "接続サービスが指定するID、パスワード、必要なサービス名を入力します。",
+		"recommendation": "ルーター配下の家庭内LANでは通常使用しません。\n契約先から直接接続を指定された場合だけ変更します。",
+		"impact": "認証に失敗するとネットワークを利用できない場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "device-mode",
+		"title": "WAN・LANの動作",
+		"aliases": ["WAN・LANの動作"],
+		"summary": "HT813をルーター、ブリッジ、WANのみの機器として動かす設定です。",
+		"input": "NAT Routerはアドレス変換、Bridgeはネットワーク間の橋渡し、WAN OnlyはWAN側を使用します。",
+		"recommendation": "配線と接続先のネットワーク構成を確認してから変更します。",
+		"impact": "LAN側のDHCPやアドレス変換が変わり、管理経路を失う場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "router-nat",
+		"title": "NATの接続管理",
+		"aliases": ["NATの接続管理"],
+		"summary": "HT813のルーター機能が通信の対応表を保持する数と有効時間を決めます。",
+		"input": "ポート数は個数、TCP・UDPの有効時間は秒単位で指定します。",
+		"recommendation": "ルーター機能の通信に問題がなければ変更不要です。",
+		"impact": "小さすぎる上限や短すぎる時間で通信が途切れる場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "network-qos",
+		"title": "通信の優先制御",
+		"aliases": ["通信の優先制御"],
+		"summary": "SIPや音声に識別値を付け、対応するネットワーク機器へ優先度を伝えます。",
+		"input": "VLAN ID、802.1p、DiffServは別の値です。\nスイッチやルーターの設定に合わせます。",
+		"recommendation": "ネットワークで優先制御を設計していなければ変更不要です。",
+		"impact": "VLANの誤設定で通信が止まる場合があります。\n優先度の指定だけで回線品質が保証されるわけではありません。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "bandwidth",
+		"title": "通信帯域の制限",
+		"aliases": ["通信帯域の制限"],
+		"summary": "HT813の上り・下り通信を、選択した帯域に制限します。",
+		"input": "機器が表示する帯域の選択肢を使用します。\n数値の識別子は速度の実測値ではありません。",
+		"recommendation": "ルーター機能の帯域制御が必要な場合だけ変更します。",
+		"impact": "低すぎる制限により音声や管理通信の品質が落ちる場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "upnp",
+		"title": "UPnPの自動設定",
+		"aliases": ["UPnPの自動設定"],
+		"summary": "対応するルーターへポートの開放などを依頼する機能です。",
+		"input": "機器が提示する有効・無効を選びます。",
+		"recommendation": "必要な通信経路を把握できている場合に使用します。\nTailscale経由の画面管理だけを理由に有効化する必要はありません。",
+		"impact": "ネットワーク側の公開範囲が変わる場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "icmp",
+		"title": "pingへの応答",
+		"aliases": ["pingへの応答"],
+		"summary": "WAN側からのICMP Echo Requestへ応答するかを選びます。",
+		"input": "「はい」でpingへの応答を許可します。",
+		"recommendation": "疎通確認の要件に合わせます。\npingの応答だけでSIPや音声の動作は判断できません。",
+		"impact": "応答を止めるとpingで到達確認できなくなります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "mac-clone",
+		"title": "WANのMACアドレス",
+		"aliases": ["WANのMACアドレス"],
+		"summary": "WAN端子が使用する機器識別用のアドレスを変更します。",
+		"input": "MACアドレスの各バイトを機器が受け付ける表記で指定します。",
+		"recommendation": "通常は変更不要です。\n接続サービスにMACアドレスの指定がある場合だけ変更します。",
+		"impact": "同じネットワークの別機器と重複すると通信に問題が起きます。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "lan-dhcp",
+		"title": "LAN側のアドレス配布",
+		"aliases": ["LAN側のアドレス配布"],
+		"summary": "HT813のLAN端子につながる機器へIPアドレスを配るサーバー機能です。",
+		"input": "LANの基準アドレス、マスク、配布開始・終了、貸出時間を整合する値にします。",
+		"recommendation": "LAN端子を使わない構成では通常変更不要です。\n既存のDHCPサーバーと役割を重複させないようにします。",
+		"impact": "配布範囲やマスクの誤設定でLAN側の機器が通信できなくなる場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "port-forward",
+		"title": "ポート転送・DMZ",
+		"aliases": ["ポート転送・DMZ"],
+		"summary": "WAN側に届いた通信をLAN側の指定機器へ転送します。",
+		"input": "転送先のIPアドレス、WAN・LANのポート、TCP・UDPを組み合わせて指定します。",
+		"recommendation": "必要な通信を限定して設定します。\nTailscale経由の管理画面のためにDMZを有効にする必要はありません。",
+		"impact": "転送先のサービスがWAN側から到達可能になる場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "language",
+		"title": "本家の表示言語",
+		"aliases": ["本家の表示言語"],
+		"summary": "本家画面や本家の音声案内で使う言語を指定します。",
+		"input": "機器が提示する言語を選びます。\n管理アプリの日本語表示とは別です。",
+		"recommendation": "管理アプリの日本語化のために変更する必要はありません。",
+		"impact": "本家の案内音声や表示言語が変わります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "stun",
+		"title": "STUN",
+		"aliases": ["STUN"],
+		"summary": "NATの外側から見えるアドレスやポートを調べるための仕組みです。",
+		"input": "SIPサービスから指定されたSTUNサーバーのホスト名などを入力します。",
+		"recommendation": "SIP接続にSTUNが必要と分かった場合に設定します。\n同じLAN内の接続やTailscaleの画面管理だけなら通常追加不要です。",
+		"impact": "STUNだけで音声経路が必ず通るわけではありません。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "network-keepalive",
+		"title": "Keep-alive",
+		"aliases": ["Keep-alive"],
+		"summary": "ネットワークの通信状態を維持するため、定期的に小さな通信を送ります。",
+		"input": "間隔は秒単位です。\nNATや接続サービスの要件に合わせます。",
+		"recommendation": "通常は変更不要です。\n通信状態が途中で失われる原因を確認してから調整します。",
+		"impact": "短い間隔は通信量を増やし、長い間隔は接続維持に失敗する場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "network-detection",
+		"title": "ネットワーク監視",
+		"aliases": ["ネットワーク監視"],
+		"summary": "STUNやDNSの応答から接続状態を判定し、必要に応じてDHCPの再取得につなげます。",
+		"input": "監視の使用可否と、応答欠落を許容する回数を指定します。",
+		"recommendation": "通常は変更不要です。\n監視先が安定して応答することを確認してから有効化します。",
+		"impact": "監視先の障害を回線障害と判断し、不要な再取得を行う場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "ntp",
+		"title": "NTPによる時刻同期",
+		"aliases": ["NTPによる時刻同期"],
+		"summary": "機器の時計をネットワーク上の時刻サーバーに合わせます。",
+		"input": "NTPサーバーのホスト名またはIPアドレスを入力します。\nHTTPのURLは入力しません。",
+		"recommendation": "現在のサーバーへ時刻同期できていれば変更不要です。",
+		"impact": "時刻がずれるとログの照合や証明書の検証に影響します。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "provisioning",
+		"title": "設定ファイルの自動取得",
+		"aliases": ["設定ファイルの自動取得"],
+		"summary": "外部サーバーから設定ファイルを取得し、機器へまとめて設定する機能です。",
+		"input": "配布先、通信方式、ファイル名、認証情報を配布サービスの指定に合わせます。",
+		"recommendation": "自動設定サービスを使わなければ通常変更不要です。\nDHCPによる配布先の上書きにも注意します。",
+		"impact": "取得した設定で通話や管理の設定が置き換わる場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "upgrade",
+		"title": "ファームウェアの更新",
+		"aliases": ["ファームウェアの更新"],
+		"summary": "機器のソフトウェアを配布サーバーから取得する方法や確認時刻を指定します。",
+		"input": "配布先と更新の実行方法を指定します。\n時刻は0〜23時、曜日は資料の数値対応を確認します。",
+		"recommendation": "対応機種、版、復旧方法を確認してから設定します。\n更新確認と更新の実行は区別します。",
+		"impact": "更新中の停止や対応しないファイルにより利用できなくなる場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "certificates",
+		"title": "証明書・秘密鍵",
+		"aliases": ["証明書・秘密鍵"],
+		"summary": "通信相手の確認や暗号化通信の認証に使う証明書と鍵です。",
+		"input": "発行元が指定する証明書形式を使用します。\n秘密鍵と鍵のパスワードは既存値を画面へ返しません。",
+		"recommendation": "信頼する相手と証明書の有効期間を確認してから変更します。",
+		"impact": "誤った証明書や鍵でTLS通信が失敗します。\n秘密鍵を第三者へ公開しないようにします。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "device-certificate",
+		"title": "機器固有の証明書",
+		"aliases": ["機器固有の証明書"],
+		"summary": "機器自身の認証に使う証明書の世代や内容を管理します。",
+		"input": "メーカーが提供する手順と対応する証明書・秘密鍵を使用します。",
+		"recommendation": "通常は変更不要です。\n機器固有の証明書更新として指定された場合だけ操作します。",
+		"impact": "誤った内容で機器の認証や遠隔管理が失敗する場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "tls",
+		"title": "TLSの通信保護",
+		"aliases": ["TLSの通信保護"],
+		"summary": "通信の暗号化と、証明書による接続相手の確認を制御します。",
+		"input": "対応するTLSの版、証明書の信頼先、名前の検証を接続先と整合させます。",
+		"recommendation": "利用できる安全な版と正しい証明書を使います。\n通信失敗の原因を調べずに証明書検証を無効化しないようにします。",
+		"impact": "相手と版が合わない場合や証明書を検証できない場合は接続に失敗します。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "tr069",
+		"title": "TR-069による遠隔管理",
+		"aliases": ["TR-069による遠隔管理"],
+		"summary": "ACSと呼ぶ管理サーバーから機器の設定や状態を管理する仕組みです。",
+		"input": "管理サーバーのURL、認証情報、通知間隔、接続要求の条件を契約サービスに合わせます。",
+		"recommendation": "TR-069を使わない環境では有効化する必要はありません。\n利用中のサービスがある場合は提供元へ確認します。",
+		"impact": "遠隔から設定を変更できる経路となり、誤設定でサービスの管理を受けられなくなります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "sip-failover",
+		"title": "SIPの接続先切り替え",
+		"aliases": ["SIPの接続先切り替え"],
+		"summary": "主SIPサーバーが利用できないときの予備先と、主サーバーへ戻る条件を決めます。",
+		"input": "予備先のアドレス、DNSの切替条件、待機時間を接続サービスの設計に合わせます。",
+		"recommendation": "予備サーバーが用意されていなければ通常変更不要です。",
+		"impact": "切替条件が合わないと登録先が安定しない場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "sip-proxy",
+		"title": "送信先プロキシ",
+		"aliases": ["送信先プロキシ"],
+		"summary": "SIPメッセージを接続先へ中継するサーバーです。",
+		"input": "サービスが指定するホスト名やポートを入力します。\nSIPユーザーIDや管理画面のURLは入力しません。",
+		"recommendation": "接続サービスから指定がある場合だけ設定します。",
+		"impact": "誤設定で発着信や登録に失敗する場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "sip-transport",
+		"title": "SIPの通信方式",
+		"aliases": ["SIPの通信方式"],
+		"summary": "通話制御の通信にUDP、TCP、TLSのどれを使うかを指定します。",
+		"input": "接続先が対応する方式とポートを組み合わせます。\nTLSはSIP通信を暗号化します。",
+		"recommendation": "接続サービスが指定する方式を使用します。\n音声の暗号化はSRTPで別に設定します。",
+		"impact": "方式やポートが合わないとSIPサーバーへ接続できません。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "sip-contact",
+		"title": "SIPで通知する接続先",
+		"aliases": ["SIPで通知する接続先"],
+		"summary": "登録情報などに、機器へ連絡するためのアドレスやポートを載せる方法です。",
+		"input": "LAN・WANアドレス、TCP・TLSの実際のポート、機器識別子の選択を接続先に合わせます。",
+		"recommendation": "着信や再接続に問題がなければ通常変更不要です。",
+		"impact": "相手が到達できないアドレスを通知すると着信できない場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "nat-traversal",
+		"title": "NAT越え",
+		"aliases": ["NAT越え"],
+		"summary": "ルーターのアドレス変換を通してSIPや音声を届けるための設定です。",
+		"input": "接続サービスの指示に従い、Keep-alive、STUNなどを選びます。\n固定NAT IPは実際の外側アドレスを指定します。",
+		"recommendation": "同じLAN内で通信できる場合は通常変更不要です。\n片通話の原因を確認してから調整します。",
+		"impact": "誤った外側アドレスや方式で着信や音声が届かなくなる場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "display-name",
+		"title": "通話相手へ示す名前",
+		"aliases": ["通話相手へ示す名前"],
+		"summary": "SIPメッセージで相手へ通知する表示名です。\nログイン用の認証IDとは別です。",
+		"input": "接続サービスが許可する表示名を入力します。",
+		"recommendation": "必要な名前がある場合に設定します。\n表示方法は接続先の仕様にも依存します。",
+		"impact": "相手側に表示される名前が変わる場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "sip-dns",
+		"title": "SIP用の名前解決",
+		"aliases": ["SIP用の名前解決"],
+		"summary": "SIPサーバーをDNSのどの種類の記録で探すかを指定します。",
+		"input": "Aはアドレス、SRVは接続先・ポートなど、NAPTR/SRVはサービス情報を利用します。\n固定IP指定は指定されたアドレスを使用します。",
+		"recommendation": "接続サービスの指定に従います。\n登録できていれば通常変更不要です。",
+		"impact": "対応しない検索方法やIPでSIP登録に失敗します。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "tel-uri",
+		"title": "電話番号のURI表記",
+		"aliases": ["電話番号のURI表記"],
+		"summary": "SIPの宛先を電話番号として表す方法を選びます。",
+		"input": "無効、user=phone、tel URIなど、機器と接続先が対応する選択肢を使用します。",
+		"recommendation": "接続サービスから指定がなければ通常変更不要です。",
+		"impact": "相手が解釈できない表記では発信に失敗する場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "sip-registration",
+		"title": "SIPサーバーへの登録",
+		"aliases": ["SIPサーバーへの登録"],
+		"summary": "着信先として機器の連絡先をSIPサーバーへ登録し、有効期限までに更新します。",
+		"input": "登録の使用可否、期間、失敗時の待機を指定します。\n登録期間は分、再試行などは項目名に示す単位です。",
+		"recommendation": "接続サービスの指定に合わせます。\n登録なしの発信は接続先が許可する場合だけ使用します。",
+		"impact": "認証や登録期限の設定が合わないと着信できなくなる場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "sip-options",
+		"title": "SIP OPTIONSの疎通確認",
+		"aliases": ["SIP OPTIONSの疎通確認"],
+		"summary": "SIPサーバーへ確認用の要求を送り、応答の有無から接続状態を確認します。",
+		"input": "使用可否、秒単位の送信間隔、応答欠落の回数上限を指定します。",
+		"recommendation": "通常は変更不要です。\n接続サービスが対応することを確認してから使用します。",
+		"impact": "厳しすぎる欠落条件で不要な再登録が発生する場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "random-ports",
+		"title": "ポートのランダム選択",
+		"aliases": ["ポートのランダム選択"],
+		"summary": "固定したポートの代わりに、機器がSIPやRTPのポートを選ぶ機能です。",
+		"input": "SIPとRTPを別に選びます。\n固定ポートの転送やファイアウォール規則との整合を確認します。",
+		"recommendation": "固定した構成で問題がなければ通常変更不要です。",
+		"impact": "ポートを固定した通信規則と合わなくなり、音声や着信が途切れる場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "rtcp",
+		"title": "RTCPの状態通知",
+		"aliases": ["RTCPの状態通知"],
+		"summary": "音声を運ぶRTPとは別に、受信状態などの制御情報を交換します。",
+		"input": "接続先が対応する場合に使用します。\n関連ポートの通信も許可する必要があります。",
+		"recommendation": "通常は接続先の指定に合わせます。",
+		"impact": "RTCPが届かないと通信品質の通知を受け取れない場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "call-transfer",
+		"title": "保留・転送・会議",
+		"aliases": ["保留・転送・会議"],
+		"summary": "SIPの転送要求や保留、三者通話の終了時の動作を指定します。",
+		"input": "接続先が対応する転送方式や会議先のURIを使用します。",
+		"recommendation": "保留や転送を利用していなければ通常変更不要です。\n変更後は実際の通話で確認します。",
+		"impact": "参加者が切断されたり、転送先へつながらなかったりする場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "sip-security",
+		"title": "受信SIPの認証",
+		"aliases": ["受信SIPの認証"],
+		"summary": "SIPメッセージの送信元やユーザーID、認証情報を確認する条件です。",
+		"input": "接続サービスの認証方式と送信元を確認して選択します。\n禁止・省略の設定では「はい」の意味に注意します。",
+		"recommendation": "利用する接続元を限定し、認証を省く変更は必要性を確認します。\n遠隔初期化は必要な場合だけ許可します。",
+		"impact": "厳しすぎる条件で正当な着信を拒否し、弱い条件で意図しない要求を受け付ける場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "sip-identity",
+		"title": "SIPの番号・識別情報",
+		"aliases": ["SIPの番号・識別情報"],
+		"summary": "発信者番号、接続先番号、プライバシーなどをSIPの各ヘッダーで受け渡す方法です。",
+		"input": "接続先が指定するヘッダーの使用方法や優先順位を選びます。",
+		"recommendation": "番号通知に問題がなければ通常変更不要です。\n非通知の扱いは接続サービスの契約や仕様も確認します。",
+		"impact": "相手側の番号表示や匿名扱いが変わる場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "sip-timers",
+		"title": "SIPの応答待ち",
+		"aliases": ["SIPの応答待ち"],
+		"summary": "SIPメッセージの応答を待つ時間や再送間隔を調整します。",
+		"input": "機器が提示する時間・回数を使用します。\nT1・T2の値と秒単位のTimer Dを混同しません。",
+		"recommendation": "通常は変更不要です。\n通信の記録から応答遅延を確認して調整します。",
+		"impact": "短い値で要求を早く諦めたり、長い値で失敗の検出が遅れたりします。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "dtmf",
+		"title": "ダイヤルキーの伝達",
+		"aliases": ["ダイヤルキーの伝達"],
+		"summary": "通話中に押した数字や#などを、音声、RTPイベント、SIP INFOで相手へ伝えます。",
+		"input": "In-Audioは音声のトーン、RFC2833はRTPイベント、SIP INFOは通話制御の通知です。\n接続先と共通の方法を優先します。",
+		"recommendation": "音声案内への番号入力などで問題がなければ通常変更不要です。",
+		"impact": "方式が合わないと番号が届かなかったり、重複して届いたりする場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "dtmf-timing",
+		"title": "DTMFの時間調整",
+		"aliases": ["DTMFの時間調整"],
+		"summary": "ダイヤル音の長さと音の間の無音時間、検出に必要な時間を指定します。",
+		"input": "ミリ秒単位の整数です。\n100ミリ秒は0.1秒です。",
+		"recommendation": "数字の認識に問題がなければ通常変更不要です。\n回線や相手機器の仕様に合わせます。",
+		"impact": "短すぎる音は検出されず、長すぎる音や間隔は入力を遅くする場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "dtmf-events",
+		"title": "DTMFイベントの送信",
+		"aliases": ["DTMFイベントの送信"],
+		"summary": "RTPでダイヤルキーの押下と終了を通知する回数や変換方法です。",
+		"input": "RFC2833のイベント回数、終了イベント回数、送信方法を選びます。",
+		"recommendation": "DTMFの欠落がなければ通常変更不要です。",
+		"impact": "不足するとキーが欠落し、非対応の方式では相手が認識できない場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "hook-flash",
+		"title": "フックフラッシュ",
+		"aliases": ["フックフラッシュ"],
+		"summary": "受話器のフックを短時間押す操作を、切断と区別して保留や転送へ使います。",
+		"input": "電話機が送る時間に合わせ、最小・最大時間を整合させます。\n回線へ送る長さはミリ秒単位です。",
+		"recommendation": "電話機の仕様を確認してから調整します。\n保留や転送が動けば通常変更不要です。",
+		"impact": "時間が合わないと操作を無視したり、通話の切断として扱ったりします。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "feature-code",
+		"title": "電話機の特番操作",
+		"aliases": ["電話機の特番操作"],
+		"summary": "*などで始まるダイヤル番号を、機器の機能や電話回線への切り替えに使います。",
+		"input": "回線へ送る電話番号と区別して、機器が定める特番を使用します。",
+		"recommendation": "利用する機能の特番を確認してから変更します。",
+		"impact": "通常の発信番号やダイヤルプランと衝突すると意図しない機能が動作します。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "offhook-dial",
+		"title": "受話器を上げた後の自動発信",
+		"aliases": ["受話器を上げた後の自動発信"],
+		"summary": "受話器を上げて一定時間が過ぎると、指定した宛先へ発信する機能です。",
+		"input": "宛先のユーザーIDや内線番号と、発信までの遅延を指定します。",
+		"recommendation": "自動発信を使わなければ設定不要です。",
+		"impact": "受話器を上げただけで発信するため、宛先と遅延を確認します。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "sip-extension",
+		"title": "SIPの拡張・識別名",
+		"aliases": ["SIPの拡張・識別名"],
+		"summary": "Proxy-Requireは必要なSIP拡張を指定し、User-Agentは機器を識別する文字列を通知します。",
+		"input": "接続サービスが指定した文字列を使用します。",
+		"recommendation": "通常は変更不要です。\n互換性の問題が確認された場合だけ変更します。",
+		"impact": "相手が要求された拡張に対応しないと要求を拒否する場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "distinctive-ring",
+		"title": "発信者別の着信音",
+		"aliases": ["発信者別の着信音"],
+		"summary": "指定した発信者番号に一致する着信へ、別の鳴動間隔を適用します。",
+		"input": "番号の条件と着信音の選択を組み合わせます。\n番号通知を受信できることが前提です。",
+		"recommendation": "着信音を分ける必要がある場合に設定します。",
+		"impact": "番号の条件が重なると想定と異なる着信音になる場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "mwi",
+		"title": "留守番電話の通知",
+		"aliases": ["留守番電話の通知"],
+		"summary": "SIPサービスの留守番電話などにメッセージがある状態を、通知や電話機のランプへ反映します。",
+		"input": "通知の購読、失敗後の待機、ランプ表示の使用方法を接続先に合わせます。",
+		"recommendation": "留守番電話通知を使わない場合は通常変更不要です。",
+		"impact": "対応しない購読方法では通知を受け取れない場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "media-negotiation",
+		"title": "音声の通信条件の交渉",
+		"aliases": ["音声の通信条件の交渉"],
+		"summary": "SIP内のSDPという記述で、音声の方式や送受信先を相手と合意します。",
+		"input": "複数のメディア記述を禁止するなど、接続先の互換条件に合わせます。",
+		"recommendation": "音声交渉に問題がなければ通常変更不要です。",
+		"impact": "相手と合意できなくなると通話や音声が成立しない場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "fxs-ring-timeout",
+		"title": "呼び出し時間の上限",
+		"aliases": ["呼び出し時間の上限"],
+		"summary": "電話機や接続先の応答を待ち続ける時間を制限します。",
+		"input": "秒単位の整数です。\n0などの特別な値は項目ごとの資料を確認します。",
+		"recommendation": "呼び出し時間が要件に合っていれば変更不要です。",
+		"impact": "短い値では応答する前に呼び出しが終了する場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "digit-timeout",
+		"title": "ダイヤル入力の待機",
+		"aliases": ["ダイヤル入力の待機"],
+		"summary": "最初の数字、次の数字、入力の完了を待つ時間や確定キーを決めます。",
+		"input": "時間は秒単位です。\n#を確定キーにする場合、#自体を番号へ含める動作と区別します。",
+		"recommendation": "通常は変更不要です。\n発信が遅い場合はダイヤルプランと合わせて確認します。",
+		"impact": "短い値で番号が途中確定し、長い値で発信まで待たされる場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "early-dial",
+		"title": "入力途中の発信交渉",
+		"aliases": ["入力途中の発信交渉"],
+		"summary": "番号の入力が完了する前にSIPサーバーへ送信し、追加の数字を待つ動作です。",
+		"input": "接続先が484応答による追加ダイヤルに対応する場合に使用します。",
+		"recommendation": "接続サービスから指定がなければ通常変更不要です。",
+		"impact": "相手が非対応の場合は番号が途中の状態で発信に失敗する場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "service-profile",
+		"title": "サービス固有の動作",
+		"aliases": ["サービス固有の動作"],
+		"summary": "特定のSIPサービスとの互換性のため、複数の動作をまとめて切り替えます。",
+		"input": "実際に利用するサービスに対応した選択肢を使用します。",
+		"recommendation": "サービスから指定がなければ通常変更不要です。",
+		"impact": "別サービスの設定を選ぶと登録や発着信の動作が変わる場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "session-timer",
+		"title": "通話の生存確認",
+		"aliases": ["通話の生存確認"],
+		"summary": "通話中にSIPセッションを更新し、接続が続いていることを確認します。",
+		"input": "有効時間、最小時間、更新する側、更新方法を接続先に合わせます。\n最小時間は有効時間以下にします。",
+		"recommendation": "通常は変更不要です。\n一定時間で通話が切れる場合は通信記録と接続先の条件を確認します。",
+		"impact": "更新条件が合わないと通話が途中で終了する場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "sip-100rel",
+		"title": "SIP暫定応答の確認",
+		"aliases": ["SIP暫定応答の確認"],
+		"summary": "呼び出し中などの暫定的なSIP応答に、PRACKという受領確認を使う機能です。",
+		"input": "接続先が100relに対応し、必要とする場合に使用します。",
+		"recommendation": "接続サービスの指定がなければ通常変更不要です。",
+		"impact": "対応条件が合わないと呼び出しや初期の音声が成立しない場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "packetization",
+		"title": "音声フレームのまとめ方",
+		"aliases": ["音声フレームのまとめ方"],
+		"summary": "複数の短い音声フレームを1個のRTPパケットにまとめて送信します。",
+		"input": "対応するフレーム数を整数で指定します。\n1フレームの時間はコーデックによって異なります。",
+		"recommendation": "接続先から指定がなければ通常変更不要です。",
+		"impact": "多くまとめると通信の回数は減りますが、遅延やパケット欠落時の影響が増えます。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "codec-options",
+		"title": "音声コーデックの詳細",
+		"aliases": ["音声コーデックの詳細"],
+		"summary": "G.723.1のビットレート、iLBCのフレーム長、Opusのステレオ通知などを調整します。",
+		"input": "接続先と共通の方式・値を選びます。\nビットレートとRTPのポート番号は別です。",
+		"recommendation": "音声が成立していれば通常変更不要です。",
+		"impact": "相手が対応しない設定では音声の交渉が失敗する場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "payload-type",
+		"title": "RTPペイロード番号",
+		"aliases": ["RTPペイロード番号"],
+		"summary": "RTPパケット内で音声の種類を識別する番号です。\nネットワークのポート番号とは別です。",
+		"input": "動的なペイロード番号は96〜127を使い、相手のSDPと一致させます。",
+		"recommendation": "通常は変更不要です。\n相手との番号の不一致が確認された場合に調整します。",
+		"impact": "番号の衝突や不一致で音声を正しく復号できなくなる場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "vad",
+		"title": "無音時の送信抑制",
+		"aliases": ["無音時の送信抑制"],
+		"summary": "話していない区間の音声送信を減らす機能です。",
+		"input": "接続先と使用するコーデックが対応する場合に有効化します。",
+		"recommendation": "通常は変更不要です。\n通話録音やFAXなどへの影響も確認します。",
+		"impact": "話し始めの欠けや、無音時の聞こえ方が変わる場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "symmetric-rtp",
+		"title": "受信先への音声返信",
+		"aliases": ["受信先への音声返信"],
+		"summary": "受信したRTPの送信元へ音声を返す動作です。\nNATで通知先と実際の経路が異なる場合に使われます。",
+		"input": "接続先やネットワークの要件に合わせて使用します。",
+		"recommendation": "双方向の音声が成立していれば通常変更不要です。",
+		"impact": "送信先が変わるため、ネットワーク構成によって音声経路に影響します。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "fax",
+		"title": "FAXの通信",
+		"aliases": ["FAXの通信"],
+		"summary": "FAXをT.38という専用方式で中継するか、音声として通すかを選びます。",
+		"input": "接続先が対応するFAX方式と、FAX音を検出した後の再交渉を指定します。",
+		"recommendation": "FAXを使わない場合は通常変更不要です。\n使う場合は実際の送受信で確認します。",
+		"impact": "方式や音声設定の不一致でFAXが失敗する場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "jitter",
+		"title": "音声の遅延揺れの吸収",
+		"aliases": ["音声の遅延揺れの吸収"],
+		"summary": "到着時刻が揺れる音声パケットを一時的にためて、連続した音へ戻します。",
+		"input": "固定・適応型と、低・中・高などの長さを選びます。",
+		"recommendation": "通常は変更不要です。\n音切れと遅延を測定して調整します。",
+		"impact": "長いバッファーは音切れを減らす場合がありますが、会話の遅延が増えます。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "srtp",
+		"title": "音声の暗号化",
+		"aliases": ["音声の暗号化"],
+		"summary": "RTPの音声内容を暗号化する仕組みです。\nSIPのTLSとは保護する対象が異なります。",
+		"input": "無効、任意、必須など、接続先と共通の方式を指定します。",
+		"recommendation": "接続先が対応する暗号化方式を使用します。",
+		"impact": "必須設定で相手が非対応の場合は音声や通話が成立しません。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "slic",
+		"title": "電話機側の電気条件",
+		"aliases": ["電話機側の電気条件"],
+		"summary": "FXS端子から電話機へ供給する電気的な条件や呼び出し電力を指定します。",
+		"input": "使用する地域と電話機の仕様に合う選択肢を使用します。",
+		"recommendation": "通常は変更不要です。\n呼び出しや電気条件に問題がある場合は電話機の仕様を確認します。",
+		"impact": "地域や電話機に合わない値では着信音や通話の状態が不安定になる場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "caller-id-fsk",
+		"title": "FSKによる番号通知",
+		"aliases": ["FSKによる番号通知"],
+		"summary": "回線から音として届く発信者番号の信号を検出する条件です。",
+		"input": "受信レベルはdB、同期・マークはビット数です。\n通知方式と合わせて設定します。",
+		"recommendation": "番号を正常に取得できれば変更不要です。\n回線の信号を確認してから調整します。",
+		"impact": "しきい値が合わないと番号を取り逃したり、誤検出したりします。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "polarity",
+		"title": "回線の極性",
+		"aliases": ["回線の極性"],
+		"summary": "電話線の電気的な向きを通知や通話状態の判定に利用します。",
+		"input": "FXSから電話機への通知と、FXOで回線から検出する動作を区別します。",
+		"recommendation": "回線と電話機の仕様を確認せずに変更しないようにします。",
+		"impact": "通知方式が合わないと応答や切断の判断に影響する場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "fxs-disconnect",
+		"title": "電話機への切断通知",
+		"aliases": ["電話機への切断通知"],
+		"summary": "相手が切ったときなどに、FXSの電流を短時間止めて電話機へ切断を伝えます。",
+		"input": "通知の使用可否、事前の話中音、電流を止めるミリ秒数を指定します。",
+		"recommendation": "電話機が切断を正しく認識していれば変更不要です。",
+		"impact": "通知が短すぎると検出されず、電話機の動作に合わない通知で状態が変わる場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "pulse-dial",
+		"title": "パルスダイヤル",
+		"aliases": ["パルスダイヤル"],
+		"summary": "回転ダイヤル式など、電流の断続で数字を伝える電話機の入力を受け付けます。",
+		"input": "使用可否と、電話機が使用するパルス方式を選びます。",
+		"recommendation": "トーン式の電話機だけを使う場合は有効化する必要はありません。",
+		"impact": "対応する方式が違うと番号を正しく受け付けません。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "gain",
+		"title": "送受信の音量",
+		"aliases": ["送受信の音量"],
+		"summary": "送信（TX）と受信（RX）の音量を機器内で調整します。",
+		"input": "機器が表示する音量の選択肢を使用します。\n内部の識別値をdBの実測値と混同しません。",
+		"recommendation": "音量に問題がなければ変更不要です。\n片側ずつ通話で確認して調整します。",
+		"impact": "上げすぎると音割れやエコー、下げすぎると聞き取りにくさが生じます。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "echo",
+		"title": "エコーの抑制",
+		"aliases": ["エコーの抑制"],
+		"summary": "相手の声が回り込んで戻る現象を、機器の信号処理で抑えます。",
+		"input": "LECは回線のエコー除去、ネットワークエコー抑制は別の処理です。\n無効化の「はい」は処理を止めます。",
+		"recommendation": "通常は変更不要です。\n音量や回線条件を確認せずに抑制を無効化しないようにします。",
+		"impact": "無効化すると相手が自分の声の反響を聞く場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "call-duration",
+		"title": "通話時間の上限",
+		"aliases": ["通話時間の上限"],
+		"summary": "発信・着信の通話が指定時間へ達したときに終了させる制限です。",
+		"input": "分単位の整数です。\n0は制限なしとして扱う項目です。",
+		"recommendation": "時間制限が必要な場合だけ変更します。",
+		"impact": "設定時間に達すると会話中でも通話が終了する場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "impedance",
+		"title": "回線の終端条件",
+		"aliases": ["回線の終端条件"],
+		"summary": "FXO端子の電気的な負荷を回線へ合わせる設定です。",
+		"input": "国別の条件またはインピーダンスの選択肢を使用します。\n資料の説明と数値が一致しない方式は編集を停止します。",
+		"recommendation": "通常は変更不要です。\n回線仕様や測定結果を確認してから調整します。",
+		"impact": "値が合わないと音量、反響、回線状態の検出に影響する場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "pstn-dial",
+		"title": "電話回線への発信",
+		"aliases": ["電話回線への発信"],
+		"summary": "FXOで回線を捕捉し、発信音の確認後に番号を送るまでの動作です。",
+		"input": "1段階は宛先をまとめて指定し、2段階は回線へ入ってから宛先の入力を受け付けます。\n各待機時間の単位を確認します。",
+		"recommendation": "利用する発信経路と回線の応答に合わせます。",
+		"impact": "待機時間や方式の不一致で数字を取りこぼしたり、発信できなかったりします。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "tone",
+		"title": "音・鳴動間隔の定義",
+		"aliases": ["音・鳴動間隔の定義"],
+		"summary": "発信音、話中音、着信音などの周波数や鳴る時間・止まる時間を定義します。",
+		"input": "メーカーの音定義の構文を使用します。\n電話番号や一般的な音声ファイルを入力する欄ではありません。",
+		"recommendation": "通常は変更不要です。\n地域の規格と電話機の動作を確認してから調整します。",
+		"impact": "誤った定義で音が鳴らず、接続状態を聞き分けられなくなる場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "keypad",
+		"title": "電話機からの設定操作",
+		"aliases": ["電話機からの設定操作"],
+		"summary": "電話機のキー入力による設定変更や、機器の音声案内を制御します。",
+		"input": "禁止・無効化の項目で「はい」を選ぶと機能を止めます。",
+		"recommendation": "利用する管理手段と復旧方法を確認してから変更します。",
+		"impact": "音声案内や電話機からの設定経路を使えなくなる場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "direct-ip",
+		"title": "IPアドレスによる直接通話",
+		"aliases": ["IPアドレスによる直接通話"],
+		"summary": "SIPサーバーへ登録せず、相手機器のIPアドレスを指定して通話する機能です。",
+		"input": "禁止の「はい」は直接通話を受け付けない設定です。",
+		"recommendation": "直接通話を使用しなければ禁止する方針に合わせます。",
+		"impact": "直接通話で使用している発着信ができなくなります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "lifeline",
+		"title": "電話機と回線の直接接続",
+		"aliases": ["電話機と回線の直接接続"],
+		"summary": "FXSの電話機とFXOの電話回線を直接つなぐ条件です。\n通常のVoIP経路とは別です。",
+		"input": "自動、常時切断、常時接続を配線と運用に合わせます。",
+		"recommendation": "電源断時を含む実機の動作を確認してから変更します。\nソフトウェア上の試験だけでは停電時の動作を確認できません。",
+		"impact": "電話機が利用する経路が変わり、VoIPや回線への発信方法へ影響します。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "blocking",
+		"title": "着信の拒否",
+		"aliases": ["着信の拒否"],
+		"summary": "指定した番号や番号非通知の着信を受け付けない設定です。",
+		"input": "番号の拒否リストと非通知拒否を区別します。\n番号を照合できることが前提です。",
+		"recommendation": "必要な着信を拒否しない条件にします。",
+		"impact": "正当な着信も条件に一致すると受けられなくなります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "call-forward",
+		"title": "通話の転送",
+		"aliases": ["通話の転送"],
+		"summary": "着信を電話回線やVoIPの別の宛先へ送る設定です。",
+		"input": "転送先番号、ユーザーID、SIPサーバー、ポートを転送経路に合わせます。",
+		"recommendation": "転送を使う場合だけ設定します。\n元の番号へ戻る循環経路を作らないようにします。",
+		"impact": "意図しない宛先への発信や通話料金が発生する場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "pin",
+		"title": "回線を使うためのPIN",
+		"aliases": ["回線を使うためのPIN"],
+		"summary": "電話回線とVoIPの間を通って発信するときの認証用番号です。",
+		"input": "最大8桁の数字です。\n変更時だけ入力し、既存のPINは表示しません。",
+		"recommendation": "経由発信を利用する場合は認証が必要な経路を確認して設定します。",
+		"impact": "認証が弱いと意図しない発信に使われ、誤ったPINでは正当な発信もできません。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "snmp",
+		"title": "SNMPによる監視",
+		"aliases": ["SNMPによる監視"],
+		"summary": "監視サーバーが機器の状態を取得したり、機器がTrap通知を送ったりする仕組みです。",
+		"input": "バージョン、待受ポート、通知先、通知間隔を監視サーバーの指定に合わせます。",
+		"recommendation": "監視システムを使わなければ有効化する必要はありません。",
+		"impact": "通知先の誤設定で監視情報が届かない場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "snmp-auth",
+		"title": "SNMPの認証・暗号化",
+		"aliases": ["SNMPの認証・暗号化"],
+		"summary": "監視要求や通知を認証し、SNMPv3では暗号化の条件も指定します。",
+		"input": "コミュニティー名、ユーザー、認証鍵、暗号化鍵を監視サーバーと一致させます。",
+		"recommendation": "監視で必要な権限と保護方式を設定します。\n秘密情報を画面やログへ公開しないようにします。",
+		"impact": "認証条件が合わないと監視や通知を利用できません。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "radius",
+		"title": "RADIUSによる認証",
+		"aliases": ["RADIUSによる認証"],
+		"summary": "Web管理へのログインを、外部の認証サーバーへ問い合わせる機能です。",
+		"input": "サーバー、ポート、共有秘密情報、認証方式、障害時の扱いを指定します。",
+		"recommendation": "外部認証を使用しなければ有効化する必要はありません。\nローカルで復旧できる手段を確認します。",
+		"impact": "サーバー障害時の設定によっては管理画面へログインできなくなります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "ddns",
+		"title": "DDNSによる名前の更新",
+		"aliases": ["DDNSによる名前の更新"],
+		"summary": "外側のIPアドレスが変わる環境で、サービスへホスト名の対応を更新します。",
+		"input": "契約するサービス、ホスト名、ユーザー名、パスワードなどを指定します。",
+		"recommendation": "固定した名前が不要なら設定不要です。\nTailscaleのMagicDNSとは別の機能です。",
+		"impact": "誤設定で名前が更新されず、意図しないアドレスを通知する場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "syslog",
+		"title": "診断ログ",
+		"aliases": ["診断ログ"],
+		"summary": "機器の動作やSIPの通信記録を診断先へ送る設定です。",
+		"input": "送信先、詳しさ、通信方式を指定します。\n秘密鍵情報を含める設定は診断ログへ秘密情報を出します。",
+		"recommendation": "問題の調査に必要な範囲と期間で使用します。\n秘密情報を含む取得は必要性と保管先を確認します。",
+		"impact": "詳しいログには番号や通信先などの情報が含まれ、秘密情報を含む設定では鍵が漏れるおそれがあります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	},
+	{
+		"key": "reboot",
+		"title": "自動再起動",
+		"aliases": ["自動再起動"],
+		"summary": "指定した時刻や周期で機器を再起動する設定です。",
+		"input": "無効、毎日、毎週、毎月などを選び、時刻と曜日を組み合わせます。",
+		"recommendation": "定期再起動が必要な理由がなければ通常変更不要です。",
+		"impact": "再起動中は管理やVoIPを利用できず、通話中なら切断する場合があります。",
+		"source": "https://documentation.grandstream.com/knowledge-base/ht813-administration-guide/"
+	}
+]

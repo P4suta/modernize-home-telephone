@@ -1,0 +1,627 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "phone-server",
+    "description": "",
+    "license": {
+      "name": "MIT OR Apache-2.0",
+      "identifier": "MIT OR Apache-2.0"
+    },
+    "version": "0.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "Changes": {
+        "type": "object",
+        "required": [
+          "revision",
+          "mode",
+          "values"
+        ],
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/WriteMode"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "values": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "Choice": {
+        "type": "object",
+        "required": [
+          "value",
+          "label",
+          "disabled"
+        ],
+        "properties": {
+          "disabled": {
+            "type": "boolean"
+          },
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
+      "Field": {
+        "type": "object",
+        "required": [
+          "id",
+          "parameter",
+          "secret",
+          "label",
+          "description",
+          "kind",
+          "values",
+          "choices",
+          "disabled",
+          "read_only",
+          "multiple",
+          "required"
+        ],
+        "properties": {
+          "choices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Choice"
+            }
+          },
+          "description": {
+            "type": "string"
+          },
+          "disabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/FieldKind"
+          },
+          "label": {
+            "type": "string"
+          },
+          "max": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "max_length": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "min": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "multiple": {
+            "type": "boolean"
+          },
+          "parameter": {
+            "type": "string"
+          },
+          "read_only": {
+            "type": "boolean"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "secret": {
+            "type": "boolean"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "FieldKind": {
+        "type": "string",
+        "enum": [
+          "text",
+          "password",
+          "text_area",
+          "select",
+          "radio",
+          "checkbox",
+          "number"
+        ]
+      },
+      "Help": {
+        "type": "object",
+        "required": [
+          "key",
+          "title",
+          "aliases",
+          "parameters",
+          "category",
+          "summary",
+          "input",
+          "default_value",
+          "recommendation",
+          "impact",
+          "source",
+          "reference",
+          "ranges",
+          "note",
+          "read_only"
+        ],
+        "properties": {
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "category": {
+            "type": "string"
+          },
+          "default_value": {
+            "type": "string"
+          },
+          "impact": {
+            "type": "string"
+          },
+          "input": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "parameters": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ranges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IntegerRange"
+            }
+          },
+          "read_only": {
+            "type": "boolean"
+          },
+          "recommendation": {
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/HelpReference"
+          },
+          "source": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "template_value": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "HelpReference": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "firmware",
+              "line",
+              "kind"
+            ],
+            "properties": {
+              "firmware": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "template"
+                ]
+              },
+              "line": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "firmware",
+              "kind"
+            ],
+            "properties": {
+              "firmware": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "device"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "HelpTopic": {
+        "type": "object",
+        "required": [
+          "key",
+          "title",
+          "aliases",
+          "summary",
+          "input",
+          "recommendation",
+          "impact",
+          "source"
+        ],
+        "properties": {
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "impact": {
+            "type": "string"
+          },
+          "input": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "recommendation": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Information": {
+        "type": "object",
+        "required": [
+          "label",
+          "value"
+        ],
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
+      "IntegerRange": {
+        "type": "object",
+        "required": [
+          "min",
+          "max"
+        ],
+        "properties": {
+          "max": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "min": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Login": {
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "properties": {
+          "password": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PageId": {
+        "type": "string",
+        "enum": [
+          "status",
+          "basic",
+          "advanced",
+          "fxs",
+          "fxo"
+        ]
+      },
+      "PageSnapshot": {
+        "type": "object",
+        "required": [
+          "page",
+          "revision",
+          "fetched_at_ms",
+          "settings",
+          "information",
+          "can_save",
+          "can_apply",
+          "reconciliation_required",
+          "undocumented",
+          "native_session_recovered"
+        ],
+        "properties": {
+          "can_apply": {
+            "type": "boolean"
+          },
+          "can_save": {
+            "type": "boolean"
+          },
+          "fetched_at_ms": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "information": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Information"
+            }
+          },
+          "native_session_recovered": {
+            "type": "boolean"
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageId"
+          },
+          "reconciliation_required": {
+            "type": "boolean"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "settings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Setting"
+            }
+          },
+          "undocumented": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "ParameterReference": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "topic",
+          "section",
+          "source_line",
+          "active",
+          "ranges",
+          "note",
+          "read_only"
+        ],
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "default_value": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "ranges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IntegerRange"
+            }
+          },
+          "read_only": {
+            "type": "boolean"
+          },
+          "section": {
+            "type": "string"
+          },
+          "source_line": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "template_value": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "topic": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Problem": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "SessionInfo": {
+        "type": "object",
+        "required": [
+          "authenticated"
+        ],
+        "properties": {
+          "authenticated": {
+            "type": "boolean"
+          },
+          "username": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "Setting": {
+        "type": "object",
+        "required": [
+          "field"
+        ],
+        "properties": {
+          "field": {
+            "$ref": "#/components/schemas/Field"
+          },
+          "help": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Help"
+              }
+            ]
+          }
+        }
+      },
+      "WriteMode": {
+        "type": "string",
+        "enum": [
+          "save",
+          "save_and_apply"
+        ]
+      },
+      "WriteOutcome": {
+        "type": "string",
+        "enum": [
+          "confirmed",
+          "uncertain",
+          "verification_required"
+        ]
+      },
+      "WriteReceipt": {
+        "type": "object",
+        "required": [
+          "outcome"
+        ],
+        "properties": {
+          "outcome": {
+            "$ref": "#/components/schemas/WriteOutcome"
+          },
+          "snapshot": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PageSnapshot"
+              }
+            ]
+          }
+        }
+      },
+      "WriteReview": {
+        "type": "object",
+        "required": [
+          "page",
+          "revision",
+          "mode",
+          "changes",
+          "secret_changes"
+        ],
+        "properties": {
+          "changes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "mode": {
+            "$ref": "#/components/schemas/WriteMode"
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageId"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "secret_changes": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}

@@ -1,5 +1,6 @@
 pub mod app;
 pub mod config;
+pub mod console;
 pub mod controller;
 pub mod gateway;
 mod http_body;

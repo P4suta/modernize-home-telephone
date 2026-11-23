@@ -433,6 +433,243 @@ previous_gap = "A small fixture hid history page truncation and deletion of rows
 enforcement = "More than ten thousand earlier tombstones precede available recordings, and successive bounded expiry batches check file and row consistency."
 
 [[cases]]
+source = "crates/phone-core/tests/console_contract.rs"
+test = "stale_or_empty_drafts_cannot_begin_a_device_write"
+invariant = "A device write requires a changed draft based on the current settings revision."
+previous_gap = "No console submission gate distinguished stale drafts from changes based on a current snapshot."
+enforcement = "The contract rejects earlier and later revisions and an empty draft before producing a write plan."
+
+[[cases]]
+source = "crates/phone-core/tests/console_contract.rs"
+test = "every_submitted_write_requires_readback_before_another_write"
+invariant = "A submitted write requires device reconciliation before another write is permitted."
+previous_gap = "No console state recorded that a request could reach the device without a response reaching the browser."
+enforcement = "The contract refuses another write until a fresh read advances the revision and invalidates the previous draft."
+
+[[cases]]
+source = "crates/phone-server/src/console/http.rs"
+test = "status_rows_separate_registration_from_hook_state_and_ignore_table_wrappers"
+invariant = "Registration and line state remain distinct."
+previous_gap = "Generic table flattening omitted native port columns."
+enforcement = "Parse direct cells and reject nested wrapper duplication."
+
+[[cases]]
+source = "xtask/tests/console_contract.rs"
+test = "nested_fault_tests_cannot_bypass_required_enforcement_records"
+invariant = "Nested fault tests need their own enforcement records."
+previous_gap = "The inventory parser visited only top-level functions."
+enforcement = "Recursively collect qualified test identities and reject missing records."
+
+[[cases]]
+source = "xtask/tests/console_contract.rs"
+test = "parameter_coverage_refuses_omissions_duplicate_identifiers_and_changed_source_bindings"
+invariant = "The parameter catalogue preserves the complete source inventory."
+previous_gap = "A finite help count couldn't detect renamed or duplicated identifiers."
+enforcement = "Bind the identifier inventory and preserved source facts."
+
+[[cases]]
+source = "xtask/tests/console_contract.rs"
+test = "parameter_inventory_preserves_domains_and_rejects_ambiguous_definitions"
+invariant = "Source extraction preserves identifiers and commented definitions."
+previous_gap = "Initial extraction omitted commented parameters and section boundaries."
+enforcement = "Check source editions, domains, raw identifiers, and inactive definitions."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "secret_choice_values_remain_private_and_cannot_be_edited_as_public_options"
+invariant = "Private credentials never enter public choice values."
+previous_gap = "Radio grouping could restore a secret value after its initial redaction."
+enforcement = "Redact every secret after grouping and refuse public edits of secret choices."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "every_preserved_parameter_has_distinct_help_with_correct_polarity_and_ranges"
+invariant = "Every parameter retains its own meaning, polarity, range, and source value."
+previous_gap = "The initial help catalogue conflated account, mask, and duration parameters."
+enforcement = "Bind all 598 definitions and assert independent defaults and template assignments."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "private_keys_and_plain_text_credentials_are_never_disclosed"
+invariant = "Existing credentials remain private for every native control representation."
+previous_gap = "Password input checks omitted credential identifiers and private-key text areas."
+enforcement = "Identify credential parameters and reject empty replacement secrets."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "native_certificates_accept_the_documented_size_without_exposing_private_keys"
+invariant = "The native value bound admits documented certificate sizes."
+previous_gap = "The initial 4096-byte cap rejected an 8192-character certificate."
+enforcement = "Exercise the documented certificate size through native parsing and submission."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "unwrapped_radio_labels_preserve_negative_setting_semantics"
+invariant = "Yes and No preserve the meaning of negative settings."
+previous_gap = "Unwrapped native labels could lose their setting polarity."
+enforcement = "Extract adjacent radio labels and preserve their literal Boolean meaning."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "unverified_form_metadata_is_readable_but_never_writable"
+invariant = "Unverified metadata supplies no write authority."
+previous_gap = "Strict parsing prevented safe inspection without a separate read-only path."
+enforcement = "Read supported controls while refusing every submission mode."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "login_preserves_tokens_and_the_native_latin1_base64_encoding"
+invariant = "Native login preserves tokens and its defined password encoding."
+previous_gap = "The adapter had no executable native authentication contract."
+enforcement = "Assert exact hidden fields and Latin-1 Base64 values."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "form_parsing_groups_choices_and_redacts_password_values"
+invariant = "Public fields reflect successful controls and exclude saved secrets."
+previous_gap = "The adapter had no grouped-control projection contract."
+enforcement = "Check field kinds, selected values, and password redaction."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "settings_preserve_successful_controls_and_the_clicked_submitter"
+invariant = "A submission preserves untouched native state and its selected action."
+previous_gap = "Save and Apply could otherwise collapse into one request."
+enforcement = "Assert exact successful controls and the distinct clicked submitter."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "untrusted_field_changes_cannot_replace_tokens_or_escape_choices"
+invariant = "Patches cannot edit native tokens or unsupported values."
+previous_gap = "Browser input alone supplied no native-field trust boundary."
+enforcement = "Reject hidden, unknown, oversized, and invalid-choice patches."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "token_rotation_does_not_hide_changed_controls_or_reordered_fields"
+invariant = "Fresh tokens don't hide a changed native baseline."
+previous_gap = "Token equality could incorrectly stand in for form equality."
+enforcement = "Compare private controls while excluding only rotating token values."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "external_endpoints_and_ambiguous_native_tokens_are_refused"
+invariant = "Native actions remain within the configured device origin."
+previous_gap = "Untrusted form metadata could redirect credential-bearing submissions."
+enforcement = "Reject external actions and malformed or duplicated tokens."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "login_refuses_ambiguous_or_disabled_credentials_and_different_handlers"
+invariant = "Only the observed native credential transform can authorize login."
+previous_gap = "A familiar form label alone didn't establish equivalent encoding."
+enforcement = "Reject altered handlers and ambiguous credential controls."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "uppercase_submit_types_preserve_native_browser_behavior"
+invariant = "HTML attribute casing preserves submitter behavior."
+previous_gap = "A case-sensitive adapter could drop valid native actions."
+enforcement = "Parse uppercase native submit types and preserve both operations."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "disabled_option_groups_are_not_submittable"
+invariant = "Unavailable native choices can't enter a patch."
+previous_gap = "Option-group state could be lost during field flattening."
+enforcement = "Reject choices inherited from disabled groups."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "unchanged_required_fields_still_block_an_invalid_submission"
+invariant = "Required native controls remain valid across the complete form."
+previous_gap = "Validating only edited values omitted unchanged required controls."
+enforcement = "Reject a submission with an unchanged empty required control."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "oversized_forms_and_unknown_script_transforms_are_refused"
+invariant = "Unbounded or unverified native behavior grants no write authority."
+previous_gap = "A familiar action URL didn't prove script equivalence or bounded input."
+enforcement = "Enforce body bounds and refuse unknown transformations."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::matching_public_readback_still_requires_independent_secret_verification"
+invariant = "Secret changes remain unverified even after public values match."
+previous_gap = "An accepted response couldn't establish the saved secret value."
+enforcement = "Require independent secret verification and omit its value from receipts."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::a_secret_change_cannot_hide_an_unapplied_public_change"
+invariant = "Every public change must match after a mixed write."
+previous_gap = "The secret result could conceal a failed public comparison."
+enforcement = "Inject an ignored public value beside an accepted secret change."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::readback_cannot_confirm_values_bound_to_a_different_native_parameter"
+invariant = "Readback requires the reviewed native parameter identity."
+previous_gap = "Equal opaque field positions could refer to different parameters."
+enforcement = "Replace a native parameter after submission and require an uncertain result."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::a_review_from_an_earlier_browser_session_cannot_authorize_a_write"
+invariant = "Reviews belong to one application session."
+previous_gap = "Numeric revisions could collide after reauthentication."
+enforcement = "Reject a prior view token without a native submission."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::a_review_for_another_page_cannot_authorize_a_write"
+invariant = "Reviews belong to their specific settings page."
+previous_gap = "Independent pages could share the same numeric revision."
+enforcement = "Reject a different page's review token without a native submission."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::console_configuration_refuses_public_listeners_and_ambiguous_origins"
+invariant = "Remote access requires an explicit protected boundary."
+previous_gap = "A generic listener or URL could expose device administration."
+enforcement = "Validate loopback listeners, strict origins, HTTPS, and the user allowlist."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::browser_authentication_hides_native_credentials_and_revokes_logout"
+invariant = "Browser authentication conveys no native credentials and logout revokes access."
+previous_gap = "The administration adapter had no session-lifetime contract."
+enforcement = "Check cookie attributes, redaction, and revoked requests."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::cross_origin_and_unknown_fields_do_not_reach_native_authentication"
+invariant = "Untrusted browser requests can't cross the native boundary."
+previous_gap = "Origin and payload validation needed observable effect checks."
+enforcement = "Require rejection before native authentication or writes."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::native_read_authentication_recovers_without_invalidating_an_unchanged_draft"
+invariant = "Read recovery preserves a review whose values remain unchanged."
+previous_gap = "Native expiry could otherwise discard a pending edit."
+enforcement = "Expire the native cookie and require one reauthentication with a stable revision."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::reviewed_writes_use_fresh_tokens_and_cannot_replay_the_old_revision"
+invariant = "Each reviewed write uses fresh native tokens and can't replay its revision."
+previous_gap = "A saved form token could become stale before submission."
+enforcement = "Rotate native tokens and reject a repeated review after one write."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::a_failed_native_response_is_reconciled_without_automatic_write_retry"
+invariant = "A response failure never repeats a possibly completed write."
+previous_gap = "Transport failure alone couldn't distinguish an unapplied request."
+enforcement = "Inject failure after the native effect and require one write and an uncertain receipt."
+[[cases]]
 source = "crates/phone-core/tests/plugins.rs"
 test = "unavailable_reception_preserves_ringing_and_explicit_block_rules"
 invariant = "An unavailable reception plugin preserves ordinary ringing and explicit block rules."
@@ -493,6 +730,13 @@ test = "identity_headers_require_loopback_and_delegate_user_authorization_to_the
 invariant = "The tailnet policy authorizes remote users while only loopback peers can supply trusted identity headers."
 previous_gap = "A duplicate application user list could reject a user already authorized by the tailnet policy."
 enforcement = "Native HTTP cases accept distinct identities without a local list and refuse missing or blank identities and nonloopback peers."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::remote_console_requires_identity_and_device_authentication_without_a_user_list"
+invariant = "Remote console access requires a trusted identity, valid request origin, and a separate authenticated device session."
+previous_gap = "Remote console access depended on a duplicate user list and lacked a direct remote identity contract test."
+enforcement = "Native HTTP cases reject absent, empty, whitespace, underscore-spelled, and duplicate identity headers, foreign origins, and unauthenticated page access."
 
 [[cases]]
 source = "xtask/tests/gateway_migration.rs"
@@ -584,6 +828,209 @@ test = "package_builds_isolate_compiled_artifacts_between_source_revisions"
 invariant = "Package binaries match the source in their build context."
 previous_gap = "A shared Cargo target directory reused the Rusterisk call path when building the earlier Asterisk app."
 enforcement = "The build recipes keep workspace targets in source-specific Docker layers and cache registry downloads independently."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "external_scripts_cannot_silently_qualify_as_plain_settings"
+invariant = "External scripts require reviewed behavior before settings can be submitted."
+previous_gap = "Empty external script bodies could be mistaken for a form without scripts."
+enforcement = "An external resource on an otherwise plain form must remove save and apply authority."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "native_session_tokens_rotate_without_changing_a_reviewed_setting"
+invariant = "One hidden native session token may rotate without changing the reviewed settings."
+previous_gap = "The adapter recognized only csrf_token and refused the observed session_token form."
+enforcement = "Accept the native alias, preserve fresh tokens, and reject duplicated, disabled, or visible session tokens."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "submitters_preserve_their_position_before_trailing_hidden_controls"
+invariant = "The selected submitter retains its position in the HTML form entry list."
+previous_gap = "Appending the submitter moved it after a trailing gnkey control in observed firmware."
+enforcement = "Save and apply must each match the independent expected order with the hidden key last."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "changed_web_passwords_must_remain_encodable_by_native_login"
+invariant = "Changed device web passwords remain representable by the native Latin-1 login transform."
+previous_gap = "Password edits accepted characters that the native login encoder must refuse."
+enforcement = "Exercise every web password parameter with an admitted Latin-1 value and a rejected Japanese value."
+
+[[cases]]
+source = "crates/phone-server/src/console/native/profile.rs"
+test = "tests::reviewed_profiles_enable_password_editing_and_preserve_generated_controls"
+invariant = "Reviewed script profiles preserve generated controls and deliberate password edits."
+previous_gap = "Refusing every scripted form prevented saving settings on the observed firmware."
+enforcement = "A privately injected fixture manifest exercises the production qualification logic without redistributing manufacturer scripts."
+
+[[cases]]
+source = "crates/phone-server/src/console/native/profile.rs"
+test = "tests::changed_peer_ports_invalidate_review_and_collisions_are_refused"
+invariant = "Reviewed SIP port constraints remain current and prevent local port collisions."
+previous_gap = "The opposite port exists in a script literal outside the parsed form controls."
+enforcement = "Changing the peer port changes review identity, while collisions, malformed ports, and out-of-domain literals are refused."
+
+[[cases]]
+source = "crates/phone-server/src/console/native/profile.rs"
+test = "tests::altered_script_bindings_do_not_grant_write_authority"
+invariant = "Known scripts authorize only their expected control bindings and generated-control location."
+previous_gap = "A fingerprint alone accepted renamed controls or a generated control outside the settings form."
+enforcement = "Rename or retype dependent controls, move a generator, duplicate its parameter, or replace the form handler and require refusal."
+
+[[cases]]
+source = "crates/phone-server/src/console/native/profile.rs"
+test = "tests::missing_or_changed_script_evidence_cannot_authorize_settings"
+invariant = "Qualification requires all reviewed same-origin resources and unchanged inline behavior."
+previous_gap = "External resource identity was absent from the submission boundary."
+enforcement = "Reject absent or changed resource bytes, foreign and unknown URLs, query changes, altered script attributes, and changed or additional inline behavior."
+
+[[cases]]
+source = "crates/phone-server/src/console/native/profile.rs"
+test = "tests::reviewed_single_select_aliases_preserve_the_last_selected_value"
+invariant = "A reviewed single select preserves browser value semantics when labels share one value."
+previous_gap = "The observed basic settings page repeats one timezone value, making strict parsing refuse the complete page."
+enforcement = "Require the last selected value and reject multiple selection or aliases with conflicting disabled states."
+
+[[cases]]
+source = "crates/phone-server/src/console/native/profile.rs"
+test = "tests::reviewed_tls_validation_preserves_the_native_sentinel_and_comparison"
+invariant = "The qualified advanced form preserves the native TLS range sentinel and string comparison."
+previous_gap = "Ignoring the native form handler could submit a minimum version that its browser validation refuses."
+enforcement = "Cross all observed minimum and maximum encodings, including the sentinel, and reject absent or duplicated controls."
+
+[[cases]]
+source = "crates/phone-server/src/console/native/profile.rs"
+test = "tests::unrelated_quoted_values_are_not_treated_as_generated_option_slots"
+invariant = "Only the reviewed generated-option pattern supplies a normalized value slot."
+previous_gap = "A reset button contained a quoted value that the generic slot prefix incorrectly treated as an option field."
+enforcement = "Unrelated quoted button values retain their exact source and produce no generated-option data."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "observed_firmware_parameters_have_help_without_invented_template_values"
+invariant = "Observed firmware controls have complete help without fabricated template assignments."
+previous_gap = "The preserved template omitted ten active controls and used an unprefixed identifier that did not match the native form."
+enforcement = "Require each additional parameter and the confirmed P8467 mapping, while refusing invented template values."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "firmware_help_rejects_duplicate_missing_or_misrepresented_sources"
+invariant = "Firmware supplements retain distinct identities and their actual source kind."
+previous_gap = "A template-only model could not express an observed control without a fabricated line or secret-value placeholder."
+enforcement = "Reject empty and duplicated supplements, template provenance, invented values, empty explanations, and reversed ranges."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "every_observed_form_field_remains_documented"
+invariant = "Every field in the four qualified firmware forms resolves to one explanation."
+previous_gap = "Counting the preserved template definitions did not cover fields omitted from that template."
+enforcement = "The maintained 597-field inventory requires all four observed pages, their exact field counts, unique identifiers, and exactly one explanation per field."
+
+[[cases]]
+source = "crates/phone-server/src/console/http.rs"
+test = "status_columns_follow_headers_across_spacers_and_separate_port_tables"
+invariant = "Status fields retain their table column meanings."
+previous_gap = "Fixed offsets mislabeled registration after an empty spacer and treated a separate DND row as hook state."
+enforcement = "Synthetic spacer, reordered, and separate port tables require exact hook, registration, and DND labels."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::review_checks_native_values_without_submitting_or_consuming_the_revision"
+invariant = "Review validates native values without a device write."
+previous_gap = "The console API provided submission without a headless validation operation."
+enforcement = "Valid and invalid reviews preserve the write count and allow the unchanged reviewed revision to submit once."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::cli_login_reads_and_revokes_its_own_private_session_without_a_browser"
+invariant = "CLI authentication remains independent from browser storage."
+previous_gap = "Only browser interaction could create and revoke a management session."
+enforcement = "A subprocess authenticates, reads state, and revokes its private session without retaining the device password."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::cli_public_plans_are_validated_single_use_and_reconciled"
+invariant = "A reviewed plan permits one submission across concurrent processes and copied files."
+previous_gap = "Headless submission had no shared review or persistent claim."
+enforcement = "Concurrent attempts produce one confirmed write and one local refusal, copied plans remain consumed, and reconciliation observes public values."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::cli_plan_and_private_secret_changes_cannot_authorize_an_unreviewed_write"
+invariant = "A plan binds public values and resolved private secrets without disclosing them."
+previous_gap = "A secret reference alone could change after review."
+enforcement = "Modified public values and secret contents refuse writes, while an unchanged secret produces an explicit verification requirement."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::cli_ambiguous_and_stale_writes_never_retry_or_report_success"
+invariant = "Stale or ambiguous submissions never become successful automatic retries."
+previous_gap = "A headless adapter could lose the browser reconciliation discipline."
+enforcement = "External changes prevent submission, native failure remains uncertain, consumed plans refuse replay, and a fresh read reports current public values."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::cli_private_inputs_refuse_permissions_links_pipes_and_plaintext_secrets"
+invariant = "CLI private inputs have bounded regular-file and permission checks."
+previous_gap = "Inherited FIFO permissions could trigger a permission refusal before the intended file-type check."
+enforcement = "A private FIFO must produce the file-type refusal, while other cases reject unsafe permissions, links, plaintext secrets, malformed input, or empty changes without a write."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::cli_credentials_do_not_follow_redirects_and_invalid_responses_cannot_leak_secrets"
+invariant = "Remote responses cannot redirect credentials or expose secret values."
+previous_gap = "A generic HTTP client could follow login redirects or print invalid server fields."
+enforcement = "A redirect never reaches its sink, and malformed secret snapshots and error bodies produce no sensitive output."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::cli_sessions_bind_plans_and_accept_credentials_from_a_private_pipe"
+invariant = "A plan cannot cross independently authenticated CLI sessions."
+previous_gap = "A revision or plan file alone could be mistaken for session authority."
+enforcement = "Another session cannot submit the plan, and piped administrator credentials remain absent from retained state and output."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::cli_incomplete_login_revokes_an_issued_cookie_without_retaining_credentials"
+invariant = "An incomplete CLI login revokes any known issued session."
+previous_gap = "A malformed response could leave an untracked native-authenticated session active until expiry."
+enforcement = "A successful cookie with an invalid body causes one authenticated revocation and leaves no session file or sensitive diagnostic."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::cli_output_failures_return_errors_without_panics_or_replaying_writes"
+invariant = "CLI output failures return command errors while preserving single-use submission claims."
+previous_gap = "Printing macros could panic when the receiving process closed an output socket."
+enforcement = "Broken output after submission and broken error output after a stale refusal return command failure, preserve the single native write, and leave both plans consumed."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::cli_human_output_explains_the_workflow_and_preserves_machine_results"
+invariant = "Human presentation preserves redaction and the exact submission outcome."
+previous_gap = "Interactive users received raw JSON without a readable workflow or recovery action."
+enforcement = "A synthetic workflow checks greetings, documentation, public changes, hidden secrets, independent verification, JSON output, and logout."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::cli_human_output_neutralizes_terminal_controls_and_explains_empty_passwords"
+invariant = "Device text cannot inject terminal controls into human output."
+previous_gap = "Human presentation introduced a boundary where escaped JSON values could become active terminal control sequences."
+enforcement = "A device value containing an OSC clipboard sequence renders without active controls, while empty credentials receive a specific explanation without creating a session."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::cli_selects_human_output_in_a_terminal_and_json_when_requested"
+invariant = "An actual terminal receives human output and explicit JSON remains parseable."
+previous_gap = "A pseudo-terminal driver closed its input and mixed its own EOF echo into captured CLI output."
+enforcement = "An open input stream preserves the native pseudo-terminal while subprocesses check human output, parseable JSON, bold-only styling, and NO_COLOR."
+
+[[cases]]
+source = "crates/phone-server/tests/console_contract.rs"
+test = "http_contract::cli_human_failures_preserve_uncertainty_and_explain_connection_errors"
+invariant = "Human error messages preserve uncertainty and provide readable recovery actions."
+previous_gap = "A diagnostic escaped its intended line breaks and left connection failures as a generic technical error."
+enforcement = "A stale submission remains consumed with no write, its explanation keeps line breaks and a reconciliation command, and a refused connection receives a readable explanation."
 
 [[cases]]
 source = "crates/phone-server/tests/controller_contract.rs"

@@ -1,0 +1,26 @@
+{
+	"name": "@homephone/settings-workflow",
+	"private": true,
+	"type": "module",
+	"sideEffects": false,
+	"files": [
+		"dist"
+	],
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		},
+		"./svelte": {
+			"types": "./dist/workflow.svelte.d.ts",
+			"svelte": "./dist/workflow.svelte.js",
+			"default": "./dist/workflow.svelte.js"
+		}
+	},
+	"scripts": {
+		"build": "tsc --noEmit -p tsconfig.json && svelte-package -i src -o dist && publint --pack false --strict"
+	},
+	"peerDependencies": {
+		"svelte": "^5.57.3"
+	}
+}

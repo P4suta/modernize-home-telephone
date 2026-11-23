@@ -16,6 +16,7 @@ ENV CARGO_BUILD_JOBS=2
 COPY Cargo.toml Cargo.lock ./
 COPY crates/ ./crates/
 COPY xtask/ ./xtask/
+COPY console/src/lib/parameters.json console/src/lib/settings.json console/src/lib/firmware-parameters.json ./console/src/lib/
 RUN --mount=type=cache,id=homephone-cargo-registry,sharing=locked,target=/usr/local/cargo/registry cargo build --release --locked -p phone-server && cp target/release/phone-server /phone-server
 
 FROM build AS admin

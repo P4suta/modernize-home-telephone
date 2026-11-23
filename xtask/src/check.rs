@@ -436,6 +436,45 @@ fn schema_with(trace: &mut Trace, update: bool) -> anyhow::Result<()> {
             "../.cache/schema-check/api.d.ts",
         ],
     )?;
+    trace.run(
+        "cargo",
+        &[
+            "run",
+            "--locked",
+            "-p",
+            "phone-server",
+            "--bin",
+            "ht813-console",
+            "--",
+            "schema",
+            "--output",
+            ".cache/schema-check/console.openapi.json",
+        ],
+    )?;
+    trace.run(
+        "pnpm",
+        &[
+            "--dir",
+            "web/codegen",
+            "exec",
+            "openapi-typescript",
+            "../../.cache/schema-check/console.openapi.json",
+            "-o",
+            "../../.cache/schema-check/console-api.d.ts",
+        ],
+    )?;
+    trace.run(
+        "pnpm",
+        &[
+            "--dir",
+            "console",
+            "exec",
+            "biome",
+            "format",
+            "--write",
+            "../.cache/schema-check/console-api.d.ts",
+        ],
+    )?;
     for (generated, target) in [
         (
             directory.join("openapi.json"),
@@ -444,6 +483,14 @@ fn schema_with(trace: &mut Trace, update: bool) -> anyhow::Result<()> {
         (
             directory.join("api.d.ts"),
             Path::new("web/src/generated/api.d.ts"),
+        ),
+        (
+            directory.join("console.openapi.json"),
+            Path::new("api/console.openapi.json"),
+        ),
+        (
+            directory.join("console-api.d.ts"),
+            Path::new("console/src/lib/generated/api.d.ts"),
         ),
     ] {
         if update {
@@ -472,6 +519,10 @@ pub fn fast() -> anyhow::Result<()> {
         ],
     )?;
     crate::assurance::contract_sources()?;
+    crate::console::check_references(
+        Path::new("."),
+        &std::fs::read("console/src/lib/parameters.json")?,
+    )?;
     trace.run("cargo", &["fmt", "--all", "--check"])?;
     trace.run(
         "cargo",
@@ -568,6 +619,19 @@ pub fn fast() -> anyhow::Result<()> {
     )?;
     trace.run("pnpm", &["--dir", "web", "check"])?;
     trace.run("pnpm", &["--dir", "web", "exec", "vite", "build"])?;
+    trace.run(
+        "pnpm",
+        &[
+            "--dir",
+            "console",
+            "install",
+            "--frozen-lockfile",
+            "--ignore-scripts",
+        ],
+    )?;
+    trace.run("pnpm", &["--dir", "console", "lint"])?;
+    trace.run("pnpm", &["--dir", "console", "check"])?;
+    trace.run("pnpm", &["--dir", "console", "build"])?;
     schema_with(&mut trace, false)?;
     sources()?;
     crate::fault_catalog::check(
@@ -650,6 +714,10 @@ pub fn security() -> anyhow::Result<()> {
     let mut trace = Trace::new()?;
     trace.run("cargo", &["audit", "--deny", "warnings"])?;
     trace.run("pnpm", &["--dir", "web", "audit", "--audit-level", "low"])?;
+    trace.run(
+        "pnpm",
+        &["--dir", "console", "audit", "--audit-level", "low"],
+    )?;
     let source = PathBuf::from(".cache/secret-scan").join(uuid::Uuid::new_v4().to_string());
     crate::operations::private_directory(&source)?;
     let result = (|| -> anyhow::Result<()> {
@@ -674,4 +742,26 @@ pub fn security() -> anyhow::Result<()> {
     })();
     crate::operations::finish_cleanup(result, std::fs::remove_dir_all(source))?;
     trace.finish("security")
+}
+
+pub fn console_browser() -> anyhow::Result<()> {
+    let mut trace = Trace::new()?;
+    let report = PathBuf::from("console/test-results/results.json");
+    if report.try_exists()? {
+        std::fs::remove_file(&report)?;
+    }
+    trace.run("pnpm", &["--dir", "console", "e2e"])?;
+    #[derive(Deserialize)]
+    struct Inventory {
+        tests: Vec<String>,
+    }
+    let inventory: Inventory = toml::from_str(&std::fs::read_to_string(
+        "verification/console-browser.toml",
+    )?)?;
+    check_browser_report(
+        &serde_json::from_slice(&std::fs::read(&report)?)?,
+        &inventory.tests,
+    )?;
+    trace.files.push(report);
+    trace.finish("console_browser")
 }
