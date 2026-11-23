@@ -3,6 +3,7 @@ use phone_server::{
     secrets::{Secrets, parse_file},
 };
 
+#[cfg(all(feature = "plugin-nas", feature = "plugin-ntfy"))]
 #[test]
 fn optional_nas_and_notification_credentials_fail_independently() {
     let config: Config = toml::from_str("[notifications.ntfy]\nserver='https://notify.example.ts.net'\ntopic='calls'\n[recording]\nenabled=true\ngateway_spool_dir='/tmp/spool'\n[recording.nas]\narchive_id='36b82de3-b456-44b3-bd31-d7c2fe71f460'\nserver='nas.invalid'\nshare='home'\ndirectory='telephone'\nusername_env='NAS_USERNAME'\npassword_env='NAS_PASSWORD'\n").unwrap();
@@ -123,6 +124,7 @@ fn literal_secret_files_preserve_password_whitespace() {
     assert_eq!(values["TOKEN"], " value with spaces ");
 }
 
+#[cfg(feature = "plugin-nas")]
 #[test]
 fn nas_credential_export_preserves_call_secrets_and_refuses_colliding_names() {
     let directory = tempfile::tempdir().unwrap();

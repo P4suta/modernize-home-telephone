@@ -11,6 +11,7 @@ fn browser_calls_use_registered_sip_for_new_and_existing_configurations() {
     assert_eq!(custom.browser_endpoint, "PJSIP/office");
 }
 
+#[cfg(feature = "plugin-nas")]
 #[test]
 fn nas_directory_segments_match_the_archive_adapters_input_limits() {
     let mut config = Config::default();

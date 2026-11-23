@@ -40,6 +40,7 @@ async fn manual_retention_keeps_old_audio_and_history_until_explicit_deletion() 
     assert_eq!(tokio::fs::read(&path).await.unwrap(), [1, 2, 3]);
 }
 
+#[cfg(feature = "plugin-nas")]
 #[tokio::test]
 async fn nas_archives_ignore_legacy_expiry_and_local_spool_quota() {
     for legacy_days in [0, 30] {
