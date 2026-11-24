@@ -24,5 +24,7 @@ unexpected_cfgs = { level = "warn", check-cfg = ["cfg(kani)"] }
 all = "warn"
 
 [profile.release]
-lto = "thin"
+codegen-units = 1
+lto = "fat"
+opt-level = "s"
 strip = true

@@ -329,6 +329,9 @@ The first budgets come from runs of the Rusterisk lab with the console on OrbSta
 They add 25 percent to the highest service value of each phase and 5 percent to each image size, rounded up to the next multiple of 256 KiB, one thread, 50 switches, or 1 MB.
 After the browser and SIPp calls, the app's anonymous memory grew from about 4.2 MB to 8.2 MB and its threads from 6 to 14, so the settled budgets record that growth instead of bounding it.
 A change that lowers the footprint tightens the matching budget in the same pull request.
+Release builds of the app and the gateway use whole-program link-time optimization, one codegen unit, and size-optimized code.
+Those settings cut the stripped `phone-server`, `ht813-console`, and `rusterisk` binaries from 50.6 MB to 28.1 MB, and the image budgets follow the smaller images.
+Release builds keep unwinding, so a panicking task stays contained instead of aborting the process.
 The lab doesn't establish the footprint on the Raspberry Pi, where Podman, the kernel, and storage differ.
 
 ## Verify gateway administration

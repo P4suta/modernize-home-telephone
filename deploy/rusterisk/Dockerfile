@@ -24,7 +24,7 @@ RUN --mount=type=cache,id=homephone-rusterisk-registry,target=/usr/local/cargo/r
     cargo test --release --locked -p rusterisk-sip --test registration_bindings > /tmp/registration-test.log || { cat /tmp/registration-test.log; exit 1; }; \
     cat /tmp/registration-test.log; \
     grep -Fqx 'test authenticated_registration_replaces_only_previous_contacts ... ok' /tmp/registration-test.log
-RUN --mount=type=cache,id=homephone-rusterisk-registry,target=/usr/local/cargo/registry,sharing=locked cargo build --locked --release -p rusterisk-server --bin rusterisk && cp target/release/rusterisk /usr/local/bin/rusterisk
+RUN --mount=type=cache,id=homephone-rusterisk-registry,target=/usr/local/cargo/registry,sharing=locked CARGO_PROFILE_RELEASE_LTO=fat CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1 CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo build --locked --release -p rusterisk-server --bin rusterisk && cp target/release/rusterisk /usr/local/bin/rusterisk
 
 FROM rust:1.99.1-trixie@sha256:edc584c5d2f915bcc5b08049987e7a492ccb8ab188444daf0a870b3ef82a3b2e AS assets
 WORKDIR /build

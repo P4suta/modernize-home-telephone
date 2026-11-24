@@ -2,8 +2,8 @@ settle_seconds = 15
 window_seconds = 30
 
 [images]
-app = 328000000
-gateway = 183000000
+app = 312000000
+gateway = 166000000
 
 [started.app]
 anonymous_kib = 5376
