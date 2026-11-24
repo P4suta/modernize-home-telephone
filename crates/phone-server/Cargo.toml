@@ -71,7 +71,16 @@ sha2 = "0.10"
 subtle = "2"
 thiserror = "2"
 time = { version = "0.3", features = ["formatting", "parsing"] }
-tokio = { version = "1", features = ["full", "test-util"] }
+tokio = { version = "1", features = [
+  "fs",
+  "io-util",
+  "macros",
+  "net",
+  "rt-multi-thread",
+  "signal",
+  "sync",
+  "time",
+] }
 tokio-tungstenite = { version = "0.30.0", features = [
   "rustls-tls-webpki-roots",
 ] }
@@ -94,6 +103,7 @@ rustix = { version = "=1.1.6", features = ["fs", "process"] }
 http-body-util = "0.1"
 proptest = "1"
 tempfile = "3"
+tokio = { version = "1", features = ["process", "test-util"] }
 
 [lints]
 workspace = true
