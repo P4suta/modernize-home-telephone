@@ -3,8 +3,8 @@ packages:
   - mutation
   - packages/*
 overrides:
-  typed-rest-client>qs: 6.16.1
-  minimatch@10.2.6: 11.0.1
+  typed-rest-client>qs: 6.17.1
+  minimatch@10.2.6: 11.0.9
   '@sveltejs/vite-plugin-svelte>deepmerge': '-'
 packageExtensions:
   '@sveltejs/vite-plugin-svelte@7.3.1':
